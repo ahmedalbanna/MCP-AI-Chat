@@ -70,6 +70,9 @@ class GeminiApiService {
                                     put("name", part.name)
                                     put("args", JSONObject(part.args))
                                 })
+                                if (part.thoughtSignature != null) {
+                                    put("thoughtSignature", part.thoughtSignature)
+                                }
                             })
                         }
                         is GeminiPart.FunctionResponse -> {
@@ -78,6 +81,9 @@ class GeminiApiService {
                                     put("name", part.name)
                                     put("response", JSONObject(part.response))
                                 })
+                                if (part.thoughtSignature != null) {
+                                    put("thoughtSignature", part.thoughtSignature)
+                                }
                             })
                         }
                     }
@@ -183,7 +189,9 @@ class GeminiApiService {
                             val key = keys.next()
                             argsMap[key] = argsObj.get(key)
                         }
-                        functionCalls.add(GeminiPart.FunctionCall(funcName, argsMap))
+                        
+                        val thoughtSignature = partObj.optString("thoughtSignature", null)
+                        functionCalls.add(GeminiPart.FunctionCall(funcName, argsMap, thoughtSignature))
                     }
                 }
             }

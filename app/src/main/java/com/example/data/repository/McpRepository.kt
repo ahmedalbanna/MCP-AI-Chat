@@ -27,6 +27,7 @@ class McpRepository(
     init {
         CoroutineScope(Dispatchers.IO).launch {
             seedDefaultPresetsIfEmpty()
+            ensureErpNextPresetExists()
         }
     }
 
@@ -213,6 +214,18 @@ class McpRepository(
                 status = ServerStatus.CONNECTED,
                 latencyMs = 18,
                 toolsCount = 2
+            ),
+            McpServer(
+                id = "preset_erpnext",
+                name = "ERPNext Gateway",
+                description = "Enterprise Resource Planning gateway for ERPNext, providing tools for document management, accounting, and business automation.",
+                endpointUrl = "https://8033-01ky8gme6ek5wava50hemgxjk9.cloudspaces.litng.ai/mcp",
+                authHeader = "gateway-dev-token",
+                isPreset = false,
+                isEnabled = true,
+                status = ServerStatus.DISCONNECTED,
+                latencyMs = 0,
+                toolsCount = 0
             )
         )
 
@@ -221,6 +234,41 @@ class McpRepository(
             val tools = mcpHttpClient.discoverTools(preset)
             if (tools.isNotEmpty()) {
                 toolDao.insertTools(tools.map { it.toEntity() })
+            }
+        }
+    }
+
+    private suspend fun ensureErpNextPresetExists() = withContext(Dispatchers.IO) {
+        val serverId = "preset_erpnext"
+        val existing = serverDao.getServerById(serverId)
+        val erpnext = McpServer(
+            id = serverId,
+            name = "ERPNext Gateway",
+            description = "Enterprise Resource Planning gateway for ERPNext, providing tools for document management, accounting, and business automation.",
+            endpointUrl = "https://8033-01ky8gme6ek5wava50hemgxjk9.cloudspaces.litng.ai/mcp",
+            authHeader = "gateway-dev-token",
+            isPreset = false,
+            isEnabled = true,
+            status = ServerStatus.DISCONNECTED,
+            latencyMs = 0,
+            toolsCount = 0
+        )
+
+        if (existing == null) {
+            serverDao.insertServer(erpnext.toEntity())
+            syncServerTools(erpnext)
+        } else {
+            val existingModel = existing.toModel()
+            if (existingModel.authHeader != erpnext.authHeader || 
+                existingModel.endpointUrl != erpnext.endpointUrl || 
+                existingModel.isPreset) {
+                
+                val updated = erpnext.copy(
+                    status = ServerStatus.CONNECTING,
+                    toolsCount = existingModel.toolsCount
+                )
+                serverDao.updateServer(updated.toEntity())
+                syncServerTools(updated)
             }
         }
     }

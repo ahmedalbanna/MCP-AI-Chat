@@ -124,7 +124,7 @@ class ChatRepository(
                 if (m.toolCallsJson != null) {
                     val calls = parseToolCallsJson(m.toolCallsJson)
                     for (c in calls) {
-                        parts.add(GeminiPart.FunctionCall(c.toolName, c.inputArguments))
+                        parts.add(GeminiPart.FunctionCall(c.toolName, c.inputArguments, c.thoughtSignature))
                     }
                 }
                 if (m.content.isNotBlank()) {
@@ -215,7 +215,8 @@ class ChatRepository(
                         serverName = server?.name ?: "Remote MCP Server",
                         toolName = fc.name,
                         inputArguments = fc.args,
-                        status = ToolExecutionStatus.EXECUTING
+                        status = ToolExecutionStatus.EXECUTING,
+                        thoughtSignature = fc.thoughtSignature
                     )
 
                     accumulatedToolCalls.add(toolCall)
@@ -264,7 +265,8 @@ class ChatRepository(
                     functionResponsesParts.add(
                         GeminiPart.FunctionResponse(
                             name = fc.name,
-                            response = responseMap
+                            response = responseMap,
+                            thoughtSignature = fc.thoughtSignature
                         )
                     )
                 }
@@ -422,6 +424,7 @@ class ChatRepository(
                 put("isSuccess", c.isSuccess)
                 put("executionTimeMs", c.executionTimeMs)
                 put("status", c.status.name)
+                put("thoughtSignature", c.thoughtSignature ?: JSONObject.NULL)
                 put("errorMessage", c.errorMessage ?: "")
                 put("timestamp", c.timestamp)
             }
@@ -459,6 +462,7 @@ class ChatRepository(
                         } catch (e: Exception) {
                             ToolExecutionStatus.SUCCESS
                         },
+                        thoughtSignature = obj.optString("thoughtSignature", null).takeIf { it != "null" },
                         errorMessage = obj.optString("errorMessage").takeIf { it.isNotBlank() },
                         timestamp = obj.optLong("timestamp", System.currentTimeMillis())
                     )

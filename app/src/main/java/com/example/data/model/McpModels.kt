@@ -44,6 +44,7 @@ data class McpToolCall(
     val isSuccess: Boolean = true,
     val executionTimeMs: Long = 0,
     val status: ToolExecutionStatus = ToolExecutionStatus.PENDING,
+    val thoughtSignature: String? = null,
     val errorMessage: String? = null,
     val timestamp: Long = System.currentTimeMillis()
 )
