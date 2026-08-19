@@ -68,6 +68,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -269,7 +273,7 @@ fun InspectorScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Terminal,
-                                        contentDescription = null,
+                                        contentDescription = "Audit log",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(36.dp)
                                     )
@@ -329,6 +333,10 @@ fun ToolSelectorCard(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "Select a tool"
+                    }
                     .clickable { expanded = true }
                     .testTag("tool_picker_dropdown")
             ) {
@@ -500,7 +508,7 @@ fun ExecutionResultCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
-                        contentDescription = null,
+                        contentDescription = if (isSuccess) "Success" else "Error",
                         tint = if (isSuccess) EmeraldTertiary else RoseError,
                         modifier = Modifier.size(16.dp)
                     )
@@ -552,6 +560,10 @@ fun LogItemCard(
         border = BorderStroke(1.dp, if (logItem.isSuccess) EmeraldTertiary.copy(alpha = 0.3f) else RoseError.copy(alpha = 0.3f)),
         modifier = modifier
             .fillMaxWidth()
+            .semantics {
+                role = Role.Button
+                contentDescription = "Expand or collapse log details for ${logItem.toolName}"
+            }
             .clickable { isExpanded = !isExpanded }
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
@@ -563,7 +575,7 @@ fun LogItemCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = if (logItem.isSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
-                        contentDescription = null,
+                        contentDescription = if (logItem.isSuccess) "Success" else "Error",
                         tint = if (logItem.isSuccess) EmeraldTertiary else RoseError,
                         modifier = Modifier.size(14.dp)
                     )

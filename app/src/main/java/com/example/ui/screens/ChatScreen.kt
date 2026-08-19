@@ -82,6 +82,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -160,6 +164,10 @@ fun ChatScreen(
                                 shape = RoundedCornerShape(6.dp),
                                 border = BorderStroke(1.dp, IndigoPrimary.copy(alpha = 0.3f)),
                                 modifier = Modifier
+                                    .semantics {
+                                        role = Role.Button
+                                        contentDescription = "Select model"
+                                    }
                                     .clickable { showModelMenu = true }
                                     .testTag("model_picker_chip")
                             ) {
@@ -200,7 +208,12 @@ fun ChatScreen(
                         // Subtitle with active MCP servers count
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { showServersSheet = true }
+                            modifier = Modifier
+                                .semantics {
+                                    role = Role.Button
+                                    contentDescription = "View active MCP servers"
+                                }
+                                .clickable { showServersSheet = true }
                         ) {
                             Box(
                                 modifier = Modifier
@@ -441,6 +454,9 @@ fun ChatScreen(
                                 .size(48.dp)
                                 .clip(CircleShape)
                                 .background(if (inputText.isNotBlank() && !isGenerating) IndigoPrimary else MaterialTheme.colorScheme.surfaceVariant)
+                                .semantics {
+                                    contentDescription = if (isGenerating) "Sending message" else "Send"
+                                }
                                 .testTag("send_message_button")
                         ) {
                             if (isGenerating) {
@@ -621,6 +637,10 @@ fun ChatScreen(
                             border = if (isSelected) BorderStroke(1.dp, IndigoPrimary) else null,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .semantics {
+                                    role = Role.Button
+                                    contentDescription = "Switch to ${session.title}"
+                                }
                                 .clickable {
                                     viewModel.selectSession(session.id)
                                     showSessionsSheet = false
@@ -880,6 +900,10 @@ fun PromptSuggestionCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
         modifier = modifier
             .fillMaxWidth()
+            .semantics {
+                role = Role.Button
+                contentDescription = "Send prompt: $title"
+            }
             .clickable { onPromptSelected(prompt) }
     ) {
         Row(
@@ -930,7 +954,12 @@ fun QuickActionChip(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
-        modifier = Modifier.clickable { onClick() }
+        modifier = Modifier
+            .semantics {
+                role = Role.Button
+                contentDescription = label
+            }
+            .clickable { onClick() }
     ) {
         Text(
             text = label,
