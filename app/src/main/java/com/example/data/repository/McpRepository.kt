@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.MalformedURLException
+import java.net.URL
 
 class McpRepository(
     private val database: AppDatabase,
@@ -57,6 +59,23 @@ class McpRepository(
         endpointUrl: String,
         authHeader: String = ""
     ): McpServer = withContext(Dispatchers.IO) {
+        // Validate URL
+        try {
+            val url = URL(endpointUrl)
+            if (url.protocol != "http" && url.protocol != "https") {
+                throw IllegalArgumentException("URL must use http or https scheme")
+            }
+            if (url.host.isNullOrBlank()) {
+                throw IllegalArgumentException("URL must have a valid host")
+            }
+        } catch (e: MalformedURLException) {
+            throw IllegalArgumentException("Invalid URL format: ${e.message}")
+        }
+
+        if (name.isBlank()) {
+            throw IllegalArgumentException("Server name cannot be empty")
+        }
+
         val id = "custom_${System.currentTimeMillis()}"
         val server = McpServer(
             id = id,

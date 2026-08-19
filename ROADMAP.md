@@ -69,7 +69,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Add in-app banner/toast system for non-critical feedback (server synced, tool added, settings saved)
 - Handle orientation changes gracefully — no data loss, preserve scroll position
 
-### 1.10 Dark Mode & Theming
+### 1.10 Dark Mode & Theming [x]
 - Ensure all composables respect `isSystemInDarkTheme()` — audit for hardcoded colors
 - Add AMOLED dark mode option (pure black backgrounds for OLED screens)
 - Test theme switching mid-session — no flicker, no state loss
