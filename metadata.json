@@ -1,7 +1,0 @@
-{
-  "name": "MCP AI Chat",
-  "description": "AI Chat with Model Context Protocol (MCP) capabilities integrating remote servers, dynamic tool invocation, and server inspector.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
-

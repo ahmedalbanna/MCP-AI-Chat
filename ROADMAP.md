@@ -192,7 +192,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 
 ## Phase 7: CI/CD & Build Pipeline
 
-### 7.1 GitHub Actions
+### 7.1 GitHub Actions [x]
 - PR checks: build, lint, unit tests
 - Nightly: full test suite + screenshot comparison
 - Release: signed build + artifact upload
