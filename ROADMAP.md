@@ -35,7 +35,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Truncate very long assistant messages with "Show more" / "Show less" toggle
 - Fix message input: dismiss keyboard on send, support multi-line with Shift+Enter, auto-resize input field
 
-### 1.5 Tool Call UX
+### 1.5 Tool Call UX [x]
 - Show tool execution progress inline in chat (currently just a final result card)
 - Add expand/collapse on tool call details (request params, response payload)
 - Color-code tool status: pending (amber), success (green), error (red)
@@ -215,7 +215,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Replace hardcoded memory responses with actual Room-backed persistent storage
 - Add semantic search or simple keyword matching for `search_memory_notes`
 
-### 8.3 Fallback Mode Improvement
+### 8.3 Fallback Mode Improvement [x]
 - Replace simple keyword matching with a lightweight local LLM or better heuristic
 - Add a configuration toggle for fallback mode behavior
 

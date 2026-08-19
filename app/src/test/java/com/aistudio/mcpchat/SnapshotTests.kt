@@ -1,0 +1,124 @@
+package com.aistudio.mcpchat
+
+import androidx.compose.ui.test.junit4.createComposeRule
+import com.aistudio.mcpchat.data.model.McpToolCall
+import com.aistudio.mcpchat.data.model.McpTool
+import com.aistudio.mcpchat.data.model.McpServer
+import com.aistudio.mcpchat.data.model.ServerStatus
+import com.aistudio.mcpchat.data.model.ToolExecutionStatus
+import com.aistudio.mcpchat.ui.screens.ServerStatusBadge
+import com.aistudio.mcpchat.ui.screens.ToolCallCard
+import com.aistudio.mcpchat.ui.theme.MyApplicationTheme
+import com.github.takahirom.roborazzi.RobolectricRoborazziRule
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+import java.io.File
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [36])
+class SnapshotTests {
+
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    @get:Rule
+    val roborazziRule = RobolectricRoborazziRule(
+        outputDirectory = File("src/test/snapshots")
+    )
+
+    @Test
+    fun serverStatusBadge_connected() {
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ServerStatusBadge(status = ServerStatus.CONNECTED, latencyMs = 42)
+            }
+        }
+        roborazziRule.snapshot("server_status_connected")
+    }
+
+    @Test
+    fun serverStatusBadge_disconnected() {
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ServerStatusBadge(status = ServerStatus.DISCONNECTED)
+            }
+        }
+        roborazziRule.snapshot("server_status_disconnected")
+    }
+
+    @Test
+    fun serverStatusBadge_error() {
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ServerStatusBadge(status = ServerStatus.ERROR)
+            }
+        }
+        roborazziRule.snapshot("server_status_error")
+    }
+
+    @Test
+    fun toolCallCard_success() {
+        val toolCall = McpToolCall(
+            callId = "call_1",
+            serverId = "server_1",
+            serverName = "Test Server",
+            toolName = "get_weather",
+            inputArguments = mapOf("city" to "Tokyo", "units" to "metric"),
+            outputResult = "{\"temp\": 22, \"condition\": \"sunny\"}",
+            isSuccess = true,
+            executionTimeMs = 150,
+            status = ToolExecutionStatus.SUCCESS
+        )
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ToolCallCard(toolCall = toolCall)
+            }
+        }
+        roborazziRule.snapshot("tool_call_card_success")
+    }
+
+    @Test
+    fun toolCallCard_executing() {
+        val toolCall = McpToolCall(
+            callId = "call_2",
+            serverId = "server_1",
+            serverName = "Test Server",
+            toolName = "fetch_data",
+            inputArguments = mapOf("query" to "SELECT * FROM users"),
+            status = ToolExecutionStatus.EXECUTING
+        )
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ToolCallCard(toolCall = toolCall)
+            }
+        }
+        roborazziRule.snapshot("tool_call_card_executing")
+    }
+
+    @Test
+    fun toolCallCard_error() {
+        val toolCall = McpToolCall(
+            callId = "call_3",
+            serverId = "server_1",
+            serverName = "Test Server",
+            toolName = "process_payment",
+            inputArguments = mapOf("amount" to 100, "currency" to "USD"),
+            outputResult = "{\"error\": \"Insufficient funds\"}",
+            isSuccess = false,
+            executionTimeMs = 500,
+            status = ToolExecutionStatus.ERROR,
+            errorMessage = "Payment processing failed"
+        )
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ToolCallCard(toolCall = toolCall)
+            }
+        }
+        roborazziRule.snapshot("tool_call_card_error")
+    }
+}
