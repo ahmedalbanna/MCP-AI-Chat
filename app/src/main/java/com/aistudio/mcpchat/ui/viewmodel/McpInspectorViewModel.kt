@@ -1,5 +1,6 @@
 package com.aistudio.mcpchat.ui.viewmodel
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aistudio.mcpchat.data.model.McpLogItem
@@ -11,14 +12,29 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import javax.inject.Inject
 
+data class InspectorUiState(
+    val servers: List<McpServer> = emptyList(),
+    val tools: List<McpTool> = emptyList(),
+    val logs: List<McpLogItem> = emptyList(),
+    val selectedToolId: String? = null,
+    val parameterInputs: Map<String, String> = emptyMap(),
+    val isInvoking: Boolean = false,
+    val latestResult: String? = null,
+    val latestLatencyMs: Long? = null,
+    val latestIsSuccess: Boolean? = null,
+    val error: UiError? = null
+)
+
 @HiltViewModel
 class McpInspectorViewModel @Inject constructor(
-    private val repository: McpRepository
+    private val repository: McpRepository,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     val servers: StateFlow<List<McpServer>> = repository.serversFlow
@@ -30,7 +46,7 @@ class McpInspectorViewModel @Inject constructor(
     val logs: StateFlow<List<McpLogItem>> = repository.logsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _selectedToolId = MutableStateFlow<String?>(null)
+    private val _selectedToolId = savedStateHandle.getStateFlow<String?>(KEY_SELECTED_TOOL_ID, null)
     val selectedToolId: StateFlow<String?> = _selectedToolId.asStateFlow()
 
     private val _parameterInputs = MutableStateFlow<Map<String, String>>(emptyMap())
@@ -48,13 +64,41 @@ class McpInspectorViewModel @Inject constructor(
     private val _latestIsSuccess = MutableStateFlow<Boolean?>(null)
     val latestIsSuccess: StateFlow<Boolean?> = _latestIsSuccess.asStateFlow()
 
+    private val _error = MutableStateFlow<UiError?>(null)
+
+    val uiState: StateFlow<InspectorUiState> = combine(
+        servers,
+        tools,
+        logs,
+        _selectedToolId,
+        _parameterInputs,
+        _isInvoking,
+        _latestResult,
+        _latestLatencyMs,
+        _latestIsSuccess,
+        _error
+    ) { results ->
+        @Suppress("UNCHECKED_CAST")
+        InspectorUiState(
+            servers = results[0] as List<McpServer>,
+            tools = results[1] as List<McpTool>,
+            logs = results[2] as List<McpLogItem>,
+            selectedToolId = results[3] as? String,
+            parameterInputs = results[4] as Map<String, String>,
+            isInvoking = results[5] as Boolean,
+            latestResult = results[6] as? String,
+            latestLatencyMs = results[7] as? Long,
+            latestIsSuccess = results[8] as? Boolean,
+            error = results[9] as? UiError
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InspectorUiState())
+
     fun selectTool(tool: McpTool) {
         _selectedToolId.value = tool.id
         _latestResult.value = null
         _latestLatencyMs.value = null
         _latestIsSuccess.value = null
 
-        // Prepopulate default parameters from schema
         val initialParams = mutableMapOf<String, String>()
         try {
             val schema = JSONObject(tool.inputSchemaJson)
@@ -88,9 +132,7 @@ class McpInspectorViewModel @Inject constructor(
                     initialParams[k] = defaultVal
                 }
             }
-        } catch (e: Exception) {
-            // ignore
-        }
+        } catch (_: Exception) { }
         _parameterInputs.value = initialParams
     }
 
@@ -110,17 +152,14 @@ class McpInspectorViewModel @Inject constructor(
             _latestResult.value = null
             _latestLatencyMs.value = null
             _latestIsSuccess.value = null
+            _error.value = null
 
             try {
                 val argsMap = mutableMapOf<String, Any?>()
                 for ((k, v) in _parameterInputs.value) {
                     val num = v.toDoubleOrNull()
                     if (num != null && (k == "days" || k == "amount" || k == "value")) {
-                        if (num % 1.0 == 0.0) {
-                            argsMap[k] = num.toInt()
-                        } else {
-                            argsMap[k] = num
-                        }
+                        argsMap[k] = if (num % 1.0 == 0.0) num.toInt() else num
                     } else {
                         argsMap[k] = v
                     }
@@ -133,6 +172,7 @@ class McpInspectorViewModel @Inject constructor(
             } catch (e: Exception) {
                 _latestResult.value = "Error: ${e.message}"
                 _latestIsSuccess.value = false
+                _error.value = UiError.Unknown(e.message ?: "Tool invocation failed")
             } finally {
                 _isInvoking.value = false
             }
@@ -172,5 +212,9 @@ class McpInspectorViewModel @Inject constructor(
         viewModelScope.launch {
             repository.clearAllLogs()
         }
+    }
+
+    companion object {
+        private const val KEY_SELECTED_TOOL_ID = "selected_tool_id"
     }
 }

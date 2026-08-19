@@ -91,7 +91,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Store Gemini API key in `EncryptedSharedPreferences` instead of `BuildConfig` plain text
 - Remove `fallbackToDestructiveMigration()` — implement proper Room migrations
 
-### 2.3 Package & Identity Cleanup
+### 2.3 Package & Identity Cleanup [x]
 - Replace `com.example` package with a real namespace (e.g., `com.aistudio.mcpchat`)
 - Set a meaningful `applicationId` in `build.gradle.kts`
 - Remove placeholder AI Studio `metadata.json` and `.aistudio` assets

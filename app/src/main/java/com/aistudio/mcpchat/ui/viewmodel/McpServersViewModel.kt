@@ -10,9 +10,22 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class ServersUiState(
+    val servers: List<McpServer> = emptyList(),
+    val tools: List<McpTool> = emptyList(),
+    val isTestingServerId: String? = null,
+    val feedback: FeedbackMessage? = null
+)
+
+data class FeedbackMessage(
+    val text: String,
+    val isError: Boolean = false
+)
 
 @HiltViewModel
 class McpServersViewModel @Inject constructor(
@@ -28,8 +41,22 @@ class McpServersViewModel @Inject constructor(
     private val _isTesting = MutableStateFlow<String?>(null)
     val isTesting: StateFlow<String?> = _isTesting.asStateFlow()
 
-    private val _feedbackMessage = MutableStateFlow<String?>(null)
-    val feedbackMessage: StateFlow<String?> = _feedbackMessage.asStateFlow()
+    private val _feedbackMessage = MutableStateFlow<FeedbackMessage?>(null)
+    val feedbackMessage: StateFlow<FeedbackMessage?> = _feedbackMessage.asStateFlow()
+
+    val uiState: StateFlow<ServersUiState> = combine(
+        servers,
+        tools,
+        _isTesting,
+        _feedbackMessage
+    ) { serverList, toolList, testingId, feedback ->
+        ServersUiState(
+            servers = serverList,
+            tools = toolList,
+            isTestingServerId = testingId,
+            feedback = feedback
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ServersUiState())
 
     fun toggleServer(serverId: String, isEnabled: Boolean) {
         viewModelScope.launch {
@@ -48,9 +75,14 @@ class McpServersViewModel @Inject constructor(
             _isTesting.value = server.id
             try {
                 val updated = repository.pingServer(server)
-                _feedbackMessage.value = "Ping to ${server.name}: ${updated.status} (${updated.latencyMs}ms)"
+                _feedbackMessage.value = FeedbackMessage(
+                    "Ping to ${server.name}: ${updated.status} (${updated.latencyMs}ms)"
+                )
             } catch (e: Exception) {
-                _feedbackMessage.value = "Failed to ping ${server.name}: ${e.message}"
+                _feedbackMessage.value = FeedbackMessage(
+                    "Failed to ping ${server.name}: ${e.message}",
+                    isError = true
+                )
             } finally {
                 _isTesting.value = null
             }
@@ -62,9 +94,14 @@ class McpServersViewModel @Inject constructor(
             _isTesting.value = server.id
             try {
                 val discovered = repository.syncServerTools(server)
-                _feedbackMessage.value = "Discovered ${discovered.size} tools from ${server.name}"
+                _feedbackMessage.value = FeedbackMessage(
+                    "Discovered ${discovered.size} tools from ${server.name}"
+                )
             } catch (e: Exception) {
-                _feedbackMessage.value = "Sync failed: ${e.message}"
+                _feedbackMessage.value = FeedbackMessage(
+                    "Sync failed: ${e.message}",
+                    isError = true
+                )
             } finally {
                 _isTesting.value = null
             }
@@ -85,9 +122,17 @@ class McpServersViewModel @Inject constructor(
                     endpointUrl = endpointUrl.trim(),
                     authHeader = authHeader.trim()
                 )
-                _feedbackMessage.value = "Added MCP Server: ${server.name}"
+                _feedbackMessage.value = FeedbackMessage("Added MCP Server: ${server.name}")
+            } catch (e: IllegalArgumentException) {
+                _feedbackMessage.value = FeedbackMessage(
+                    "Error: ${e.message}",
+                    isError = true
+                )
             } catch (e: Exception) {
-                _feedbackMessage.value = "Error adding server: ${e.message}"
+                _feedbackMessage.value = FeedbackMessage(
+                    "Error adding server: ${e.message}",
+                    isError = true
+                )
             }
         }
     }
@@ -95,7 +140,7 @@ class McpServersViewModel @Inject constructor(
     fun deleteServer(serverId: String) {
         viewModelScope.launch {
             repository.deleteServer(serverId)
-            _feedbackMessage.value = "Server removed."
+            _feedbackMessage.value = FeedbackMessage("Server removed.")
         }
     }
 

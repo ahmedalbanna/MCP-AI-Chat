@@ -1,5 +1,6 @@
 package com.aistudio.mcpchat.ui.viewmodel
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aistudio.mcpchat.data.local.ChatMessageEntity
@@ -22,23 +23,31 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ChatUiState(
+    val currentSessionId: String? = null,
     val currentSession: ChatSessionEntity? = null,
     val sessions: List<ChatSessionEntity> = emptyList(),
     val messages: List<ChatMessageEntity> = emptyList(),
-    val activeServers: List<McpServer> = emptyList(),
-    val allTools: List<McpTool> = emptyList(),
+    val servers: List<McpServer> = emptyList(),
+    val tools: List<McpTool> = emptyList(),
     val isGenerating: Boolean = false,
     val inProgressToolCalls: List<McpToolCall> = emptyList(),
-    val errorMessage: String? = null
+    val error: UiError? = null
 )
+
+sealed class UiError(val message: String) {
+    data class Network(val detail: String) : UiError(detail)
+    data class Api(val detail: String) : UiError(detail)
+    data class Unknown(val detail: String) : UiError(detail)
+}
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val mcpRepository: McpRepository,
-    private val chatRepository: ChatRepository
+    private val chatRepository: ChatRepository,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val _currentSessionId = MutableStateFlow<String?>(null)
+    private val _currentSessionId = savedStateHandle.getStateFlow<String?>(KEY_SESSION_ID, null)
     val currentSessionId: StateFlow<String?> = _currentSessionId.asStateFlow()
 
     private val _isGenerating = MutableStateFlow(false)
@@ -49,6 +58,9 @@ class ChatViewModel @Inject constructor(
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private val _uiError = MutableStateFlow<UiError?>(null)
+    val uiError: StateFlow<UiError?> = _uiError.asStateFlow()
 
     val sessions: StateFlow<List<ChatSessionEntity>> = chatRepository.allSessionsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -63,9 +75,41 @@ class ChatViewModel @Inject constructor(
         if (id != null) chatRepository.getMessagesForSession(id) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val uiState: StateFlow<ChatUiState> = combine(
+        _currentSessionId,
+        sessions,
+        messages,
+        servers,
+        tools,
+        _isGenerating,
+        _inProgressToolCalls,
+        _uiError
+    ) { results ->
+        @Suppress("UNCHECKED_CAST")
+        val sessionId = results[0] as? String
+        val sessionList = results[1] as List<ChatSessionEntity>
+        val msgList = results[2] as List<ChatMessageEntity>
+        val serverList = results[3] as List<McpServer>
+        val toolList = results[4] as List<McpTool>
+        val generating = results[5] as Boolean
+        val toolCalls = results[6] as List<McpToolCall>
+        val error = results[7] as? UiError
+
+        ChatUiState(
+            currentSessionId = sessionId,
+            currentSession = sessionList.find { it.id == sessionId },
+            sessions = sessionList,
+            messages = msgList,
+            servers = serverList,
+            tools = toolList,
+            isGenerating = generating,
+            inProgressToolCalls = toolCalls,
+            error = error
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ChatUiState())
+
     init {
         viewModelScope.launch {
-            // Auto-select latest session or create one
             sessions.collect { list ->
                 if (_currentSessionId.value == null) {
                     if (list.isNotEmpty()) {
@@ -82,6 +126,7 @@ class ChatViewModel @Inject constructor(
         _currentSessionId.value = sessionId
         _inProgressToolCalls.value = emptyList()
         _errorMessage.value = null
+        _uiError.value = null
     }
 
     fun createNewChat(model: String = "gemini-3.5-flash") {
@@ -93,6 +138,7 @@ class ChatViewModel @Inject constructor(
             _currentSessionId.value = session.id
             _inProgressToolCalls.value = emptyList()
             _errorMessage.value = null
+            _uiError.value = null
         }
     }
 
@@ -130,6 +176,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _isGenerating.value = true
             _errorMessage.value = null
+            _uiError.value = null
             _inProgressToolCalls.value = emptyList()
 
             try {
@@ -141,7 +188,18 @@ class ChatViewModel @Inject constructor(
                     }
                 )
             } catch (e: Exception) {
-                _errorMessage.value = e.message ?: "An error occurred during generation."
+                val error = when {
+                    e.message?.contains("API_KEY_MISSING", true) == true ->
+                        UiError.Api("Gemini API key is missing. Configure it in the Secrets panel.")
+                    e.message?.contains("timeout", true) == true ->
+                        UiError.Network("Request timed out. Check your network connection.")
+                    e.message?.contains("unreachable", true) == true ||
+                    e.message?.contains("connect", true) == true ->
+                        UiError.Network("Server unreachable. Check your network connection.")
+                    else -> UiError.Unknown(e.message ?: "An error occurred during generation.")
+                }
+                _errorMessage.value = error.message
+                _uiError.value = error
             } finally {
                 _isGenerating.value = false
                 _inProgressToolCalls.value = emptyList()
@@ -151,5 +209,10 @@ class ChatViewModel @Inject constructor(
 
     fun clearError() {
         _errorMessage.value = null
+        _uiError.value = null
+    }
+
+    companion object {
+        private const val KEY_SESSION_ID = "current_session_id"
     }
 }

@@ -96,7 +96,7 @@ fun ServersScreen(
     val servers by viewModel.servers.collectAsStateWithLifecycle()
     val tools by viewModel.tools.collectAsStateWithLifecycle()
     val isTesting by viewModel.isTesting.collectAsStateWithLifecycle()
-    val feedbackMessage by viewModel.feedbackMessage.collectAsStateWithLifecycle()
+    val feedback by viewModel.feedbackMessage.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     var showAddServerDialog by remember { mutableStateOf(false) }
@@ -112,9 +112,9 @@ fun ServersScreen(
         it.endpointUrl.contains(searchQuery, ignoreCase = true)
     }
 
-    LaunchedEffect(feedbackMessage) {
-        feedbackMessage?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+    LaunchedEffect(feedback) {
+        feedback?.let {
+            Toast.makeText(context, it.text, Toast.LENGTH_SHORT).show()
             viewModel.clearFeedback()
         }
     }
