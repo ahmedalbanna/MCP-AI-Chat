@@ -6,19 +6,19 @@ A phased plan to transform the current prototype into a production-ready, mainta
 
 ## Phase 1: UI/UX Polish & Consistency
 
-### 1.1 Design System Foundation
+### 1.1 Design System Foundation [x]
 - Audit existing `Color.kt`, `Type.kt`, `Theme.kt` — define a formal color token system (primary, secondary, surface, error, outline, etc.)
 - Extract repeated spacing/padding values into a `Spacing` object (`Spacing.xs = 4.dp`, `Spacing.sm = 8.dp`, etc.)
 - Create a `Dimens` object for consistent corner radii, icon sizes, touch targets (min 48dp)
 - Document the design system in a `DesignSystem.kt` preview file showing all tokens
 
-### 1.2 Typography & Readability
+### 1.2 Typography & Readability [x]
 - Review `Type.kt` — ensure font scale hierarchy is clear (headline, title, body, label, caption)
 - Test all screens at Android font scale 0.85 / 1.0 / 1.15 / 1.3 — fix overflow and truncation
 - Add `textAppearance` composables for consistent text styling across screens
 - Ensure code blocks in chat use a monospace font at a readable size (min 13sp)
 
-### 1.3 Accessibility
+### 1.3 Accessibility [x]
 - Add `contentDescription` to all `Icon` composables (currently many are decorative-only without `Modifier.semantics`)
 - Ensure all interactive elements have minimum 48dp touch target
 - Test with TalkBack: verify logical focus traversal across chat input, messages, tool call cards, server list

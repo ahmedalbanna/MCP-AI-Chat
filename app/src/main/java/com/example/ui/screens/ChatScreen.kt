@@ -1,12 +1,27 @@
 package com.example.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +42,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -38,6 +55,7 @@ import androidx.compose.material.icons.filled.CurrencyBitcoin
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Psychology
@@ -71,23 +89,31 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -126,20 +152,38 @@ fun ChatScreen(
     var showServersSheet by remember { mutableStateOf(false) }
     var showSessionsSheet by remember { mutableStateOf(false) }
     var showModelMenu by remember { mutableStateOf(false) }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     val currentSession = sessions.find { it.id == currentSessionId }
     val enabledServersCount = servers.count { it.isEnabled }
 
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
+    val coroutineScope = rememberCoroutineScope()
+
+    // Smart auto-scroll: track if user is near bottom
+    val isAtBottom by remember {
+        derivedStateOf {
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val totalItems = listState.layoutInfo.totalItemsCount
+            lastVisibleItem >= totalItems - 2
+        }
+    }
+    var userHasScrolledUp by remember { mutableStateOf(false) }
 
     LaunchedEffect(messages.size, inProgressToolCalls.size) {
-        if (messages.isNotEmpty() || inProgressToolCalls.isNotEmpty()) {
-            val totalCount = messages.size + if (inProgressToolCalls.isNotEmpty()) 1 else 0
-            if (totalCount > 0) {
-                listState.animateScrollToItem(totalCount - 1)
-            }
+        if (!userHasScrolledUp && messages.isNotEmpty()) {
+            kotlinx.coroutines.delay(100)
+            listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1)
         }
+    }
+
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .collect { index ->
+                val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                val total = listState.layoutInfo.totalItemsCount
+                userHasScrolledUp = lastVisible < total - 3 && index > 0
+            }
     }
 
     Scaffold(
@@ -338,6 +382,47 @@ fun ChatScreen(
                             }
                         }
                     }
+
+                    // Typing indicator when AI is generating
+                    if (isGenerating && inProgressToolCalls.isEmpty() && messages.lastOrNull()?.role == "user") {
+                        item {
+                            TypingIndicator(
+                                modifier = Modifier.padding(start = 12.dp, end = 32.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Jump to bottom FAB
+                AnimatedVisibility(
+                    visible = userHasScrolledUp,
+                    enter = slideInVertically(initialOffsetY = { it }),
+                    exit = slideOutVertically(targetOffsetY = { it }),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 8.dp)
+                ) {
+                    Surface(
+                        onClick = {
+                            userHasScrolledUp = false
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1)
+                            }
+                        },
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        shadowElevation = 6.dp,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Jump to bottom",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -446,6 +531,7 @@ fun ChatScreen(
                                 if (inputText.isNotBlank() && !isGenerating) {
                                     val prompt = inputText.trim()
                                     inputText = ""
+                                    keyboardController?.hide()
                                     viewModel.sendMessage(prompt)
                                 }
                             },
@@ -692,6 +778,9 @@ fun ChatMessageItem(
     modifier: Modifier = Modifier
 ) {
     val isUser = message.role == "user"
+    val context = LocalContext.current
+    var isExpanded by remember { mutableStateOf(false) }
+    val shouldTruncate = !isUser && message.content.length > 500
 
     val toolCalls = remember(message.toolCallsJson) {
         if (message.toolCallsJson != null) {
@@ -761,7 +850,19 @@ fun ChatMessageItem(
                     bottomEnd = if (isUser) 4.dp else 16.dp
                 ),
                 border = if (isUser) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-                modifier = Modifier.fillMaxWidth(if (isUser) 0.85f else 0.9f)
+                modifier = Modifier
+                    .fillMaxWidth(if (isUser) 0.85f else 0.9f)
+                    .combinedClickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {},
+                        onLongClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = ClipData.newPlainText("Message", message.content)
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(context, "Message copied", Toast.LENGTH_SHORT).show()
+                        }
+                    )
             ) {
                 Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                     if (isUser) {
@@ -772,7 +873,23 @@ fun ChatMessageItem(
                             lineHeight = 20.sp
                         )
                     } else {
-                        MarkdownFormattedText(text = message.content)
+                        val displayText = if (shouldTruncate && !isExpanded) {
+                            message.content.take(500) + "..."
+                        } else {
+                            message.content
+                        }
+                        MarkdownFormattedText(text = displayText)
+
+                        if (shouldTruncate) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (isExpanded) "Show less" else "Show more",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = CyanSecondary,
+                                modifier = Modifier.clickable { isExpanded = !isExpanded }
+                            )
+                        }
                     }
 
                     if (message.latencyMs > 0 && !isUser) {
@@ -968,5 +1085,56 @@ fun QuickActionChip(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         )
+    }
+}
+
+@Composable
+fun TypingIndicator(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "typing")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "typingAlpha"
+    )
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant,
+                RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp)
+            )
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+    ) {
+        Surface(
+            color = IndigoPrimary.copy(alpha = 0.2f),
+            shape = CircleShape,
+            border = BorderStroke(1.dp, IndigoPrimary.copy(alpha = 0.4f)),
+            modifier = Modifier.size(28.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = "AI is typing",
+                    tint = IndigoPrimaryLight,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            repeat(3) { index ->
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha))
+                )
+            }
+        }
     }
 }
