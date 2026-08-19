@@ -11,6 +11,7 @@ import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.data.model.ToolExecutionStatus
 import com.aistudio.mcpchat.data.network.GeminiApiService
+import com.aistudio.mcpchat.data.tool.LocalFallbackHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -26,6 +27,7 @@ class ChatRepository(
     private val TAG = "ChatRepository"
     private val chatDao = database.chatDao()
     private val systemPromptBuilder = SystemPromptBuilder()
+    private val fallbackHandler = LocalFallbackHandler()
 
     val allSessionsFlow: Flow<List<ChatSessionEntity>> = chatDao.getAllSessions()
 
@@ -159,11 +161,7 @@ class ChatRepository(
 
             if (geminiResponse.error != null) {
                 if (geminiResponse.error == "API_KEY_MISSING") {
-                    finalResponseText = "I am your AI Chat assistant with **Model Context Protocol (MCP)** integration.\n\n" +
-                        "I can connect to remote MCP servers, dynamically discover tools, and invoke capabilities over the network.\n\n" +
-                        "**Quick Start:**\n" +
-                        "1. Use the **MCP Servers** tab to view connected remote servers or add custom JSON-RPC / SSE endpoints.\n" +
-                        "2. To activate live Gemini model responses, configure your Gemini API Key in the **Secrets panel**."
+                    finalResponseText = fallbackHandler.getResponse(userPrompt)
                     continueLoop = false
                     break
                 } else if (geminiResponse.error.contains("Rate limit", ignoreCase = true)) {

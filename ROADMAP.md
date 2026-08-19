@@ -211,7 +211,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Auto-detect transport type from server response headers
 - Add connection health monitoring for SSE connections
 
-### 8.2 Memory Tool
+### 8.2 Memory Tool [x]
 - Replace hardcoded memory responses with actual Room-backed persistent storage
 - Add semantic search or simple keyword matching for `search_memory_notes`
 
