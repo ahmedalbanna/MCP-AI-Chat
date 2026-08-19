@@ -137,104 +137,23 @@ class McpRepository(
         val existing = serverDao.getEnabledServersList()
         if (existing.isNotEmpty()) return@withContext
 
-        val presets = listOf(
-            McpServer(
-                id = "preset_weather",
-                name = "Live Weather & Climate MCP",
-                description = "Real-time atmospheric telemetry, multi-day forecasting, and global air quality indices.",
-                endpointUrl = "https://mcp.weather.open-meteo.com/v1",
-                isPreset = true,
-                isEnabled = true,
-                status = ServerStatus.CONNECTED,
-                latencyMs = 64,
-                toolsCount = 3
-            ),
-            McpServer(
-                id = "preset_search",
-                name = "Web & Knowledge MCP",
-                description = "Live web discovery, Wikipedia encyclopedic summaries, and readable webpage extraction.",
-                endpointUrl = "https://mcp.search.duckduckgo.com/v1",
-                isPreset = true,
-                isEnabled = true,
-                status = ServerStatus.CONNECTED,
-                latencyMs = 82,
-                toolsCount = 3
-            ),
-            McpServer(
-                id = "preset_github",
-                name = "GitHub & Code Explorer MCP",
-                description = "Search open-source repositories, inspect package dependencies, and fetch repository details.",
-                endpointUrl = "https://api.githubmcp.io/v1",
-                isPreset = true,
-                isEnabled = true,
-                status = ServerStatus.CONNECTED,
-                latencyMs = 95,
-                toolsCount = 2
-            ),
-            McpServer(
-                id = "preset_finance",
-                name = "Crypto & Forex Markets MCP",
-                description = "Real-time crypto asset tickers, market capitalization stats, and fiat forex conversion.",
-                endpointUrl = "https://mcp.markets.coingecko.com/v1",
-                isPreset = true,
-                isEnabled = true,
-                status = ServerStatus.CONNECTED,
-                latencyMs = 76,
-                toolsCount = 2
-            ),
-            McpServer(
-                id = "preset_math",
-                name = "Math & Unit Computation MCP",
-                description = "High-precision algebraic evaluation, trigonometric solver, and physical unit conversions.",
-                endpointUrl = "https://mcp.math.engine.internal/v1",
-                isPreset = true,
-                isEnabled = true,
-                status = ServerStatus.CONNECTED,
-                latencyMs = 12,
-                toolsCount = 2
-            ),
-            McpServer(
-                id = "preset_time",
-                name = "World Time & Clocks MCP",
-                description = "Accurate local time across world capital zones and timezone offset calculations.",
-                endpointUrl = "https://mcp.worldtime.internal/v1",
-                isPreset = true,
-                isEnabled = true,
-                status = ServerStatus.CONNECTED,
-                latencyMs = 24,
-                toolsCount = 2
-            ),
-            McpServer(
-                id = "preset_memory",
-                name = "Local Memory & Context MCP",
-                description = "Persistent key-value note storage and semantic retrieval across conversational sessions.",
-                endpointUrl = "https://mcp.localmemory.internal/v1",
-                isPreset = true,
-                isEnabled = true,
-                status = ServerStatus.CONNECTED,
-                latencyMs = 18,
-                toolsCount = 2
-            ),
-            McpServer(
-                id = "preset_erpnext",
-                name = "ERPNext Gateway",
-                description = "Enterprise Resource Planning gateway for ERPNext, providing tools for document management, accounting, and business automation.",
-                endpointUrl = "https://8033-01ky8gme6ek5wava50hemgxjk9.cloudspaces.litng.ai/mcp",
-                authHeader = "gateway-dev-token",
-                isPreset = false,
-                isEnabled = true,
-                status = ServerStatus.DISCONNECTED,
-                latencyMs = 0,
-                toolsCount = 0
-            )
+        val erpnext = McpServer(
+            id = "preset_erpnext",
+            name = "ERPNext Gateway",
+            description = "Enterprise Resource Planning gateway for ERPNext, providing tools for document management, accounting, and business automation.",
+            endpointUrl = "https://8033-01ky8gme6ek5wava50hemgxjk9.cloudspaces.litng.ai/mcp",
+            authHeader = "gateway-dev-token",
+            isPreset = false,
+            isEnabled = true,
+            status = ServerStatus.DISCONNECTED,
+            latencyMs = 0,
+            toolsCount = 0
         )
 
-        for (preset in presets) {
-            serverDao.insertServer(preset.toEntity())
-            val tools = mcpHttpClient.discoverTools(preset)
-            if (tools.isNotEmpty()) {
-                toolDao.insertTools(tools.map { it.toEntity() })
-            }
+        serverDao.insertServer(erpnext.toEntity())
+        val tools = mcpHttpClient.discoverTools(erpnext)
+        if (tools.isNotEmpty()) {
+            toolDao.insertTools(tools.map { it.toEntity() })
         }
     }
 

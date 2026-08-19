@@ -158,38 +158,11 @@ class ChatRepository(
 
             if (geminiResponse.error != null) {
                 if (geminiResponse.error == "API_KEY_MISSING") {
-                    // API Key is missing: provide fallback intelligence demonstrating tool detection
-                    val mockToolCalls = detectIntendedTools(userPrompt, activeTools)
-                    for (mock in mockToolCalls) {
-                        val server = serverMap[mock.serverId] ?: continue
-                        val (toolResult, _) = mcpRepository.executeTool(server, mock.toolName, mock.inputArguments)
-                        accumulatedToolCalls.add(
-                            mock.copy(
-                                outputResult = toolResult,
-                                status = ToolExecutionStatus.SUCCESS,
-                                executionTimeMs = 120
-                            )
-                        )
-                    }
-
-                    finalResponseText = if (accumulatedToolCalls.isNotEmpty()) {
-                        "### MCP Remote Server Tool Invocation (Direct Mode)\n\n" +
-                        "I noticed your request required remote MCP tool execution. Here are the live results retrieved directly from the configured MCP servers:\n\n" +
-                        accumulatedToolCalls.joinToString("\n\n") { call ->
-                            "**Server**: `${call.serverName}` • **Tool**: `${call.toolName}`\n```json\n${call.outputResult}\n```"
-                        } + "\n\n*Tip: To enable full conversational AI synthesis with Gemini, configure your `GEMINI_API_KEY` in the AI Studio Secrets panel.*"
-                    } else {
-                        "Hello! I am your AI Chat assistant with **Model Context Protocol (MCP)** integration.\n\n" +
+                    finalResponseText = "I am your AI Chat assistant with **Model Context Protocol (MCP)** integration.\n\n" +
                         "I can connect to remote MCP servers, dynamically discover tools, and invoke capabilities over the network.\n\n" +
                         "**Quick Start:**\n" +
                         "1. Use the **MCP Servers** tab to view connected remote servers or add custom JSON-RPC / SSE endpoints.\n" +
-                        "2. Try asking questions like:\n" +
-                        "   - *\"What's the weather in Tokyo right now?\"*\n" +
-                        "   - *\"Search GitHub for top Kotlin multiplatform repositories\"*\n" +
-                        "   - *\"Convert 1500 USD to EUR and calculate Bitcoin price\"*\n" +
-                        "   - *\"What is the exact time difference between San Francisco and London?\"*\n" +
-                        "3. To activate live Gemini model responses, configure your Gemini API Key in the **Secrets panel**."
-                    }
+                        "2. To activate live Gemini model responses, configure your Gemini API Key in the **Secrets panel**."
                     continueLoop = false
                     break
                 } else {
@@ -227,8 +200,8 @@ class ChatRepository(
                         id = "dynamic",
                         name = "Remote Server",
                         description = "Discovered tool",
-                        endpointUrl = "https://mcp.weather.open-meteo.com/v1",
-                        isPreset = true
+                        endpointUrl = "",
+                        isPreset = false
                     )
 
                     val (execResult, logItem) = mcpRepository.executeTool(targetServer, fc.name, fc.args)
@@ -329,86 +302,6 @@ class ChatRepository(
         }
 
         return builder.toString()
-    }
-
-    private fun detectIntendedTools(prompt: String, activeTools: List<McpTool>): List<McpToolCall> {
-        val lower = prompt.lowercase()
-        val calls = mutableListOf<McpToolCall>()
-
-        if (lower.contains("weather") || lower.contains("temperature") || lower.contains("forecast") || lower.contains("rain")) {
-            val city = extractCityFromPrompt(prompt)
-            calls.add(
-                McpToolCall(
-                    callId = UUID.randomUUID().toString(),
-                    serverId = "preset_weather",
-                    serverName = "Live Weather & Climate MCP",
-                    toolName = "get_current_weather",
-                    inputArguments = mapOf("location" to city)
-                )
-            )
-        }
-
-        if (lower.contains("github") || lower.contains("repo") || lower.contains("stars")) {
-            calls.add(
-                McpToolCall(
-                    callId = UUID.randomUUID().toString(),
-                    serverId = "preset_github",
-                    serverName = "GitHub & Code Explorer MCP",
-                    toolName = "search_github_repos",
-                    inputArguments = mapOf("query" to (if (lower.contains("kotlin")) "kotlin" else "mcp"))
-                )
-            )
-        }
-
-        if (lower.contains("bitcoin") || lower.contains("crypto") || lower.contains("solana") || lower.contains("convert")) {
-            calls.add(
-                McpToolCall(
-                    callId = UUID.randomUUID().toString(),
-                    serverId = "preset_finance",
-                    serverName = "Crypto & Forex Markets MCP",
-                    toolName = "get_crypto_price",
-                    inputArguments = mapOf("coin_id" to "bitcoin", "vs_currency" to "usd")
-                )
-            )
-        }
-
-        if (lower.contains("time") || lower.contains("timezone") || lower.contains("clock")) {
-            calls.add(
-                McpToolCall(
-                    callId = UUID.randomUUID().toString(),
-                    serverId = "preset_time",
-                    serverName = "World Time & Clocks MCP",
-                    toolName = "get_world_time",
-                    inputArguments = mapOf("location_or_tz" to "Tokyo")
-                )
-            )
-        }
-
-        if (lower.contains("calculate") || lower.contains("math") || lower.contains("sqrt") || lower.contains("+") || lower.contains("*")) {
-            calls.add(
-                McpToolCall(
-                    callId = UUID.randomUUID().toString(),
-                    serverId = "preset_math",
-                    serverName = "Math & Unit Computation MCP",
-                    toolName = "evaluate_math",
-                    inputArguments = mapOf("expression" to "sqrt(256) + 42 * 2")
-                )
-            )
-        }
-
-        return calls.take(2)
-    }
-
-    private fun extractCityFromPrompt(prompt: String): String {
-        val words = prompt.split(" ", "?", "!", ".", ",")
-        val inIndex = words.indexOfFirst { it.equals("in", ignoreCase = true) || it.equals("for", ignoreCase = true) }
-        if (inIndex != -1 && inIndex + 1 < words.size) {
-            val candidate = words[inIndex + 1].trim()
-            if (candidate.isNotBlank() && candidate.length > 2) {
-                return candidate.replaceFirstChar { it.uppercase() }
-            }
-        }
-        return "Tokyo"
     }
 
     private fun serializeToolCalls(calls: List<McpToolCall>): String {
