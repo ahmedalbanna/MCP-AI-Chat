@@ -57,7 +57,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Add JSON syntax highlighting in the raw request/response viewer
 - Show side-by-side request/response view on wider screens (tablets)
 
-### 1.8 Navigation & Transitions
+### 1.8 Navigation & Transitions [x]
 - Add bottom navigation badge on Chat tab when there are unread messages or active tool calls
 - Smooth animated transitions between tabs (shared element or crossfade)
 - Preserve scroll position when switching between tabs

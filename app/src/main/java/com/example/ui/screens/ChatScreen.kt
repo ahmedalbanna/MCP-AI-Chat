@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.CurrencyBitcoin
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -438,9 +439,15 @@ fun ChatScreen(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Error",
+                            tint = RoseError,
+                            modifier = Modifier.size(16.dp)
+                        )
                         Text(
                             text = errorMessage ?: "",
                             fontSize = 12.sp,
