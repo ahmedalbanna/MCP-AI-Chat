@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import { MCPTool } from '../types';
 
 interface JSONRPCRequest {
@@ -21,12 +20,27 @@ function nextId(): number {
   return ++requestId;
 }
 
-function proxyUrl(url: string): string {
-  if (Platform.OS === 'web') {
-    const u = new URL(url);
-    return `/mcp-proxy${u.pathname}${u.search}`;
+function isHtmlResponse(text: string): boolean {
+  const trimmed = text.trimStart();
+  return (
+    trimmed.startsWith('<!DOCTYPE') ||
+    trimmed.startsWith('<!doctype') ||
+    trimmed.startsWith('<html')
+  );
+}
+
+function parseSseResponse(text: string): unknown {
+  const lines = text.split('\n');
+  let lastData = '';
+  for (const line of lines) {
+    if (line.startsWith('data: ')) {
+      lastData = line.slice(6);
+    }
   }
-  return url;
+  if (!lastData) throw new Error('No data in SSE response');
+  const parsed = JSON.parse(lastData) as JSONRPCResponse;
+  if (parsed.error) throw new Error(parsed.error.message);
+  return parsed.result;
 }
 
 async function jsonrpcPost(
@@ -53,42 +67,43 @@ async function jsonrpcPost(
     reqHeaders['Mcp-Session-Id'] = sessionId;
   }
 
-  const target = proxyUrl(url);
-
   let response: Response;
   try {
-    response = await fetch(target, {
+    response = await fetch(url, {
       method: 'POST',
       headers: reqHeaders,
       body: JSON.stringify(body),
     });
   } catch (err: any) {
     throw new Error(
-      `Failed to connect to MCP server. ${Platform.OS === 'web' ? 'On web, this may be a CORS issue — try on mobile.' : ''} ${err?.message ?? ''}`
+      `Failed to connect to MCP server at ${url}. Check the URL and try again.`
     );
   }
 
   const newSessionId = response.headers.get('mcp-session-id') ?? sessionId;
   const contentType = response.headers.get('content-type') ?? '';
+  const text = await response.text();
 
-  if (contentType.includes('text/event-stream')) {
-    const text = await response.text();
-    const lines = text.split('\n');
-    let lastData = '';
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        lastData = line.slice(6);
-      }
-    }
-    if (lastData) {
-      const parsed = JSON.parse(lastData) as JSONRPCResponse;
-      if (parsed.error) throw new Error(parsed.error.message);
-      return { result: parsed.result, sessionId: newSessionId ?? undefined };
-    }
-    throw new Error('No data in SSE response');
+  if (isHtmlResponse(text)) {
+    throw new Error(
+      `MCP server returned HTML instead of JSON. The server may be unreachable or requires authentication. URL: ${url}`
+    );
   }
 
-  const text = await response.text();
+  if (!response.ok) {
+    let msg = `MCP server returned ${response.status}`;
+    try {
+      const errData = JSON.parse(text);
+      if (typeof errData.error === 'string') msg = errData.error;
+      else msg = errData.error?.message ?? msg;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  if (contentType.includes('text/event-stream') || text.trimStart().startsWith('event:') || text.trimStart().startsWith('data:')) {
+    return { result: parseSseResponse(text), sessionId: newSessionId ?? undefined };
+  }
+
   if (!text) {
     return { result: null, sessionId: newSessionId ?? undefined };
   }
@@ -118,7 +133,7 @@ export async function initializeServer(
   try {
     await jsonrpcPost(url, 'notifications/initialized', {}, headers, sessionId);
   } catch {
-    // notifications/initialized may not return a response — that's OK
+    // notifications/initialized is a notification — response is optional
   }
 
   return {
