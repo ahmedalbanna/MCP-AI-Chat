@@ -197,7 +197,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Nightly: full test suite + screenshot comparison
 - Release: signed build + artifact upload
 
-### 7.2 Quality Gates
+### 7.2 Quality Gates [x]
 - Minimum code coverage threshold (e.g., 60% for new code)
 - Lint must pass with zero errors
 - No hardcoded secrets (use `gitleaks` or similar)
