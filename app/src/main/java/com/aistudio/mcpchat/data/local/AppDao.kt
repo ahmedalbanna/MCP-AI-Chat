@@ -93,3 +93,27 @@ interface McpLogDao {
     @Query("DELETE FROM mcp_logs")
     suspend fun clearLogs()
 }
+
+@Dao
+interface MemoryNoteDao {
+    @Query("SELECT * FROM memory_notes ORDER BY updatedAt DESC")
+    fun getAllNotes(): Flow<List<MemoryNoteEntity>>
+
+    @Query("SELECT * FROM memory_notes WHERE id = :id")
+    suspend fun getNoteById(id: Long): MemoryNoteEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNote(note: MemoryNoteEntity): Long
+
+    @Update
+    suspend fun updateNote(note: MemoryNoteEntity)
+
+    @Query("DELETE FROM memory_notes WHERE id = :id")
+    suspend fun deleteNoteById(id: Long)
+
+    @Query("SELECT * FROM memory_notes WHERE content LIKE '%' || :query || '%' OR tags LIKE '%' || :query || '%' ORDER BY updatedAt DESC")
+    suspend fun searchNotes(query: String): List<MemoryNoteEntity>
+
+    @Query("DELETE FROM memory_notes")
+    suspend fun clearAllNotes()
+}

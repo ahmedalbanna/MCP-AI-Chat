@@ -206,7 +206,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 
 ## Phase 8: Feature Improvements
 
-### 8.1 Real MCP SSE Transport
+### 8.1 Real MCP SSE Transport [x]
 - Implement Server-Sent Events transport alongside HTTP POST
 - Auto-detect transport type from server response headers
 - Add connection health monitoring for SSE connections

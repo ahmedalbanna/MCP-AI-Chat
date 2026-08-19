@@ -67,3 +67,12 @@ data class McpLogEntity(
     val timestamp: Long = System.currentTimeMillis(),
     val errorMessage: String? = null
 )
+
+@Entity(tableName = "memory_notes")
+data class MemoryNoteEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val content: String,
+    val tags: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+)

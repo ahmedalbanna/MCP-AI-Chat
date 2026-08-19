@@ -13,9 +13,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         McpToolEntity::class,
         ChatSessionEntity::class,
         ChatMessageEntity::class,
-        McpLogEntity::class
+        McpLogEntity::class,
+        MemoryNoteEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -23,6 +24,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun mcpToolDao(): McpToolDao
     abstract fun chatDao(): ChatDao
     abstract fun mcpLogDao(): McpLogDao
+    abstract fun memoryNoteDao(): MemoryNoteDao
 
     companion object {
         @Volatile
@@ -31,6 +33,15 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE chat_sessions ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS memory_notes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        content TEXT NOT NULL,
+                        tags TEXT NOT NULL DEFAULT '',
+                        createdAt INTEGER NOT NULL DEFAULT 0,
+                        updatedAt INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
             }
         }
 
