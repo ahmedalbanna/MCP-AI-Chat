@@ -123,7 +123,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 
 ## Phase 4: Testing
 
-### 4.1 Unit Tests
+### 4.1 Unit Tests [x]
 - `McpProtocolClient` — mock HTTP, test JSON-RPC request/response serialization
 - `SystemPromptBuilder` — prompt construction with various tool sets
 - `ToolOrchestrator` — multi-turn tool calling loop (mock Gemini + MCP)
