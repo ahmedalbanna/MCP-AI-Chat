@@ -167,7 +167,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 
 ## Phase 6: Code Quality & Consistency
 
-### 6.1 Linting & Formatting
+### 6.1 Linting & Formatting [x]
 - Add `ktlint` or `detekt` with shared config
 - Add `.editorconfig` for consistent formatting
 - Run lint as part of CI
