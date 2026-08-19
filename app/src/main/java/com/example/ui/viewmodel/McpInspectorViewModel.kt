@@ -138,6 +138,35 @@ class McpInspectorViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    fun reExecuteTool(toolName: String, serverId: String, args: Map<String, Any?>) {
+        val server = servers.value.find { it.id == serverId } ?: return
+        val tool = tools.value.find { it.name == toolName && it.serverId == serverId } ?: return
+
+        _selectedToolId.value = tool.id
+        val paramMap = mutableMapOf<String, String>()
+        args.forEach { (k, v) -> paramMap[k] = v?.toString() ?: "" }
+        _parameterInputs.value = paramMap
+
+        viewModelScope.launch {
+            _isInvoking.value = true
+            _latestResult.value = null
+            _latestLatencyMs.value = null
+            _latestIsSuccess.value = null
+
+            try {
+                val (res, logItem) = repository.executeTool(server, tool.name, args)
+                _latestResult.value = res
+                _latestLatencyMs.value = logItem.latencyMs
+                _latestIsSuccess.value = logItem.isSuccess
+            } catch (e: Exception) {
+                _latestResult.value = "Error: ${e.message}"
+                _latestIsSuccess.value = false
+            } finally {
+                _isInvoking.value = false
+            }
+        }
+    }
+
     fun clearLogs() {
         viewModelScope.launch {
             repository.clearAllLogs()

@@ -293,7 +293,10 @@ fun InspectorScreen(
                         }
                     } else {
                         items(logs, key = { it.id }) { logItem ->
-                            LogItemCard(logItem = logItem)
+                            LogItemCard(
+                                logItem = logItem,
+                                onReExecute = { toolName, serverId, args -> viewModel.reExecuteTool(toolName, serverId, args) }
+                            )
                         }
                     }
                 }
@@ -437,13 +440,24 @@ fun ParametersCard(
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     for ((key, value) in parameterInputs) {
+                        val isError = value.isBlank() && tool.inputSchemaJson.contains("\"$key\"")
+                        val helperText = when {
+                            key == "days" && value.toIntOrNull() == null && value.isNotBlank() -> "Must be a number"
+                            key == "amount" && value.toDoubleOrNull() == null && value.isNotBlank() -> "Must be a number"
+                            key == "value" && value.toDoubleOrNull() == null && value.isNotBlank() -> "Must be a number"
+                            else -> null
+                        }
                         OutlinedTextField(
                             value = value,
                             onValueChange = { onParameterChange(key, it) },
                             label = { Text(key, fontFamily = FontFamily.Monospace, fontSize = 12.sp) },
+                            isError = isError || helperText != null,
+                            supportingText = helperText?.let { msg ->
+                                { Text(msg, fontSize = 11.sp, color = RoseError) }
+                            },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = IndigoPrimary,
+                                focusedBorderColor = if (isError || helperText != null) RoseError else IndigoPrimary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
                             ),
                             modifier = Modifier
@@ -549,6 +563,7 @@ fun ExecutionResultCard(
 @Composable
 fun LogItemCard(
     logItem: McpLogItem,
+    onReExecute: ((String, String, Map<String, Any?>) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -634,6 +649,26 @@ fun LogItemCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     CodeBlock(code = logItem.responsePayload, language = "json")
+
+                    if (onReExecute != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                val args = try {
+                                    val rpc = JSONObject(logItem.requestPayload)
+                                    val params = rpc.optJSONObject("params")
+                                    params?.keys()?.asSequence()?.associateWith { k -> params.opt(k) } ?: emptyMap()
+                                } catch (e: Exception) { emptyMap<String, Any?>() }
+                                onReExecute(logItem.toolName, logItem.serverId, args)
+                            },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(30.dp)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Re-execute", fontSize = 11.sp)
+                        }
+                    }
                 }
             }
         }

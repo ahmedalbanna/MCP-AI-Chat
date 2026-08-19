@@ -42,7 +42,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Show tool execution duration next to tool name
 - Add "Copy tool result" action on tool call cards
 
-### 1.6 Server Management UX
+### 1.6 Server Management UX [x]
 - Add pull-to-refresh on server list
 - Show server health status with last-ping timestamp (not just a dot)
 - Add confirmation dialog before deleting a server (currently deletes immediately)
