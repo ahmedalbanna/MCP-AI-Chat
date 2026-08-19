@@ -100,16 +100,16 @@ A phased plan to transform the current prototype into a production-ready, mainta
 
 ## Phase 3: Architecture & Code Splitting
 
-### 3.1 McpHttpClient Refinement (~250 lines)
+### 3.1 McpHttpClient Refinement (~250 lines) [x]
 - Extract `buildAuthHeaders(server)` helper to eliminate repeated auth header parsing (3 occurrences)
 - Consider extracting JSON-RPC request building into a `JsonRpcRequest` data class
 - Add response parsing into a dedicated `McpResponseParser` if more transport types are added
 
-### 3.2 Repository Layer
+### 3.2 Repository Layer [x]
 - Extract `ChatRepository` tool orchestration into a dedicated `ToolOrchestrator` class
 - Move system prompt construction to a `SystemPromptBuilder`
 
-### 3.3 Data Layer
+### 3.3 Data Layer [x]
 - Create domain model mappers (Entity ↔ Domain) instead of 1:1 mapping classes
 - Add `NetworkResult<T>` sealed class for consistent error handling across repositories
 - Replace raw `String` error messages with typed error states in ViewModels
