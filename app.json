@@ -36,14 +36,7 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-status-bar",
-      [
-        "react-native-webview",
-        {
-          "allowUniversalAccessFromFileURLs": true,
-          "allowFileAccessFromFileURLs": true
-        }
-      ]
+      "expo-status-bar"
     ]
   }
 }
