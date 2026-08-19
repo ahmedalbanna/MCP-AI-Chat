@@ -9,6 +9,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -32,6 +33,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.minimumInteractiveComponentSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -47,9 +49,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.CurrencyBitcoin
 import androidx.compose.material.icons.filled.Delete
@@ -57,17 +56,12 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Sensors
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
@@ -84,10 +78,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -100,18 +94,18 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -123,11 +117,13 @@ import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.ui.theme.AmberWarning
 import com.aistudio.mcpchat.ui.theme.CyanSecondary
+import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.EmeraldTertiary
 import com.aistudio.mcpchat.ui.theme.IndigoContainerDark
 import com.aistudio.mcpchat.ui.theme.IndigoPrimary
 import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
 import com.aistudio.mcpchat.ui.theme.RoseError
+import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -161,7 +157,6 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    // Smart auto-scroll: track if user is near bottom
     val isAtBottom by remember {
         derivedStateOf {
             val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -202,23 +197,23 @@ fun ChatScreen(
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            // Model selector chip
+                            Spacer(modifier = Modifier.width(Spacing.sm))
                             Surface(
                                 color = IndigoPrimary.copy(alpha = 0.15f),
-                                shape = RoundedCornerShape(6.dp),
-                                border = BorderStroke(1.dp, IndigoPrimary.copy(alpha = 0.3f)),
+                                shape = RoundedCornerShape(Dimens.cornerRadiusSm),
+                                border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.3f)),
                                 modifier = Modifier
                                     .semantics {
                                         role = Role.Button
                                         contentDescription = "Select model"
+                                        stateDescription = if (currentSession?.model?.contains("pro") == true) "Gemini 3.1 Pro selected" else "Gemini 3.5 Flash selected"
                                     }
                                     .clickable { showModelMenu = true }
                                     .testTag("model_picker_chip")
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs)
                                 ) {
                                     Text(
                                         text = if (currentSession?.model?.contains("pro") == true) "3.1 Pro" else "3.5 Flash",
@@ -250,7 +245,6 @@ fun ChatScreen(
                             }
                         }
 
-                        // Subtitle with active MCP servers count
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -262,11 +256,11 @@ fun ChatScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(6.dp)
+                                    .size(Spacing.xs)
                                     .clip(CircleShape)
                                     .background(EmeraldTertiary)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(Spacing.xs))
                             Text(
                                 text = "$enabledServersCount Remote MCP Servers Active",
                                 fontSize = 11.sp,
@@ -277,10 +271,11 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    // MCP Servers Hub Shortcut
                     IconButton(
                         onClick = { showServersSheet = true },
-                        modifier = Modifier.testTag("mcp_servers_toggle_button")
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("mcp_servers_toggle_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Hub,
@@ -289,10 +284,11 @@ fun ChatScreen(
                         )
                     }
 
-                    // Session History
                     IconButton(
                         onClick = { showSessionsSheet = true },
-                        modifier = Modifier.testTag("chat_history_button")
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("chat_history_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.History,
@@ -301,10 +297,11 @@ fun ChatScreen(
                         )
                     }
 
-                    // New Chat
                     IconButton(
                         onClick = { viewModel.createNewChat() },
-                        modifier = Modifier.testTag("new_chat_button")
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("new_chat_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
@@ -324,7 +321,6 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Main Messages Area
             if (messages.isEmpty() && inProgressToolCalls.isEmpty()) {
                 EmptyChatView(
                     onPromptSelected = { prompt ->
@@ -337,8 +333,8 @@ fun ChatScreen(
             } else {
                 LazyColumn(
                     state = listState,
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
                     modifier = Modifier
                         .weight(1f)
                         .testTag("chat_messages_list")
@@ -350,24 +346,23 @@ fun ChatScreen(
                         )
                     }
 
-                    // In-progress tool call cards
                     if (inProgressToolCalls.isNotEmpty()) {
                         item {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(start = 12.dp, end = 32.dp)
+                                    .padding(start = Spacing.md, end = Spacing.xxl)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(bottom = 6.dp)
+                                    modifier = Modifier.padding(bottom = Spacing.sm)
                                 ) {
                                     CircularProgressIndicator(
-                                        modifier = Modifier.size(14.dp),
-                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(Dimens.iconSizeSm),
+                                        strokeWidth = Dimens.borderWidthThick,
                                         color = AmberWarning
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.width(Spacing.sm))
                                     Text(
                                         text = "Executing Remote MCP Tool Calls...",
                                         fontSize = 12.sp,
@@ -384,24 +379,22 @@ fun ChatScreen(
                         }
                     }
 
-                    // Typing indicator when AI is generating
                     if (isGenerating && inProgressToolCalls.isEmpty() && messages.lastOrNull()?.role == "user") {
                         item {
                             TypingIndicator(
-                                modifier = Modifier.padding(start = 12.dp, end = 32.dp)
+                                modifier = Modifier.padding(start = Spacing.md, end = Spacing.xxl)
                             )
                         }
                     }
                 }
 
-                // Jump to bottom FAB
                 AnimatedVisibility(
                     visible = userHasScrolledUp,
                     enter = slideInVertically(initialOffsetY = { it }),
                     exit = slideOutVertically(targetOffsetY = { it }),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 8.dp)
+                        .padding(end = Spacing.lg, bottom = Spacing.sm)
                 ) {
                     Surface(
                         onClick = {
@@ -412,41 +405,44 @@ fun ChatScreen(
                         },
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primary,
-                        shadowElevation = 6.dp,
-                        modifier = Modifier.size(40.dp)
+                        shadowElevation = Dimens.elevationLg,
+                        modifier = Modifier.size(Dimens.touchTargetMin)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowDown,
                                 contentDescription = "Jump to bottom",
                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(Dimens.iconSizeLg)
                             )
                         }
                     }
                 }
             }
 
-            // Error banner if any
             if (errorMessage != null) {
                 Surface(
                     color = RoseError.copy(alpha = 0.15f),
-                    border = BorderStroke(1.dp, RoseError.copy(alpha = 0.4f)),
-                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(Dimens.borderWidth, RoseError.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(Dimens.cornerRadiusMd),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.xs)
+                        .semantics {
+                            liveRegion = LiveRegionMode.Assertive
+                            contentDescription = "Error: ${errorMessage ?: ""}"
+                        }
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Error,
                             contentDescription = "Error",
                             tint = RoseError,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(Dimens.iconSizeSm)
                         )
                         Text(
                             text = errorMessage ?: "",
@@ -456,54 +452,72 @@ fun ChatScreen(
                         )
                         IconButton(
                             onClick = { viewModel.clearError() },
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Clear,
+                                imageVector = Icons.Default.Error,
                                 contentDescription = "Dismiss",
                                 tint = RoseError,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(Dimens.iconSizeSm)
                             )
                         }
                     }
                 }
             }
 
-            // Bottom Input Bar
+            Divider(
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                thickness = Dimens.borderWidth
+            )
+
             Surface(
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 4.dp,
+                tonalElevation = Dimens.elevationMd,
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
             ) {
-                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                    // Quick tool suggestions horizontal bar
+                Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState())
-                            .padding(bottom = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            .padding(bottom = Spacing.sm),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
-                        QuickActionChip("🌤️ Tokyo Weather") {
+                        QuickActionChip(
+                            label = "Tokyo Weather",
+                            icon = Icons.Default.WbSunny
+                        ) {
                             viewModel.sendMessage("Get the live weather in Tokyo and describe current conditions.")
                         }
-                        QuickActionChip("🐙 Kotlin Repos") {
+                        QuickActionChip(
+                            label = "Kotlin Repos",
+                            icon = Icons.Default.Code
+                        ) {
                             viewModel.sendMessage("Search GitHub for trending Kotlin Jetpack Compose repositories.")
                         }
-                        QuickActionChip("💰 BTC & EUR") {
+                        QuickActionChip(
+                            label = "BTC & EUR",
+                            icon = Icons.Default.CurrencyBitcoin
+                        ) {
                             viewModel.sendMessage("Get the live price of Bitcoin and convert 1500 USD to EUR.")
                         }
-                        QuickActionChip("⏰ World Time") {
+                        QuickActionChip(
+                            label = "World Time",
+                            icon = Icons.Default.Schedule
+                        ) {
                             viewModel.sendMessage("What is the current time in Tokyo, London, and New York?")
                         }
-                        QuickActionChip("📐 Math Engine") {
+                        QuickActionChip(
+                            label = "Math Engine",
+                            icon = Icons.Default.Speed
+                        ) {
                             viewModel.sendMessage("Calculate sqrt(1024) + (45 * 12) / 3.5 and convert 150 km to miles.")
                         }
                     }
 
-                    // Input Field & Send Button
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
@@ -519,7 +533,7 @@ fun ChatScreen(
                                 )
                             },
                             maxLines = 4,
-                            shape = RoundedCornerShape(24.dp),
+                            shape = RoundedCornerShape(Dimens.cornerRadiusXl),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = IndigoPrimary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
@@ -531,7 +545,7 @@ fun ChatScreen(
                                 .testTag("chat_input_field")
                         )
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(Spacing.sm))
 
                         IconButton(
                             onClick = {
@@ -544,7 +558,7 @@ fun ChatScreen(
                             },
                             enabled = inputText.isNotBlank() && !isGenerating,
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(Dimens.touchTargetMin)
                                 .clip(CircleShape)
                                 .background(if (inputText.isNotBlank() && !isGenerating) IndigoPrimary else MaterialTheme.colorScheme.surfaceVariant)
                                 .semantics {
@@ -554,8 +568,8 @@ fun ChatScreen(
                         ) {
                             if (isGenerating) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(Dimens.iconSizeLg),
+                                    strokeWidth = Dimens.borderWidthThick,
                                     color = MaterialTheme.colorScheme.onPrimary
                                 )
                             } else {
@@ -563,7 +577,7 @@ fun ChatScreen(
                                     imageVector = Icons.Default.Send,
                                     contentDescription = "Send",
                                     tint = if (inputText.isNotBlank()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(Dimens.iconSizeLg)
                                 )
                             }
                         }
@@ -573,7 +587,6 @@ fun ChatScreen(
         }
     }
 
-    // Active MCP Servers Bottom Sheet
     if (showServersSheet) {
         val sheetState = rememberModalBottomSheetState()
         ModalBottomSheet(
@@ -584,7 +597,7 @@ fun ChatScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(Spacing.sheetPadding)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -614,22 +627,22 @@ fun ChatScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.lg))
 
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(servers) { server ->
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(Dimens.cornerRadiusLg),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -639,17 +652,17 @@ fun ChatScreen(
                                             fontSize = 14.sp
                                         )
                                         if (server.isPreset) {
-                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Spacer(modifier = Modifier.width(Spacing.sm))
                                             Surface(
                                                 color = CyanSecondary.copy(alpha = 0.15f),
-                                                shape = RoundedCornerShape(4.dp)
+                                                shape = RoundedCornerShape(Dimens.cornerRadiusSm)
                                             ) {
                                                 Text(
                                                     text = "PRESET",
                                                     fontSize = 9.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = CyanSecondary,
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs)
                                                 )
                                             }
                                         }
@@ -676,12 +689,11 @@ fun ChatScreen(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Spacing.xl))
             }
         }
     }
 
-    // Chat History & Sessions Bottom Sheet
     if (showSessionsSheet) {
         val sheetState = rememberModalBottomSheetState()
         ModalBottomSheet(
@@ -692,7 +704,7 @@ fun ChatScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(Spacing.sheetPadding)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -710,24 +722,24 @@ fun ChatScreen(
                             showSessionsSheet = false
                         }
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeSm))
+                        Spacer(modifier = Modifier.width(Spacing.xs))
                         Text("New Chat")
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.lg))
 
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(sessions) { session ->
                         val isSelected = session.id == currentSessionId
                         Surface(
                             color = if (isSelected) IndigoPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(10.dp),
-                            border = if (isSelected) BorderStroke(1.dp, IndigoPrimary) else null,
+                            shape = RoundedCornerShape(Dimens.cornerRadiusLg),
+                            border = if (isSelected) BorderStroke(Dimens.borderWidth, IndigoPrimary) else null,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .semantics {
@@ -742,7 +754,7 @@ fun ChatScreen(
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier.padding(12.dp)
+                                modifier = Modifier.padding(Spacing.md)
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
@@ -759,20 +771,21 @@ fun ChatScreen(
 
                                 IconButton(
                                     onClick = { viewModel.deleteSession(session.id) },
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier
+                                        .minimumInteractiveComponentSize()
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete",
+                                        contentDescription = "Delete ${session.title}",
                                         tint = RoseError.copy(alpha = 0.7f),
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(Dimens.iconSizeSm)
                                     )
                                 }
                             }
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Spacing.xl))
             }
         }
     }
@@ -799,14 +812,17 @@ fun ChatMessageItem(
 
     Column(
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics {
+                liveRegion = LiveRegionMode.Polite
+            }
     ) {
-        // Tool Calls Cards attached to Assistant Message
         if (!isUser && toolCalls.isNotEmpty()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth(0.95f)
-                    .padding(bottom = 6.dp)
+                    .padding(bottom = Spacing.sm)
             ) {
                 Text(
                     text = "MCP Invocations (${toolCalls.size}):",
@@ -814,7 +830,7 @@ fun ChatMessageItem(
                     fontWeight = FontWeight.Bold,
                     color = CyanSecondary,
                     fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(bottom = 2.dp)
+                    modifier = Modifier.padding(bottom = Spacing.xxs)
                 )
                 for (call in toolCalls) {
                     ToolCallCard(toolCall = call)
@@ -822,7 +838,6 @@ fun ChatMessageItem(
             }
         }
 
-        // Message Bubble
         Row(
             horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
             modifier = Modifier.fillMaxWidth()
@@ -831,37 +846,38 @@ fun ChatMessageItem(
                 Surface(
                     color = IndigoPrimary.copy(alpha = 0.2f),
                     shape = CircleShape,
-                    border = BorderStroke(1.dp, IndigoPrimary.copy(alpha = 0.4f)),
+                    border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.4f)),
                     modifier = Modifier
-                        .size(32.dp)
-                        .padding(top = 2.dp)
+                        .size(Spacing.xxl)
+                        .padding(top = Spacing.xxs)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.AutoAwesome,
                             contentDescription = "AI",
                             tint = IndigoPrimaryLight,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(Dimens.iconSizeSm)
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(Spacing.sm))
             }
 
             Surface(
                 color = if (isUser) IndigoPrimary else MaterialTheme.colorScheme.surfaceVariant,
+                tonalElevation = if (!isUser) Dimens.elevationSm else 0.dp,
                 shape = RoundedCornerShape(
-                    topStart = 16.dp,
-                    topEnd = 16.dp,
-                    bottomStart = if (isUser) 16.dp else 4.dp,
-                    bottomEnd = if (isUser) 4.dp else 16.dp
+                    topStart = Dimens.cornerRadiusXl,
+                    topEnd = Dimens.cornerRadiusXl,
+                    bottomStart = if (isUser) Dimens.cornerRadiusXl else Dimens.cornerRadiusSm,
+                    bottomEnd = if (isUser) Dimens.cornerRadiusSm else Dimens.cornerRadiusXl
                 ),
-                border = if (isUser) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                border = if (isUser) null else BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
                 modifier = Modifier
-                    .fillMaxWidth(if (isUser) 0.85f else 0.9f)
+                    .fillMaxWidth(Dimens.chatBubbleMaxWidth)
                     .combinedClickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
+                        indication = ripple(),
                         onClick = {},
                         onLongClick = {
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -871,7 +887,7 @@ fun ChatMessageItem(
                         }
                     )
             ) {
-                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Column(modifier = Modifier.padding(horizontal = Spacing.cardPadding, vertical = Spacing.sm)) {
                     if (isUser) {
                         Text(
                             text = message.content,
@@ -888,7 +904,7 @@ fun ChatMessageItem(
                         MarkdownFormattedText(text = displayText)
 
                         if (shouldTruncate) {
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(Spacing.xs))
                             Text(
                                 text = if (isExpanded) "Show less" else "Show more",
                                 fontSize = 12.sp,
@@ -904,7 +920,7 @@ fun ChatMessageItem(
                             horizontalArrangement = Arrangement.End,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 4.dp)
+                                .padding(top = Spacing.xs)
                         ) {
                             Text(
                                 text = "${message.latencyMs}ms",
@@ -926,49 +942,88 @@ fun EmptyChatView(
     onNavigateToServers: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val infiniteTransition = rememberInfiniteTransition(label = "logo_pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         modifier = modifier
             .fillMaxWidth()
-            .padding(24.dp)
+            .padding(Spacing.xl)
     ) {
         Surface(
             color = IndigoPrimary.copy(alpha = 0.12f),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, IndigoPrimary.copy(alpha = 0.3f)),
-            modifier = Modifier.size(72.dp)
+            shape = RoundedCornerShape(Dimens.cornerRadiusXl),
+            border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.3f)),
+            modifier = Modifier.size(Spacing.xxxl)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.Hub,
                     contentDescription = null,
                     tint = IndigoPrimaryLight,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier
+                        .size(Dimens.iconSizeXl)
+                        .graphicsLayer {
+                            scaleX = pulseScale
+                            scaleY = pulseScale
+                        }
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
         Text(
-            text = "Model Context Protocol AI",
+            text = "Welcome to MCP AI Chat",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(Spacing.xs))
 
         Text(
             text = "Connected to remote MCP servers. Seamless tool calling over JSON-RPC & HTTP SSE.",
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            modifier = Modifier.padding(horizontal = Spacing.lg)
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            FeatureHighlightItem(
+                icon = Icons.Default.AutoAwesome,
+                label = "Chat with AI",
+                modifier = Modifier.weight(1f)
+            )
+            FeatureHighlightItem(
+                icon = Icons.Default.Hub,
+                label = "MCP Tool Calling",
+                modifier = Modifier.weight(1f)
+            )
+            FeatureHighlightItem(
+                icon = Icons.Default.Speed,
+                label = "Inspector",
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(Spacing.xl))
 
         Text(
             text = "TRY ASKING:",
@@ -979,9 +1034,9 @@ fun EmptyChatView(
             modifier = Modifier.align(Alignment.Start)
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Spacing.sm))
 
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             PromptSuggestionCard(
                 icon = Icons.Default.WbSunny,
                 title = "Live Weather Telemetry",
@@ -1011,6 +1066,38 @@ fun EmptyChatView(
 }
 
 @Composable
+private fun FeatureHighlightItem(
+    icon: ImageVector,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(Dimens.cornerRadiusLg),
+        modifier = modifier
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(vertical = Spacing.sm)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = IndigoPrimaryLight,
+                modifier = Modifier.size(Dimens.iconSizeLg)
+            )
+            Spacer(modifier = Modifier.height(Spacing.xs))
+            Text(
+                text = label,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
 fun PromptSuggestionCard(
     icon: ImageVector,
     title: String,
@@ -1020,36 +1107,40 @@ fun PromptSuggestionCard(
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        shape = RoundedCornerShape(Dimens.cornerRadiusLg),
+        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
         modifier = modifier
             .fillMaxWidth()
             .semantics {
                 role = Role.Button
                 contentDescription = "Send prompt: $title"
             }
-            .clickable { onPromptSelected(prompt) }
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = { onPromptSelected(prompt) }
+            )
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier.padding(Spacing.md)
         ) {
             Surface(
                 color = IndigoPrimary.copy(alpha = 0.15f),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.size(36.dp)
+                shape = RoundedCornerShape(Dimens.cornerRadiusMd),
+                modifier = Modifier.size(Dimens.iconSizeXl)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
                         tint = IndigoPrimaryLight,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(Dimens.iconSizeMd)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(Spacing.md))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -1072,26 +1163,44 @@ fun PromptSuggestionCard(
 @Composable
 fun QuickActionChip(
     label: String,
+    icon: ImageVector? = null,
     onClick: () -> Unit
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+        shape = RoundedCornerShape(Dimens.cornerRadiusXl),
+        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
         modifier = Modifier
             .semantics {
                 role = Role.Button
                 contentDescription = label
             }
-            .clickable { onClick() }
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = { onClick() }
+            )
     ) {
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs)
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = IndigoPrimaryLight,
+                    modifier = Modifier.size(Dimens.iconSizeSm)
+                )
+                Spacer(modifier = Modifier.width(Spacing.xs))
+            }
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -1113,31 +1222,31 @@ fun TypingIndicator(modifier: Modifier = Modifier) {
         modifier = modifier
             .background(
                 MaterialTheme.colorScheme.surfaceVariant,
-                RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp)
+                RoundedCornerShape(Dimens.cornerRadiusXl, Dimens.cornerRadiusXl, Dimens.cornerRadiusXl, Dimens.cornerRadiusSm)
             )
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .padding(horizontal = Spacing.cardPadding, vertical = Spacing.sm)
     ) {
         Surface(
             color = IndigoPrimary.copy(alpha = 0.2f),
             shape = CircleShape,
-            border = BorderStroke(1.dp, IndigoPrimary.copy(alpha = 0.4f)),
-            modifier = Modifier.size(28.dp)
+            border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.4f)),
+            modifier = Modifier.size(Spacing.xxl)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.AutoAwesome,
                     contentDescription = "AI is typing",
                     tint = IndigoPrimaryLight,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(Dimens.iconSizeSm)
                 )
             }
         }
-        Spacer(modifier = Modifier.width(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Spacer(modifier = Modifier.width(Spacing.sm))
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             repeat(3) { index ->
                 Box(
                     modifier = Modifier
-                        .size(6.dp)
+                        .size(Spacing.sm)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha))
                 )

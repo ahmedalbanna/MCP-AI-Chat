@@ -36,7 +36,7 @@ val SlateSurfaceDark = Color(0xFF0F172A)
 val SlateSurfaceVariantDark = Color(0xFF1E293B)
 val SlateSurfaceHighlightDark = Color(0xFF334155)
 val SlateTextPrimaryDark = Color(0xFFF8FAFC)
-val SlateTextSecondaryDark = Color(0xFF94A3B8)
+val SlateTextSecondaryDark = Color(0xFFB0BEC5)
 val SlateBorderDark = Color(0xFF1E293B)
 
 // Light Theme Surfaces

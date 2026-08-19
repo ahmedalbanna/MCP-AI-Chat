@@ -4,10 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -25,9 +26,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -39,7 +46,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.aistudio.mcpchat.ui.screens.ChatScreen
 import com.aistudio.mcpchat.ui.screens.InspectorScreen
+import com.aistudio.mcpchat.ui.screens.OnboardingScreen
 import com.aistudio.mcpchat.ui.screens.ServersScreen
+import com.aistudio.mcpchat.ui.screens.hasSeenOnboarding
+import com.aistudio.mcpchat.ui.screens.markOnboardingSeen
 import com.aistudio.mcpchat.ui.theme.IndigoPrimary
 import com.aistudio.mcpchat.ui.theme.MyApplicationTheme
 import com.aistudio.mcpchat.ui.theme.RoseError
@@ -69,6 +79,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainApp() {
+    val context = LocalContext.current
+    var showOnboarding by remember { mutableStateOf(!hasSeenOnboarding(context)) }
     val navController = rememberNavController()
     val chatViewModel: ChatViewModel = hiltViewModel()
     val serversViewModel: McpServersViewModel = hiltViewModel()
@@ -101,12 +113,28 @@ fun MainApp() {
                                     if (screen is Screen.Chat && isGenerating) {
                                         Badge(
                                             containerColor = RoseError,
-                                            contentColor = MaterialTheme.colorScheme.onError
+                                            contentColor = MaterialTheme.colorScheme.onError,
+                                            modifier = Modifier.semantics {
+                                                contentDescription = "AI is generating a response"
+                                            }
                                         ) {
                                             Text("!", fontSize = 10.sp)
-                                        }
-                                    }
-                                }
+        }
+    }
+
+    AnimatedVisibility(
+        visible = showOnboarding,
+        enter = fadeIn(),
+        exit = fadeOut()
+    ) {
+        OnboardingScreen(
+            onDismiss = {
+                markOnboardingSeen(context)
+                showOnboarding = false
+            }
+        )
+    }
+}
                             ) {
                                 Icon(screen.icon, contentDescription = screen.title)
                             }
@@ -141,8 +169,8 @@ fun MainApp() {
         NavHost(
             navController = navController,
             startDestination = Screen.Chat.route,
-            enterTransition = { fadeIn() },
-            exitTransition = { fadeOut() },
+            enterTransition = { fadeIn() + slideInVertically(initialOffsetY = { it / 40 }) },
+            exitTransition = { fadeOut() + slideOutVertically(targetOffsetY = { it / 40 }) },
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Chat.route) {

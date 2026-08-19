@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,7 +40,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,6 +49,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -68,8 +69,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.minimumInteractiveComponentSize
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -79,10 +83,12 @@ import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.ui.theme.AmberWarning
 import com.aistudio.mcpchat.ui.theme.CyanSecondary
+import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.EmeraldTertiary
 import com.aistudio.mcpchat.ui.theme.IndigoPrimary
 import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
 import com.aistudio.mcpchat.ui.theme.RoseError
+import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.McpServersViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -99,7 +105,7 @@ fun ServersScreen(
     val feedback by viewModel.feedbackMessage.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
-    var showAddServerDialog by remember { mutableStateOf(false) }
+    var showAddServerSheet by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var serverToDelete by remember { mutableStateOf<McpServer?>(null) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -144,14 +150,14 @@ fun ServersScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showAddServerDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = "Add") },
-                text = { Text("Add Remote MCP Server") },
-                containerColor = IndigoPrimary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+            SmallFloatingActionButton(
+                onClick = { showAddServerSheet = true },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.testTag("add_custom_server_fab")
-            )
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add Remote MCP Server")
+            }
         },
         modifier = modifier.fillMaxSize()
     ) { padding ->
@@ -172,31 +178,30 @@ fun ServersScreen(
                 .padding(padding)
         ) {
             LazyColumn(
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("servers_list")
             ) {
             item {
-                // Info Banner
                 Surface(
                     color = IndigoPrimary.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, IndigoPrimary.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(Dimens.cornerRadiusLg),
+                    border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.3f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(14.dp)
+                        modifier = Modifier.padding(Spacing.cardPadding)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Hub,
-                            contentDescription = null,
+                            contentDescription = "Hub",
                             tint = IndigoPrimaryLight,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(Dimens.iconSizeLg)
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(Spacing.md))
                         Column {
                             Text(
                                 text = "Dynamic Tool Discovery Active",
@@ -214,7 +219,6 @@ fun ServersScreen(
                 }
             }
 
-            // Search bar
             if (servers.size > 2) {
                 item {
                     OutlinedTextField(
@@ -224,10 +228,10 @@ fun ServersScreen(
                             Text("Search servers...", fontSize = 13.sp)
                         },
                         leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Search, contentDescription = "Search servers", modifier = Modifier.size(Dimens.iconSizeMd))
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(Dimens.cornerRadiusLg),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = IndigoPrimary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
@@ -238,6 +242,50 @@ fun ServersScreen(
                             .fillMaxWidth()
                             .testTag("server_search_field")
                     )
+                }
+
+                if (searchQuery.isNotBlank()) {
+                    item {
+                        Text(
+                            text = "${filteredServers.size} of ${servers.size} servers",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = Spacing.xs, top = Spacing.xxs)
+                        )
+                    }
+                }
+            }
+
+            if (filteredServers.isEmpty()) {
+                item {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = Spacing.xxl)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Cloud,
+                                contentDescription = "No servers",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(Spacing.md))
+                            Text(
+                                text = "No MCP servers connected",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(Spacing.xs))
+                            Text(
+                                text = "Add your first server to get started",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
 
@@ -256,12 +304,11 @@ fun ServersScreen(
             }
 
             item {
-                Spacer(modifier = Modifier.height(64.dp))
+                Spacer(modifier = Modifier.height(Spacing.xxl))
             }
         }
     }
 
-    // Delete confirmation dialog
     serverToDelete?.let { server ->
         AlertDialog(
             onDismissRequest = { serverToDelete = null },
@@ -286,15 +333,22 @@ fun ServersScreen(
         )
     }
 
-    // Add Custom Remote Server Bottom Sheet / Dialog
-    if (showAddServerDialog) {
-        AddServerDialog(
-            onDismiss = { showAddServerDialog = false },
-            onAdd = { name, desc, url, auth ->
-                viewModel.addCustomServer(name, desc, url, auth)
-                showAddServerDialog = false
-            }
-        )
+    if (showAddServerSheet) {
+        val sheetState = rememberModalBottomSheetState()
+        ModalBottomSheet(
+            onDismissRequest = { showAddServerSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            AddServerSheetContent(
+                onDismiss = { showAddServerSheet = false },
+                onAdd = { name, desc, url, auth ->
+                    viewModel.addCustomServer(name, desc, url, auth)
+                    showAddServerSheet = false
+                }
+            )
+        }
+    }
     }
 }
 
@@ -312,11 +366,18 @@ fun ServerCardItem(
 ) {
     var isExpanded by remember { mutableStateOf(false) }
 
+    val statusColor = when {
+        !server.isEnabled -> MaterialTheme.colorScheme.onSurfaceVariant
+        server.status == "connected" -> EmeraldTertiary
+        server.status == "connecting" -> AmberWarning
+        else -> RoseError
+    }
+
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(Dimens.cornerRadiusLg),
         border = BorderStroke(
-            1.dp,
+            Dimens.borderWidth,
             if (server.isEnabled) MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
             else MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
         ),
@@ -325,223 +386,232 @@ fun ServerCardItem(
             .animateContentSize()
             .testTag("server_card_${server.id}")
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Top Row: Title, Preset Badge, and Enable Switch
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = server.name,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    if (server.isPreset) {
-                        Surface(
-                            color = CyanSecondary.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Text(
-                                text = "PRESET",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = CyanSecondary,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                }
-
-                Switch(
-                    checked = server.isEnabled,
-                    onCheckedChange = onToggleEnabled,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = IndigoPrimary,
-                        checkedTrackColor = IndigoPrimary.copy(alpha = 0.3f)
-                    ),
-                    modifier = Modifier.testTag("toggle_server_${server.id}")
-                )
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = server.description,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        Row {
+            Spacer(
+                modifier = Modifier
+                    .width(Dimens.accentBarWidth)
+                    .height(Spacing.xs)
+                    .align(Alignment.CenterVertically)
+                    .clip(RoundedCornerShape(Dimens.cornerRadiusFull))
+                    .background(statusColor)
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Endpoint URL & Status Row
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = server.endpointUrl,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                ServerStatusBadge(
-                    status = server.status,
-                    latencyMs = server.latencyMs
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Actions Row: Ping, Sync Tools, Expand Tools, Delete (if custom)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedButton(
-                        onClick = onPing,
-                        enabled = !isTesting,
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        if (isTesting) {
-                            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Ping", fontSize = 11.sp)
-                        }
-                    }
-
-                    OutlinedButton(
-                        onClick = onSync,
-                        enabled = !isTesting,
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Sync (${tools.size})", fontSize = 11.sp)
-                    }
-
-                    if (!server.isPreset) {
-                        IconButton(
-                            onClick = onDelete,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete Server",
-                                tint = RoseError,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-
-                TextButton(
-                    onClick = { isExpanded = !isExpanded },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                    modifier = Modifier.height(32.dp)
+            Column(modifier = Modifier.padding(Spacing.cardPadding)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = if (isExpanded) "Hide Tools" else "View Tools (${tools.size})",
-                        fontSize = 11.sp
-                    )
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            // Expanded Discovered Tools List
-            AnimatedVisibility(visible = isExpanded) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp)
-                ) {
-                    Text(
-                        text = "DISCOVERED MCP TOOLS:",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = CyanSecondary,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
-
-                    if (tools.isEmpty()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Text(
-                            text = "No tools discovered yet. Tap 'Sync' to handshake with this server.",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = server.name,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            for (tool in tools) {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.background,
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(modifier = Modifier.padding(8.dp)) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Build,
-                                                    contentDescription = null,
-                                                    tint = IndigoPrimaryLight,
-                                                    modifier = Modifier.size(14.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = tool.name,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    fontFamily = FontFamily.Monospace
+
+                        Spacer(modifier = Modifier.width(Spacing.sm))
+
+                        if (server.isPreset) {
+                            Surface(
+                                color = CyanSecondary.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(Dimens.cornerRadiusSm)
+                            ) {
+                                Text(
+                                    text = "PRESET",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CyanSecondary,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Switch(
+                        checked = server.isEnabled,
+                        onCheckedChange = onToggleEnabled,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = IndigoPrimary,
+                            checkedTrackColor = IndigoPrimary.copy(alpha = 0.3f)
+                        ),
+                        modifier = Modifier.testTag("toggle_server_${server.id}")
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(Spacing.xs))
+
+                Text(
+                    text = server.description,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(Spacing.sm))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = server.endpointUrl,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+
+                    ServerStatusBadge(
+                        status = server.status,
+                        latencyMs = server.latencyMs
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(Spacing.sectionGap))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        OutlinedButton(
+                            onClick = onPing,
+                            enabled = !isTesting,
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            if (isTesting) {
+                                CircularProgressIndicator(modifier = Modifier.size(Dimens.iconSizeXs), strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.Speed, contentDescription = "Ping server", modifier = Modifier.size(Dimens.iconSizeSm))
+                                Spacer(modifier = Modifier.width(Spacing.xs))
+                                Text("Ping", fontSize = 11.sp)
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = onSync,
+                            enabled = !isTesting,
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Icon(Icons.Default.Sync, contentDescription = "Sync tools", modifier = Modifier.size(Dimens.iconSizeSm))
+                            Spacer(modifier = Modifier.width(Spacing.xs))
+                            Text("Sync (${tools.size})", fontSize = 11.sp)
+                        }
+
+                        if (!server.isPreset) {
+                            IconButton(
+                                onClick = onDelete,
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .minimumInteractiveComponentSize()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete server",
+                                    tint = RoseError,
+                                    modifier = Modifier.size(Dimens.iconSizeMd)
+                                )
+                            }
+                        }
+                    }
+
+                    TextButton(
+                        onClick = { isExpanded = !isExpanded },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text(
+                            text = if (isExpanded) "Hide Tools" else "View Tools (${tools.size})",
+                            fontSize = 11.sp
+                        )
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (isExpanded) "Collapse tools" else "Expand tools",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
+                AnimatedVisibility(visible = isExpanded) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = Spacing.sectionGap)
+                    ) {
+                        Text(
+                            text = "DISCOVERED MCP TOOLS:",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CyanSecondary,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(bottom = Spacing.sm)
+                        )
+
+                        if (tools.isEmpty()) {
+                            Text(
+                                text = "No tools discovered yet. Tap 'Sync' to handshake with this server.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                                for (tool in tools) {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.background,
+                                        shape = RoundedCornerShape(Dimens.cornerRadiusMd),
+                                        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(Spacing.sm)) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Build,
+                                                        contentDescription = "Tool",
+                                                        tint = IndigoPrimaryLight,
+                                                        modifier = Modifier.size(Dimens.iconSizeSm)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(Spacing.sm))
+                                                    Text(
+                                                        text = tool.name,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        fontFamily = FontFamily.Monospace
+                                                    )
+                                                }
+
+                                                Switch(
+                                                    checked = tool.isEnabled,
+                                                    onCheckedChange = { onToggleTool(tool.id, it) },
+                                                    colors = SwitchDefaults.colors(
+                                                        checkedThumbColor = CyanSecondary,
+                                                        checkedTrackColor = CyanSecondary.copy(alpha = 0.3f)
+                                                    ),
+                                                    modifier = Modifier.size(32.dp)
                                                 )
                                             }
 
-                                            Switch(
-                                                checked = tool.isEnabled,
-                                                onCheckedChange = { onToggleTool(tool.id, it) },
-                                                colors = SwitchDefaults.colors(
-                                                    checkedThumbColor = CyanSecondary,
-                                                    checkedTrackColor = CyanSecondary.copy(alpha = 0.3f)
-                                                ),
-                                                modifier = Modifier.size(32.dp)
+                                            Text(
+                                                text = tool.description,
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(top = 2.dp)
                                             )
                                         }
-
-                                        Text(
-                                            text = tool.description,
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(top = 2.dp)
-                                        )
                                     }
                                 }
                             }
@@ -553,8 +623,9 @@ fun ServerCardItem(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddServerDialog(
+fun AddServerSheetContent(
     onDismiss: () -> Unit,
     onAdd: (name: String, description: String, endpointUrl: String, authHeader: String) -> Unit
 ) {
@@ -563,81 +634,104 @@ fun AddServerDialog(
     var endpointUrl by remember { mutableStateOf("") }
     var authHeader by remember { mutableStateOf("") }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "Add Remote MCP Server",
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
-            )
-        },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "Connect any remote server implementing the Model Context Protocol (HTTP POST or SSE).",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(Spacing.sheetPadding)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(40.dp)
+                .height(Spacing.xs)
+                .align(Alignment.CenterHorizontally)
+                .clip(RoundedCornerShape(Dimens.cornerRadiusFull))
+                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+        )
 
-                // Quick Presets
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    QuickActionChip("Local (10.0.2.2:3000)") {
-                        name = "Localhost Dev MCP"
-                        description = "Local node / python MCP server"
-                        endpointUrl = "http://10.0.2.2:3000/mcp"
-                    }
-                    QuickActionChip("FastMCP SSE") {
-                        name = "FastMCP Remote"
-                        description = "FastMCP Python cloud runner"
-                        endpointUrl = "https://fastmcp-runner.fly.dev/sse"
-                    }
-                }
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Server Name") },
-                    placeholder = { Text("e.g. Production Database MCP") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+        Text(
+            text = "Add Remote MCP Server",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "Connect any remote server implementing the Model Context Protocol (HTTP POST or SSE).",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = Spacing.xxs)
+        )
 
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Description") },
-                    placeholder = { Text("e.g. Query production read replica") },
-                    maxLines = 2,
-                    modifier = Modifier.fillMaxWidth()
-                )
+        Spacer(modifier = Modifier.height(Spacing.md))
 
-                OutlinedTextField(
-                    value = endpointUrl,
-                    onValueChange = { endpointUrl = it },
-                    label = { Text("Endpoint URL") },
-                    placeholder = { Text("https://mcp.my-domain.com/v1") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = authHeader,
-                    onValueChange = { authHeader = it },
-                    label = { Text("Auth Header (Optional)") },
-                    placeholder = { Text("Bearer sk-mcp-token-xyz") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            QuickActionChip("Local (10.0.2.2:3000)") {
+                name = "Localhost Dev MCP"
+                description = "Local node / python MCP server"
+                endpointUrl = "http://10.0.2.2:3000/mcp"
             }
-        },
-        confirmButton = {
+            QuickActionChip("FastMCP SSE") {
+                name = "FastMCP Remote"
+                description = "FastMCP Python cloud runner"
+                endpointUrl = "https://fastmcp-runner.fly.dev/sse"
+            }
+        }
+
+        Spacer(modifier = Modifier.height(Spacing.md))
+
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap)) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Server Name") },
+                placeholder = { Text("e.g. Production Database MCP") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Description") },
+                placeholder = { Text("e.g. Query production read replica") },
+                maxLines = 2,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = endpointUrl,
+                onValueChange = { endpointUrl = it },
+                label = { Text("Endpoint URL") },
+                placeholder = { Text("https://mcp.my-domain.com/v1") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = authHeader,
+                onValueChange = { authHeader = it },
+                label = { Text("Auth Header (Optional)") },
+                placeholder = { Text("Bearer sk-mcp-token-xyz") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Spacer(modifier = Modifier.height(Spacing.xl))
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Cancel")
+            }
             Button(
                 onClick = {
                     if (name.isNotBlank() && endpointUrl.isNotBlank()) {
@@ -645,15 +739,13 @@ fun AddServerDialog(
                     }
                 },
                 enabled = name.isNotBlank() && endpointUrl.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary)
+                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                modifier = Modifier.weight(1f)
             ) {
                 Text("Connect & Sync")
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
         }
-    )
+
+        Spacer(modifier = Modifier.height(Spacing.xl))
+    }
 }

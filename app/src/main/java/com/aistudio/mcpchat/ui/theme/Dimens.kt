@@ -11,13 +11,19 @@ object Spacing {
     val xl = 24.dp
     val xxl = 32.dp
     val xxxl = 48.dp
+
+    val sheetPadding = 20.dp
+    val cardPadding = 14.dp
+    val sectionGap = 10.dp
 }
 
 object Dimens {
     val touchTargetMin = 48.dp
+    val iconSizeXs = 12.dp
     val iconSizeSm = 14.dp
     val iconSizeMd = 18.dp
     val iconSizeLg = 24.dp
+    val iconSizeXl = 36.dp
     val cornerRadiusSm = 4.dp
     val cornerRadiusMd = 8.dp
     val cornerRadiusLg = 12.dp
@@ -28,6 +34,9 @@ object Dimens {
     val elevationSm = 2.dp
     val elevationMd = 4.dp
     val elevationLg = 8.dp
+    val elevationXl = 12.dp
     val minWidthButton = 64.dp
     val minHeightInput = 48.dp
+    val chatBubbleMaxWidth = 0.80f
+    val accentBarWidth = 4.dp
 }
