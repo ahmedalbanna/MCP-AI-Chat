@@ -114,7 +114,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Add `NetworkResult<T>` sealed class for consistent error handling across repositories
 - Replace raw `String` error messages with typed error states in ViewModels
 
-### 3.4 ViewModel Layer
+### 3.4 ViewModel Layer [x]
 - Extract UI state into dedicated `UiState` data classes (e.g., `ChatUiState`, `ServersUiState`)
 - Add `SavedStateHandle` support where appropriate
 - Standardize error handling — all ViewModels emit `UiState` with loading/error/content
