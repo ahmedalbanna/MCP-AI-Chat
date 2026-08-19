@@ -79,13 +79,13 @@ A phased plan to transform the current prototype into a production-ready, mainta
 
 ## Phase 2: Foundation & Security
 
-### 2.1 Dependency Injection
+### 2.1 Dependency Injection [x]
 - Add Hilt for DI across the app
 - Create a single shared `McpRepository` instance (currently 3 redundant instances across ViewModels)
 - Inject `McpHttpClient`, `GeminiApiService`, DAOs, and repositories
 - Eliminate manual `new` instantiation in ViewModels
 
-### 2.2 Security Hardening
+### 2.2 Security Hardening [x]
 - Remove hardcoded `"gateway-dev-token"` from `McpRepository.kt` — move to `BuildConfig` or encrypted storage
 - Add URL validation for user-provided MCP server endpoints (scheme, host, path checks)
 - Store Gemini API key in `EncryptedSharedPreferences` instead of `BuildConfig` plain text

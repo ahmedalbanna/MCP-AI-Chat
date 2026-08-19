@@ -25,39 +25,47 @@ class McpHttpClient {
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
+    private fun Request.Builder.applyAuthHeaders(server: McpServer): Request.Builder {
+        if (server.authHeader.isNotBlank()) {
+            val parts = server.authHeader.split(":", limit = 2)
+            if (parts.size == 2) {
+                header(parts[0].trim(), parts[1].trim())
+            } else {
+                header("Authorization", server.authHeader.trim())
+            }
+        }
+        return this
+    }
+
+    private fun buildJsonRpcRequest(server: McpServer, method: String, params: JSONObject = JSONObject()): JSONObject {
+        return JSONObject().apply {
+            put("jsonrpc", "2.0")
+            put("id", (1..99999).random())
+            put("method", method)
+            put("params", params)
+        }
+    }
+
     suspend fun testConnection(server: McpServer): Pair<ServerStatus, Long> = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         try {
-            val initPayload = JSONObject().apply {
-                put("jsonrpc", "2.0")
-                put("id", 1)
-                put("method", "initialize")
-                put("params", JSONObject().apply {
-                    put("protocolVersion", server.protocolVersion)
-                    put("capabilities", JSONObject().apply {
-                        put("tools", JSONObject().apply { put("listChanged", true) })
-                    })
-                    put("clientInfo", JSONObject().apply {
-                        put("name", "Android-MCP-Client")
-                        put("version", "1.0.0")
-                    })
+            val initPayload = buildJsonRpcRequest(server, "initialize", JSONObject().apply {
+                put("protocolVersion", server.protocolVersion)
+                put("capabilities", JSONObject().apply {
+                    put("tools", JSONObject().apply { put("listChanged", true) })
                 })
-            }
+                put("clientInfo", JSONObject().apply {
+                    put("name", "Android-MCP-Client")
+                    put("version", "1.0.0")
+                })
+            })
 
             val requestBuilder = Request.Builder()
                 .url(server.endpointUrl)
                 .post(initPayload.toString().toRequestBody(jsonMediaType))
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json, text/event-stream")
-
-            if (server.authHeader.isNotBlank()) {
-                val parts = server.authHeader.split(":", limit = 2)
-                if (parts.size == 2) {
-                    requestBuilder.header(parts[0].trim(), parts[1].trim())
-                } else {
-                    requestBuilder.header("Authorization", server.authHeader.trim())
-                }
-            }
+                .applyAuthHeaders(server)
 
             val response = client.newCall(requestBuilder.build()).execute()
             val latency = System.currentTimeMillis() - startTime
@@ -75,26 +83,13 @@ class McpHttpClient {
 
     suspend fun discoverTools(server: McpServer): List<McpTool> = withContext(Dispatchers.IO) {
         try {
-            val requestPayload = JSONObject().apply {
-                put("jsonrpc", "2.0")
-                put("id", 2)
-                put("method", "tools/list")
-                put("params", JSONObject())
-            }
+            val requestPayload = buildJsonRpcRequest(server, "tools/list")
 
             val requestBuilder = Request.Builder()
                 .url(server.endpointUrl)
                 .post(requestPayload.toString().toRequestBody(jsonMediaType))
                 .header("Content-Type", "application/json")
-
-            if (server.authHeader.isNotBlank()) {
-                val parts = server.authHeader.split(":", limit = 2)
-                if (parts.size == 2) {
-                    requestBuilder.header(parts[0].trim(), parts[1].trim())
-                } else {
-                    requestBuilder.header("Authorization", server.authHeader.trim())
-                }
-            }
+                .applyAuthHeaders(server)
 
             val response = client.newCall(requestBuilder.build()).execute()
             val body = response.body?.string() ?: ""
@@ -137,15 +132,10 @@ class McpHttpClient {
         arguments: Map<String, Any?>
     ): Pair<String, McpLogItem> = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
-        val requestJson = JSONObject().apply {
-            put("jsonrpc", "2.0")
-            put("id", (1000..9999).random())
-            put("method", "tools/call")
-            put("params", JSONObject().apply {
-                put("name", toolName)
-                put("arguments", JSONObject(arguments))
-            })
-        }
+        val requestJson = buildJsonRpcRequest(server, "tools/call", JSONObject().apply {
+            put("name", toolName)
+            put("arguments", JSONObject(arguments))
+        })
 
         var isSuccess = true
         var resultText = ""
@@ -156,15 +146,7 @@ class McpHttpClient {
                 .url(server.endpointUrl)
                 .post(requestJson.toString().toRequestBody(jsonMediaType))
                 .header("Content-Type", "application/json")
-
-            if (server.authHeader.isNotBlank()) {
-                val parts = server.authHeader.split(":", limit = 2)
-                if (parts.size == 2) {
-                    requestBuilder.header(parts[0].trim(), parts[1].trim())
-                } else {
-                    requestBuilder.header("Authorization", server.authHeader.trim())
-                }
-            }
+                .applyAuthHeaders(server)
 
             val response = client.newCall(requestBuilder.build()).execute()
             val body = response.body?.string() ?: ""
