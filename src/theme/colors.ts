@@ -1,0 +1,43 @@
+export const lightColors = {
+  background: '#FFFFFF',
+  surface: '#F7F8FA',
+  surfaceHover: '#EEF0F2',
+  primary: '#0089FF',
+  primaryHover: '#007BE0',
+  primaryLight: '#E6F4FE',
+  textPrimary: '#171717',
+  textSecondary: '#7C7C7C',
+  textInverse: '#FFFFFF',
+  border: '#E2E2E2',
+  borderLight: '#F0F0F0',
+  success: '#278F5E',
+  successLight: '#F2FDF4',
+  error: '#E03636',
+  errorLight: '#FFF7F7',
+  warning: '#E79913',
+  warningLight: '#FDFAED',
+  shadow: '#00000010',
+};
+
+export const darkColors = {
+  background: '#171717',
+  surface: '#282828',
+  surfaceHover: '#333333',
+  primary: '#0289F7',
+  primaryHover: '#73BBF6',
+  primaryLight: '#0D2A44',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#C7C7C7',
+  textInverse: '#171717',
+  border: '#383838',
+  borderLight: '#2E2E2E',
+  success: '#46B37E',
+  successLight: '#1A2E22',
+  error: '#F79596',
+  errorLight: '#2E1A1A',
+  warning: '#E79913',
+  warningLight: '#2E2612',
+  shadow: '#00000040',
+};
+
+export type Colors = typeof lightColors;
