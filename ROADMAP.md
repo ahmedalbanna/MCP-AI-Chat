@@ -172,7 +172,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Add `.editorconfig` for consistent formatting
 - Run lint as part of CI
 
-### 6.2 Remove Dead Code
+### 6.2 Remove Dead Code [x]
 - Remove unused dependencies from `libs.versions.toml` (Camera, Accompanist, Firestore, Play Services Location, Datastore)
 - Remove commented-out dependency blocks from `build.gradle.kts`
 - Clean up unused imports across all files
