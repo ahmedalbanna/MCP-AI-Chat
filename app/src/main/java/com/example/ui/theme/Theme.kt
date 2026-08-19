@@ -10,10 +10,39 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+
+private val AmoledDarkColorScheme = darkColorScheme(
+    primary = IndigoPrimaryLight,
+    onPrimary = SlateSurfaceDark,
+    primaryContainer = IndigoContainerDark,
+    onPrimaryContainer = IndigoPrimaryLight,
+    secondary = CyanSecondaryLight,
+    onSecondary = SlateSurfaceDark,
+    secondaryContainer = CyanContainerDark,
+    onSecondaryContainer = CyanSecondaryLight,
+    tertiary = EmeraldTertiaryLight,
+    onTertiary = SlateSurfaceDark,
+    tertiaryContainer = EmeraldContainerDark,
+    onTertiaryContainer = EmeraldTertiaryLight,
+    background = Color.Black,
+    onBackground = SlateTextPrimaryDark,
+    surface = Color.Black,
+    onSurface = SlateTextPrimaryDark,
+    surfaceVariant = Color(0xFF0A0A0A),
+    onSurfaceVariant = SlateTextSecondaryDark,
+    outline = SlateBorderDark,
+    error = RoseError,
+    errorContainer = RoseErrorContainer
+)
 
 private val DarkColorScheme = darkColorScheme(
     primary = IndigoPrimaryLight,
@@ -63,10 +92,14 @@ private val LightColorScheme = lightColorScheme(
     errorContainer = RoseErrorContainer
 )
 
+object ThemePrefs {
+    var useAmoledDark by mutableStateOf(false)
+}
+
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Set to false to preserve rich custom MCP tech palette
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -74,6 +107,7 @@ fun MyApplicationTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
+        darkTheme && ThemePrefs.useAmoledDark -> AmoledDarkColorScheme
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
@@ -82,8 +116,9 @@ fun MyApplicationTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            window.statusBarColor = Color.Transparent.toArgb()
+            window.navigationBarColor = Color.Transparent.toArgb()
         }
     }
 

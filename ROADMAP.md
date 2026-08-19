@@ -63,7 +63,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Preserve scroll position when switching between tabs
 - Add back navigation support from deep links or notifications
 
-### 1.9 Error & Empty States
+### 1.9 Error & Empty States [x]
 - Design consistent empty state illustrations/composables for: no messages, no servers, no tool results, no audit logs
 - Add error state composables with retry action for: network failure, API key missing, server unreachable
 - Add in-app banner/toast system for non-critical feedback (server synced, tool added, settings saved)
