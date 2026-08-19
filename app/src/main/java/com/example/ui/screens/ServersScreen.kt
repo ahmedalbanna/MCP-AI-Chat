@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
@@ -46,6 +47,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -54,12 +56,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,6 +84,8 @@ import com.example.ui.theme.IndigoPrimary
 import com.example.ui.theme.IndigoPrimaryLight
 import com.example.ui.theme.RoseError
 import com.example.ui.viewmodel.McpServersViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,6 +100,17 @@ fun ServersScreen(
 
     val context = LocalContext.current
     var showAddServerDialog by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var serverToDelete by remember { mutableStateOf<McpServer?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val filteredServers = if (searchQuery.isBlank()) servers
+    else servers.filter {
+        it.name.contains(searchQuery, ignoreCase = true) ||
+        it.description.contains(searchQuery, ignoreCase = true) ||
+        it.endpointUrl.contains(searchQuery, ignoreCase = true)
+    }
 
     LaunchedEffect(feedbackMessage) {
         feedbackMessage?.let {
@@ -137,14 +155,29 @@ fun ServersScreen(
         },
         modifier = modifier.fillMaxSize()
     ) { padding ->
-        LazyColumn(
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                coroutineScope.launch {
+                    isRefreshing = true
+                    servers.forEach { server ->
+                        viewModel.syncTools(server)
+                    }
+                    delay(500)
+                    isRefreshing = false
+                }
+            },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .testTag("servers_list")
         ) {
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("servers_list")
+            ) {
             item {
                 // Info Banner
                 Surface(
@@ -181,7 +214,34 @@ fun ServersScreen(
                 }
             }
 
-            items(servers, key = { it.id }) { server ->
+            // Search bar
+            if (servers.size > 2) {
+                item {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = {
+                            Text("Search servers...", fontSize = 13.sp)
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(18.dp))
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = IndigoPrimary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("server_search_field")
+                    )
+                }
+            }
+
+            items(filteredServers, key = { it.id }) { server ->
                 val serverTools = tools.filter { it.serverId == server.id }
                 ServerCardItem(
                     server = server,
@@ -191,7 +251,7 @@ fun ServersScreen(
                     onToggleTool = { toolId, isEnabled -> viewModel.toggleTool(toolId, isEnabled) },
                     onPing = { viewModel.pingServer(server) },
                     onSync = { viewModel.syncTools(server) },
-                    onDelete = { viewModel.deleteServer(server.id) }
+                    onDelete = { serverToDelete = server }
                 )
             }
 
@@ -199,6 +259,31 @@ fun ServersScreen(
                 Spacer(modifier = Modifier.height(64.dp))
             }
         }
+    }
+
+    // Delete confirmation dialog
+    serverToDelete?.let { server ->
+        AlertDialog(
+            onDismissRequest = { serverToDelete = null },
+            title = { Text("Delete Server") },
+            text = { Text("Are you sure you want to delete \"${server.name}\"? This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteServer(server.id)
+                        serverToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RoseError)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { serverToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     // Add Custom Remote Server Bottom Sheet / Dialog

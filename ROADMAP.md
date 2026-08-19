@@ -26,7 +26,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Add `semantics { liveRegion = LiveRegionMode.Polite }` for new assistant messages so TalkBack announces them
 - Ensure all buttons and toggles have accessible labels (not just icons)
 
-### 1.4 Chat Screen UX
+### 1.4 Chat Screen UX [x]
 - Add loading skeleton/shimmer placeholder while waiting for Gemini response (currently just a spinner or nothing)
 - Show typing indicator animation during AI generation
 - Auto-scroll to bottom on new message, but detect if user has scrolled up — pause auto-scroll, show "Jump to bottom" FAB
