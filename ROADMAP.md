@@ -153,7 +153,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Add timeout configuration (connect, read, write) per server
 - Surface network errors to UI with actionable messages ("Server unreachable", "Invalid response")
 
-### 5.2 Database Migrations
+### 5.2 Database Migrations [x]
 - Export Room schema (`exportSchema = true`, add schema directory)
 - Write migration from version 1 → 2 for any schema changes
 - Add CI check that validates migrations against exported schemas

@@ -150,10 +150,17 @@ class GeminiApiService {
 
             if (!response.isSuccessful) {
                 Log.e(TAG, "Gemini API failed with code ${response.code}: $responseBody")
+                val errorMsg = when (response.code) {
+                    429 -> "Rate limit exceeded. Please wait a moment and try again."
+                    403 -> "Gemini API access denied. Check your API key permissions."
+                    404 -> "Model '$modelName' not found. Try a different model."
+                    500, 502, 503 -> "Gemini API is temporarily unavailable. Please try again later."
+                    else -> "Gemini API Error (${response.code}): ${parseErrorMessage(responseBody)}"
+                }
                 return@withContext GeminiResponse(
                     text = null,
                     rawJson = responseBody,
-                    error = "Gemini API Error (${response.code}): ${parseErrorMessage(responseBody)}"
+                    error = errorMsg
                 )
             }
 

@@ -12,6 +12,7 @@ import com.aistudio.mcpchat.data.network.McpHttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -116,6 +117,15 @@ class McpRepository(
         val (status, latency) = mcpHttpClient.testConnection(server)
         val updated = server.copy(status = status, latencyMs = latency)
         serverDao.updateServer(updated.toEntity())
+
+        if (status == ServerStatus.ERROR) {
+            toolDao.getToolsForServer(server.id).first().let { tools ->
+                if (tools.isNotEmpty()) {
+                    toolDao.deleteToolsForServer(server.id)
+                }
+            }
+        }
+
         updated
     }
 

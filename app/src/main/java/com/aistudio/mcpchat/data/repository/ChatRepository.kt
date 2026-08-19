@@ -166,9 +166,14 @@ class ChatRepository(
                         "2. To activate live Gemini model responses, configure your Gemini API Key in the **Secrets panel**."
                     continueLoop = false
                     break
+                } else if (geminiResponse.error.contains("Rate limit", ignoreCase = true)) {
+                    isError = true
+                    finalResponseText = "Rate limit exceeded. Please wait a moment and try sending your message again."
+                    continueLoop = false
+                    break
                 } else {
                     isError = true
-                    finalResponseText = "⚠️ ${geminiResponse.error}"
+                    finalResponseText = "${geminiResponse.error}"
                     continueLoop = false
                     break
                 }
@@ -232,8 +237,8 @@ class ChatRepository(
                             map[k] = jsonObj.get(k)
                         }
                         map
-                    } catch (e: Exception) {
-                        mapOf("result" to execResult)
+                    } catch (_: Exception) {
+                        mapOf("result" to (execResult.take(1000) if (execResult.isNotBlank() else "Empty response"))
                     }
 
                     functionResponsesParts.add(
