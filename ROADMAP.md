@@ -50,7 +50,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Add search/filter for servers when list grows long
 - Empty state illustration when no servers are configured
 
-### 1.7 Inspector Screen UX
+### 1.7 Inspector Screen UX [x]
 - Add parameter input validation with inline error messages (currently accepts any input)
 - Show execution history with timestamps in a scrollable list
 - Add "Re-execute" button on previous tool calls to quickly re-run with same params

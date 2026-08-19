@@ -4,12 +4,18 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -24,6 +30,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -35,6 +42,7 @@ import com.example.ui.screens.InspectorScreen
 import com.example.ui.screens.ServersScreen
 import com.example.ui.theme.IndigoPrimary
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.RoseError
 import com.example.ui.viewmodel.ChatViewModel
 import com.example.ui.viewmodel.McpInspectorViewModel
 import com.example.ui.viewmodel.McpServersViewModel
@@ -67,6 +75,8 @@ fun MainApp() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    val isGenerating by chatViewModel.isGenerating.collectAsStateWithLifecycle()
+
     val items = listOf(
         Screen.Chat,
         Screen.Servers,
@@ -83,7 +93,22 @@ fun MainApp() {
                 items.forEach { screen ->
                     val isSelected = currentRoute == screen.route
                     NavigationBarItem(
-                        icon = { Icon(screen.icon, contentDescription = screen.title) },
+                        icon = {
+                            BadgedBox(
+                                badge = {
+                                    if (screen is Screen.Chat && isGenerating) {
+                                        Badge(
+                                            containerColor = RoseError,
+                                            contentColor = MaterialTheme.colorScheme.onError
+                                        ) {
+                                            Text("!", fontSize = 10.sp)
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(screen.icon, contentDescription = screen.title)
+                            }
+                        },
                         label = { Text(screen.title, fontSize = 11.sp) },
                         selected = isSelected,
                         colors = NavigationBarItemDefaults.colors(
@@ -114,6 +139,8 @@ fun MainApp() {
         NavHost(
             navController = navController,
             startDestination = Screen.Chat.route,
+            enterTransition = { fadeIn() },
+            exitTransition = { fadeOut() },
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Chat.route) {
