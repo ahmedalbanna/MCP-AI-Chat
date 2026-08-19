@@ -158,7 +158,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Write migration from version 1 → 2 for any schema changes
 - Add CI check that validates migrations against exported schemas
 
-### 5.3 Graceful Degradation
+### 5.3 Graceful Degradation [x]
 - When an MCP server is unreachable, disable its tools gracefully (not crash)
 - Handle Gemini API rate limits with user-facing message and retry
 - Handle malformed JSON-RPC responses without crashing the chat loop

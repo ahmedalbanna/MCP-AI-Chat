@@ -8,6 +8,8 @@ plugins {
   alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
   alias(libs.plugins.hilt)
+  alias(libs.plugins.detekt)
+  alias(libs.plugins.spotless)
 }
 
 android {
@@ -126,4 +128,18 @@ dependencies {
   "ksp"(libs.hilt.compiler)
   implementation(libs.hilt.android)
   implementation(libs.hilt.navigation.compose)
+}
+
+detekt {
+  buildUponDefaultConfig = true
+  allRules = false
+  config.setFrom(file("$rootDir/detekt-config.yml"))
+}
+
+spotless {
+  kotlin {
+    target("**/*.kt")
+    targetExclude("**/build/**")
+    ktlint()
+  }
 }
