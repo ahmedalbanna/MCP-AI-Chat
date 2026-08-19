@@ -183,7 +183,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Add KDoc to public interfaces and key classes
 - Document the MCP protocol flow in code comments where non-obvious
 
-### 6.4 ProGuard / R8
+### 6.4 ProGuard / R8 [x]
 - Enable minification for release builds (`isMinifyEnabled = true`)
 - Add proper ProGuard rules for Moshi, OkHttp, Room, Retrofit
 - Test release build to verify no reflection-based crashes
