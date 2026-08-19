@@ -128,11 +128,11 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - `SystemPromptBuilder` — prompt construction with various tool sets
 - `ToolOrchestrator` — multi-turn tool calling loop (mock Gemini + MCP)
 
-### 4.2 Integration Tests
+### 4.2 Integration Tests [x]
 - `McpRepository` — Room CRUD operations with in-memory database
 - `ChatRepository` — end-to-end message flow with mocked network
 
-### 4.3 UI Tests
+### 4.3 UI Tests [x]
 - Replace boilerplate `ExampleUnitTest` / `ExampleRobolectricTest` / `ExampleInstrumentedTest`
 - Fix `GreetingScreenshotTest.kt` — reference correct composable or remove
 - Add Compose UI tests for ChatScreen, ServersScreen, InspectorScreen
