@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { MCPTool } from '../types';
 
 interface JSONRPCRequest {
@@ -20,12 +21,21 @@ function nextId(): number {
   return ++requestId;
 }
 
+function proxyUrl(url: string): string {
+  if (Platform.OS === 'web') {
+    const u = new URL(url);
+    return `/mcp-proxy${u.pathname}${u.search}`;
+  }
+  return url;
+}
+
 async function jsonrpcPost(
   url: string,
   method: string,
   params?: Record<string, unknown>,
-  headers?: Record<string, string>
-): Promise<unknown> {
+  headers?: Record<string, string>,
+  sessionId?: string
+): Promise<{ result: unknown; sessionId?: string }> {
   const body: JSONRPCRequest = {
     jsonrpc: '2.0',
     id: nextId(),
@@ -33,16 +43,32 @@ async function jsonrpcPost(
     params,
   };
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json, text/event-stream',
-      ...headers,
-    },
-    body: JSON.stringify(body),
-  });
+  const reqHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json, text/event-stream',
+    ...headers,
+  };
 
+  if (sessionId) {
+    reqHeaders['Mcp-Session-Id'] = sessionId;
+  }
+
+  const target = proxyUrl(url);
+
+  let response: Response;
+  try {
+    response = await fetch(target, {
+      method: 'POST',
+      headers: reqHeaders,
+      body: JSON.stringify(body),
+    });
+  } catch (err: any) {
+    throw new Error(
+      `Failed to connect to MCP server. ${Platform.OS === 'web' ? 'On web, this may be a CORS issue — try on mobile.' : ''} ${err?.message ?? ''}`
+    );
+  }
+
+  const newSessionId = response.headers.get('mcp-session-id') ?? sessionId;
   const contentType = response.headers.get('content-type') ?? '';
 
   if (contentType.includes('text/event-stream')) {
@@ -57,21 +83,26 @@ async function jsonrpcPost(
     if (lastData) {
       const parsed = JSON.parse(lastData) as JSONRPCResponse;
       if (parsed.error) throw new Error(parsed.error.message);
-      return parsed.result;
+      return { result: parsed.result, sessionId: newSessionId ?? undefined };
     }
     throw new Error('No data in SSE response');
   }
 
-  const data = (await response.json()) as JSONRPCResponse;
+  const text = await response.text();
+  if (!text) {
+    return { result: null, sessionId: newSessionId ?? undefined };
+  }
+
+  const data = JSON.parse(text) as JSONRPCResponse;
   if (data.error) throw new Error(data.error.message);
-  return data.result;
+  return { result: data.result, sessionId: newSessionId ?? undefined };
 }
 
 export async function initializeServer(
   url: string,
   headers?: Record<string, string>
-): Promise<{ name: string; version: string; capabilities: unknown }> {
-  const result = (await jsonrpcPost(
+): Promise<{ name: string; version: string; capabilities: unknown; sessionId?: string }> {
+  const { result, sessionId } = await jsonrpcPost(
     url,
     'initialize',
     {
@@ -80,29 +111,40 @@ export async function initializeServer(
       clientInfo: { name: 'mcp-ai-chat', version: '1.0.0' },
     },
     headers
-  )) as { serverInfo?: { name: string; version: string }; capabilities?: unknown };
+  );
 
-  await jsonrpcPost(url, 'notifications/initialized', {}, headers);
+  const info = result as { serverInfo?: { name: string; version: string }; capabilities?: unknown };
+
+  try {
+    await jsonrpcPost(url, 'notifications/initialized', {}, headers, sessionId);
+  } catch {
+    // notifications/initialized may not return a response — that's OK
+  }
 
   return {
-    name: result.serverInfo?.name ?? 'Unknown',
-    version: result.serverInfo?.version ?? '0.0.0',
-    capabilities: result.capabilities ?? {},
+    name: info.serverInfo?.name ?? 'Unknown',
+    version: info.serverInfo?.version ?? '0.0.0',
+    capabilities: info.capabilities ?? {},
+    sessionId,
   };
 }
 
 export async function listTools(
   url: string,
-  headers?: Record<string, string>
+  headers?: Record<string, string>,
+  sessionId?: string
 ): Promise<MCPTool[]> {
-  const result = (await jsonrpcPost(
+  const { result } = await jsonrpcPost(
     url,
     'tools/list',
     {},
-    headers
-  )) as { tools?: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> };
+    headers,
+    sessionId
+  );
 
-  return (result.tools ?? []).map((t) => ({
+  const data = result as { tools?: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> };
+
+  return (data.tools ?? []).map((t) => ({
     name: t.name,
     description: t.description ?? '',
     inputSchema: t.inputSchema ?? {},
@@ -114,6 +156,6 @@ export async function inspectServer(
   headers?: Record<string, string>
 ): Promise<{ tools: MCPTool[]; serverName: string }> {
   const info = await initializeServer(url, headers);
-  const tools = await listTools(url, headers);
+  const tools = await listTools(url, headers, info.sessionId);
   return { tools, serverName: info.name };
 }
