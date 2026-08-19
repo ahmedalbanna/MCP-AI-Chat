@@ -1,22 +1,23 @@
 package com.example.ui.viewmodel
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.local.AppDatabase
 import com.example.data.model.McpServer
 import com.example.data.model.McpTool
 import com.example.data.repository.McpRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class McpServersViewModel(application: Application) : AndroidViewModel(application) {
-    private val database = AppDatabase.getDatabase(application)
-    val repository = McpRepository(database)
+@HiltViewModel
+class McpServersViewModel @Inject constructor(
+    private val repository: McpRepository
+) : ViewModel() {
 
     val servers: StateFlow<List<McpServer>> = repository.serversFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

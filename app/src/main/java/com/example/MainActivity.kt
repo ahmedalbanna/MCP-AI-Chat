@@ -30,8 +30,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -46,6 +46,7 @@ import com.example.ui.theme.RoseError
 import com.example.ui.viewmodel.ChatViewModel
 import com.example.ui.viewmodel.McpInspectorViewModel
 import com.example.ui.viewmodel.McpServersViewModel
+import dagger.hilt.android.AndroidEntryPoint
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Chat : Screen("chat", "Chat", Icons.Default.Chat)
@@ -53,6 +54,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Inspector : Screen("inspector", "Inspector", Icons.Default.Science)
 }
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,9 +70,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainApp() {
     val navController = rememberNavController()
-    val chatViewModel: ChatViewModel = viewModel()
-    val serversViewModel: McpServersViewModel = viewModel()
-    val inspectorViewModel: McpInspectorViewModel = viewModel()
+    val chatViewModel: ChatViewModel = hiltViewModel()
+    val serversViewModel: McpServersViewModel = hiltViewModel()
+    val inspectorViewModel: McpInspectorViewModel = hiltViewModel()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
