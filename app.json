@@ -18,7 +18,8 @@
             }
           }
         }
-      }
+      },
+      "bundleIdentifier": "com.anonymous.mcpaichat"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,7 +29,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "package": "com.anonymous.mcpaichat"
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -37,7 +39,8 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-status-bar"
+      "expo-status-bar",
+      "./plugins/with-cleartext"
     ]
   }
 }
