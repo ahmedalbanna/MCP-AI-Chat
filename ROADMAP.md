@@ -178,7 +178,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Clean up unused imports across all files
 - Remove `@Suppress("DEPRECATION")` by migrating to non-deprecated APIs
 
-### 6.3 Documentation
+### 6.3 Documentation [x]
 - Write `README.md` with: project overview, setup instructions, architecture diagram, environment variables
 - Add KDoc to public interfaces and key classes
 - Document the MCP protocol flow in code comments where non-obvious
