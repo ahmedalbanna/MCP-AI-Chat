@@ -1,0 +1,278 @@
+package com.aistudio.mcpchat.ui.viewmodel
+
+import androidx.lifecycle.SavedStateHandle
+import com.aistudio.mcpchat.data.local.ChatMessageEntity
+import com.aistudio.mcpchat.data.local.ChatSessionEntity
+import com.aistudio.mcpchat.data.model.McpServer
+import com.aistudio.mcpchat.data.model.McpTool
+import com.aistudio.mcpchat.data.model.McpToolCall
+import com.aistudio.mcpchat.data.model.ServerStatus
+import com.aistudio.mcpchat.data.repository.ChatRepository
+import com.aistudio.mcpchat.data.repository.McpRepository
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class ChatViewModelTest {
+
+    private val testDispatcher = StandardTestDispatcher()
+    private lateinit var mcpRepository: McpRepository
+    private lateinit var chatRepository: ChatRepository
+    private lateinit var savedStateHandle: SavedStateHandle
+    private lateinit var viewModel: ChatViewModel
+
+    private val sessionsFlow = MutableStateFlow<List<ChatSessionEntity>>(emptyList())
+    private val serversFlow = MutableStateFlow<List<McpServer>>(emptyList())
+    private val toolsFlow = MutableStateFlow<List<McpTool>>(emptyList())
+    private val messagesFlow = MutableStateFlow<List<ChatMessageEntity>>(emptyList())
+
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(testDispatcher)
+        mcpRepository = mockk(relaxed = true)
+        chatRepository = mockk(relaxed = true)
+        savedStateHandle = SavedStateHandle()
+
+        every { mcpRepository.serversFlow } returns serversFlow
+        every { mcpRepository.allToolsFlow } returns toolsFlow
+        every { chatRepository.allSessionsFlow } returns sessionsFlow
+        every { chatRepository.getMessagesForSession(any()) } returns messagesFlow
+    }
+
+    private fun createViewModel() {
+        viewModel = ChatViewModel(mcpRepository, chatRepository, savedStateHandle)
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `initial uiState has default values`() = runTest {
+        createViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.currentSessionId)
+        assertTrue(state.sessions.isEmpty())
+        assertTrue(state.messages.isEmpty())
+        assertTrue(state.servers.isEmpty())
+        assertTrue(state.tools.isEmpty())
+        assertFalse(state.isGenerating)
+        assertTrue(state.inProgressToolCalls.isEmpty())
+        assertNull(state.error)
+    }
+
+    @Test
+    fun `selectSession updates currentSessionId`() = runTest {
+        createViewModel()
+
+        viewModel.selectSession("session_123")
+        advanceUntilIdle()
+
+        assertEquals("session_123", viewModel.currentSessionId.value)
+    }
+
+    @Test
+    fun `selectSession clears error state`() = runTest {
+        createViewModel()
+
+        viewModel.selectSession("session_123")
+        advanceUntilIdle()
+
+        assertNull(viewModel.errorMessage.value)
+        assertNull(viewModel.uiError.value)
+    }
+
+    @Test
+    fun `createNewChat calls chatRepository and sets sessionId`() = runTest {
+        val session = ChatSessionEntity(id = "new_session", title = "New AI Chat")
+        coEvery { chatRepository.createNewSession(any(), any()) } returns session
+
+        createViewModel()
+        viewModel.createNewChat()
+        advanceUntilIdle()
+
+        assertEquals("new_session", viewModel.currentSessionId.value)
+        coVerify { chatRepository.createNewSession(title = "New AI Chat", model = "gemini-3.5-flash") }
+    }
+
+    @Test
+    fun `createNewChat with custom model passes model parameter`() = runTest {
+        val session = ChatSessionEntity(id = "new_session", title = "New AI Chat", model = "gemini-2.0-flash")
+        coEvery { chatRepository.createNewSession(any(), any()) } returns session
+
+        createViewModel()
+        viewModel.createNewChat(model = "gemini-2.0-flash")
+        advanceUntilIdle()
+
+        coVerify { chatRepository.createNewSession(title = "New AI Chat", model = "gemini-2.0-flash") }
+    }
+
+    @Test
+    fun `deleteSession calls chatRepository and updates sessionId`() = runTest {
+        sessionsFlow.value = listOf(
+            ChatSessionEntity(id = "s1", title = "Session 1"),
+            ChatSessionEntity(id = "s2", title = "Session 2")
+        )
+        coEvery { chatRepository.deleteSession(any()) } coAnswers {
+            sessionsFlow.value = sessionsFlow.value.filter { it.id != firstArg<String>() }
+        }
+
+        createViewModel()
+        advanceUntilIdle()
+
+        viewModel.deleteSession("s1")
+        advanceUntilIdle()
+
+        coVerify { chatRepository.deleteSession("s1") }
+    }
+
+    @Test
+    fun `toggleServer calls mcpRepository`() = runTest {
+        createViewModel()
+        viewModel.toggleServer("server_1", true)
+        advanceUntilIdle()
+
+        coVerify { mcpRepository.toggleServer("server_1", true) }
+    }
+
+    @Test
+    fun `updateSessionModel calls chatRepository`() = runTest {
+        val session = ChatSessionEntity(id = "s1", title = "Test")
+        sessionsFlow.value = listOf(session)
+        coEvery { chatRepository.createNewSession(any(), any()) } returns session
+
+        createViewModel()
+        viewModel.selectSession("s1")
+        viewModel.updateSessionModel("gemini-2.0-flash")
+        advanceUntilIdle()
+
+        coVerify { chatRepository.updateSessionModel("s1", "gemini-2.0-flash") }
+    }
+
+    @Test
+    fun `updateSessionModel does nothing when no session selected`() = runTest {
+        createViewModel()
+        viewModel.updateSessionModel("gemini-2.0-flash")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { chatRepository.updateSessionModel(any(), any()) }
+    }
+
+    @Test
+    fun `sendMessage sets isGenerating true and calls repository`() = runTest {
+        coEvery { chatRepository.sendMessage(any(), any(), any()) } returns Result.success(
+            ChatMessageEntity(id = "msg_1", sessionId = "s1", role = "assistant", content = "Hello!")
+        )
+
+        sessionsFlow.value = listOf(ChatSessionEntity(id = "s1", title = "Test"))
+        createViewModel()
+        viewModel.selectSession("s1")
+        advanceUntilIdle()
+
+        viewModel.sendMessage("Hi there")
+        advanceUntilIdle()
+
+        assertFalse(viewModel.isGenerating.value)
+        coVerify { chatRepository.sendMessage("s1", "Hi there", any()) }
+    }
+
+    @Test
+    fun `sendMessage with blank prompt does nothing`() = runTest {
+        createViewModel()
+        viewModel.sendMessage("")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { chatRepository.sendMessage(any(), any(), any()) }
+    }
+
+    @Test
+    fun `sendMessage with whitespace-only prompt does nothing`() = runTest {
+        createViewModel()
+        viewModel.sendMessage("   ")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { chatRepository.sendMessage(any(), any(), any()) }
+    }
+
+    @Test
+    fun `sendMessage when already generating does nothing`() = runTest {
+        coEvery { chatRepository.sendMessage(any(), any(), any()) } coAnswers {
+            kotlinx.coroutines.delay(1000)
+            Result.success(ChatMessageEntity(id = "msg_1", sessionId = "s1", role = "assistant", content = "Hi"))
+        }
+
+        sessionsFlow.value = listOf(ChatSessionEntity(id = "s1", title = "Test"))
+        createViewModel()
+        viewModel.selectSession("s1")
+        advanceUntilIdle()
+
+        viewModel.sendMessage("First message")
+        viewModel.sendMessage("Second message")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { chatRepository.sendMessage(any(), any(), any()) }
+    }
+
+    @Test
+    fun `clearError clears both error and uiError`() = runTest {
+        createViewModel()
+        viewModel.clearError()
+        advanceUntilIdle()
+
+        assertNull(viewModel.errorMessage.value)
+        assertNull(viewModel.uiError.value)
+    }
+
+    @Test
+    fun `uiState reflects sessions from repository`() = runTest {
+        val sessions = listOf(
+            ChatSessionEntity(id = "s1", title = "Session 1"),
+            ChatSessionEntity(id = "s2", title = "Session 2")
+        )
+        sessionsFlow.value = sessions
+
+        createViewModel()
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.uiState.value.sessions.size)
+    }
+
+    @Test
+    fun `uiState reflects servers from repository`() = runTest {
+        val servers = listOf(
+            McpServer(id = "s1", name = "Server 1", description = "desc", endpointUrl = "http://test.com")
+        )
+        serversFlow.value = servers
+
+        createViewModel()
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.servers.size)
+        assertEquals("Server 1", viewModel.uiState.value.servers[0].name)
+    }
+}
