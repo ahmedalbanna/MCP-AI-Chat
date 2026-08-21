@@ -170,8 +170,8 @@ class McpRepository(
             id = "preset_erpnext",
             name = "ERPNext Gateway",
             description = "Enterprise Resource Planning gateway for ERPNext, providing tools for document management, accounting, and business automation.",
-            endpointUrl = "https://8033-01ky8gme6ek5wava50hemgxjk9.cloudspaces.litng.ai/mcp",
-            authHeader = "gateway-dev-token",
+            endpointUrl = "http://185.190.140.93:8022/mcp",
+            authHeader = "Bearer 3f712dd3b3fec4f17651eec9cd5fde87dccd3d92281cdbfdadaa0019eb429e2e",
             isPreset = false,
             isEnabled = true,
             status = ServerStatus.DISCONNECTED,
@@ -193,8 +193,8 @@ class McpRepository(
             id = serverId,
             name = "ERPNext Gateway",
             description = "Enterprise Resource Planning gateway for ERPNext, providing tools for document management, accounting, and business automation.",
-            endpointUrl = "https://8033-01ky8gme6ek5wava50hemgxjk9.cloudspaces.litng.ai/mcp",
-            authHeader = "gateway-dev-token",
+            endpointUrl = "http://185.190.140.93:8022/mcp",
+            authHeader = "Bearer 3f712dd3b3fec4f17651eec9cd5fde87dccd3d92281cdbfdadaa0019eb429e2e",
             isPreset = false,
             isEnabled = true,
             status = ServerStatus.DISCONNECTED,
@@ -207,10 +207,10 @@ class McpRepository(
             syncServerTools(erpnext)
         } else {
             val existingModel = existing.toModel()
-            if (existingModel.authHeader != erpnext.authHeader || 
-                existingModel.endpointUrl != erpnext.endpointUrl || 
+            if (existingModel.authHeader != erpnext.authHeader ||
+                existingModel.endpointUrl != erpnext.endpointUrl ||
                 existingModel.isPreset) {
-                
+
                 val updated = erpnext.copy(
                     status = ServerStatus.CONNECTING,
                     toolsCount = existingModel.toolsCount

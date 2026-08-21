@@ -5,6 +5,7 @@ import com.aistudio.mcpchat.data.model.ServerStatus
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -92,5 +93,57 @@ class McpHttpClientTest {
         )
         val tools = client.discoverTools(server)
         assertTrue(tools.isEmpty())
+    }
+
+    @Test
+    fun `extractJsonRpcBody parses raw json`() {
+        val raw = """{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}"""
+        val json = McpHttpClient.extractJsonRpcBody(raw)
+        assertNotNull(json)
+        assertEquals("2.0", json!!.getString("jsonrpc"))
+        assertTrue(json.has("result"))
+    }
+
+    @Test
+    fun `extractJsonRpcBody parses sse framed response`() {
+        val raw = "event: message\n" +
+            "data: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[{\"name\":\"t\"}]}}\n\n"
+        val json = McpHttpClient.extractJsonRpcBody(raw)
+        assertNotNull(json)
+        val tools = json!!.getJSONObject("result").getJSONArray("tools")
+        assertEquals(1, tools.length())
+        assertEquals("t", tools.getJSONObject(0).getString("name"))
+    }
+
+    @Test
+    fun `extractJsonRpcBody parses error framed response`() {
+        val raw = "event: message\n" +
+            "data: {\"jsonrpc\":\"2.0\",\"id\":\"server-error\",\"error\":{\"code\":-32600,\"message\":\"Bad Request: Missing session ID\"}}\n\n"
+        val json = McpHttpClient.extractJsonRpcBody(raw)
+        assertNotNull(json)
+        assertEquals(-32600, json!!.getJSONObject("error").getInt("code"))
+    }
+
+    @Test
+    fun `extractJsonRpcBody uses last data frame when multiple present`() {
+        val raw = "event: message\n" +
+            "data: {\"jsonrpc\":\"2.0\",\"id\":1}\n" +
+            "data: {\"jsonrpc\":\"2.0\",\"id\":2}\n\n"
+        val json = McpHttpClient.extractJsonRpcBody(raw)
+        assertNotNull(json)
+        assertEquals(2, json!!.getInt("id"))
+    }
+
+    @Test
+    fun `extractJsonRpcBody returns null for blank body`() {
+        assertNull(McpHttpClient.extractJsonRpcBody(""))
+        assertNull(McpHttpClient.extractJsonRpcBody("   \n  "))
+    }
+
+    @Test
+    fun `extractJsonRpcBody returns null for malformed content`() {
+        assertNull(McpHttpClient.extractJsonRpcBody("{not json"))
+        assertNull(McpHttpClient.extractJsonRpcBody("event: message\ndata: [1,2,3]\n"))
+        assertNull(McpHttpClient.extractJsonRpcBody("event: ping\n\n"))
     }
 }
