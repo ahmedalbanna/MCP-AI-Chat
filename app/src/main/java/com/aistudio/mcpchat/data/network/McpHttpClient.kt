@@ -15,9 +15,12 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
-class McpHttpClient {
-    private val TAG = "McpHttpClient"
+class McpHttpClient(
+    private val retryManager: RetryManager = RetryManager(),
+    private val circuitBreaker: CircuitBreaker = CircuitBreaker()
+) {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     private val client = OkHttpClient.Builder()
@@ -27,6 +30,7 @@ class McpHttpClient {
         .build()
 
     private val sessions = ConcurrentHashMap<String, String>()
+    private val rpcIdCounter = AtomicLong(0)
 
     private fun Request.Builder.applyAuthHeaders(server: McpServer): Request.Builder {
         if (server.authHeader.isNotBlank()) {
@@ -40,15 +44,22 @@ class McpHttpClient {
         return this
     }
 
-    private fun Request.Builder.applySessionHeader(endpointUrl: String): Request.Builder {
-        sessions[endpointUrl]?.let { header(HEADER_SESSION_ID, it) }
+    private fun Request.Builder.applySessionHeader(sessionKey: String): Request.Builder {
+        sessions[sessionKey]?.let { header(HEADER_SESSION_ID, it) }
         return this
     }
 
-    private fun buildJsonRpcRequest(server: McpServer, method: String, params: JSONObject = JSONObject()): JSONObject {
+    // Sessions must be scoped to endpoint AND credentials so two servers that
+    // share a URL but not an auth header never exchange session ids.
+    private fun sessionKey(server: McpServer): String =
+        "${server.endpointUrl}|${server.authHeader}"
+
+    private fun nextRpcId(): Long = rpcIdCounter.incrementAndGet()
+
+    private fun buildJsonRpcRequest(method: String, params: JSONObject = JSONObject()): JSONObject {
         return JSONObject().apply {
             put("jsonrpc", "2.0")
-            put("id", (1..99999).random())
+            put("id", nextRpcId())
             put("method", method)
             put("params", params)
         }
@@ -62,33 +73,40 @@ class McpHttpClient {
         }
     }
 
-    private suspend fun postJsonRpc(
-        server: McpServer,
-        payload: JSONObject,
-        expectResponseBody: Boolean = true
-    ): Pair<Int, String> = withContext(Dispatchers.IO) {
-        try {
-            val requestBuilder = Request.Builder()
-                .url(server.endpointUrl)
-                .post(payload.toString().toRequestBody(jsonMediaType))
-                .header("Content-Type", "application/json")
-                .header("Accept", "application/json, text/event-stream")
-                .applyAuthHeaders(server)
-                .applySessionHeader(server.endpointUrl)
-
-            val response = client.newCall(requestBuilder.build()).execute()
-            val body = if (expectResponseBody) response.body?.string() ?: "" else ""
-            Pair(response.code, body)
-        } catch (e: Exception) {
-            Log.e(TAG, "Request failed for ${server.name}: ${e.message}")
-            Pair(-1, "")
-        }
+    private fun buildPostRequest(server: McpServer, payload: JSONObject): Request {
+        return Request.Builder()
+            .url(server.endpointUrl)
+            .post(payload.toString().toRequestBody(jsonMediaType))
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json, text/event-stream")
+            .applyAuthHeaders(server)
+            .build()
     }
+
+    /** POST carrying the MCP session id for an already-initialized server. */
+    private fun buildSessionPostRequest(server: McpServer, payload: JSONObject): Request {
+        val key = sessionKey(server)
+        return Request.Builder()
+            .url(server.endpointUrl)
+            .post(payload.toString().toRequestBody(jsonMediaType))
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json, text/event-stream")
+            .applyAuthHeaders(server)
+            .applySessionHeader(key)
+            .build()
+    }
+
+    private suspend fun postWithSession(server: McpServer, payload: JSONObject): Pair<Int, String> =
+        withContext(Dispatchers.IO) {
+            client.newCall(buildSessionPostRequest(server, payload)).execute().use { response ->
+                Pair(response.code, response.body?.string() ?: "")
+            }
+        }
 
     private suspend fun performHandshake(server: McpServer): Boolean = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         try {
-            val initPayload = buildJsonRpcRequest(server, "initialize", JSONObject().apply {
+            val initPayload = buildJsonRpcRequest("initialize", JSONObject().apply {
                 put("protocolVersion", server.protocolVersion)
                 put("capabilities", JSONObject().apply {
                     put("tools", JSONObject().apply { put("listChanged", true) })
@@ -99,18 +117,16 @@ class McpHttpClient {
                 })
             })
 
-            val requestBuilder = Request.Builder()
-                .url(server.endpointUrl)
-                .post(initPayload.toString().toRequestBody(jsonMediaType))
-                .header("Content-Type", "application/json")
-                .header("Accept", "application/json, text/event-stream")
-                .applyAuthHeaders(server)
-
-            val response = client.newCall(requestBuilder.build()).execute()
+            val response = retryManager.executeWithRetry("initialize ${server.name}") {
+                client.newCall(buildPostRequest(server, initPayload)).execute()
+            }
             val body = response.body?.string() ?: ""
+            val statusCode = response.code
+            val sessionIdHeader = response.header(HEADER_SESSION_ID)
+            response.close()
 
-            if (!response.isSuccessful) {
-                Log.e(TAG, "Initialize failed for ${server.name}: HTTP ${response.code}")
+            if (statusCode !in 200..299) {
+                Log.e(TAG, "Initialize failed for ${server.name}: HTTP $statusCode")
                 return@withContext false
             }
 
@@ -120,22 +136,13 @@ class McpHttpClient {
                 return@withContext false
             }
 
-            val sessionId = response.header(HEADER_SESSION_ID)
-            if (!sessionId.isNullOrBlank()) {
-                sessions[server.endpointUrl] = sessionId
+            if (!sessionIdHeader.isNullOrBlank()) {
+                sessions[sessionKey(server)] = sessionIdHeader
             }
 
             val notification = buildJsonRpcNotification("notifications/initialized")
-            val notificationRequest = Request.Builder()
-                .url(server.endpointUrl)
-                .post(notification.toString().toRequestBody(jsonMediaType))
-                .header("Content-Type", "application/json")
-                .header("Accept", "application/json, text/event-stream")
-                .applyAuthHeaders(server)
-                .applySessionHeader(server.endpointUrl)
-
             runCatching {
-                client.newCall(notificationRequest.build()).execute().use { it.close() }
+                client.newCall(buildPostRequest(server, notification)).execute().use { it.close() }
             }
 
             Log.d(TAG, "Handshake completed for ${server.name} in ${System.currentTimeMillis() - startTime}ms")
@@ -147,7 +154,7 @@ class McpHttpClient {
     }
 
     private suspend fun ensureSession(server: McpServer): Boolean {
-        if (sessions.containsKey(server.endpointUrl)) return true
+        if (sessions.containsKey(sessionKey(server))) return true
         return performHandshake(server)
     }
 
@@ -161,18 +168,36 @@ class McpHttpClient {
 
     private suspend fun callWithSessionRetry(
         server: McpServer,
-        requestJson: JSONObject
+        requestJson: JSONObject,
+        retriable: Boolean
     ): JSONObject? = withContext(Dispatchers.IO) {
         ensureSession(server)
 
-        var (code, body) = postJsonRpc(server, requestJson)
+        val send: suspend () -> Pair<Int, String> = {
+            try {
+                if (retriable) {
+                    // Idempotent calls only (initialize, tools/list) — never
+                    // tools/call, which may have side effects.
+                    retryManager.executeWithRetry("POST ${server.name}") {
+                        postWithSession(server, requestJson)
+                    }
+                } else {
+                    postWithSession(server, requestJson)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Request failed for ${server.name}: ${e.message}")
+                Pair(-1, "")
+            }
+        }
+
+        var (code, body) = send()
         var json = if (code in 200..299) extractJsonRpcBody(body) else null
 
         if (isSessionError(json)) {
             Log.w(TAG, "Session expired for ${server.name}, re-initializing")
-            sessions.remove(server.endpointUrl)
+            sessions.remove(sessionKey(server))
             if (performHandshake(server)) {
-                val retry = postJsonRpc(server, requestJson)
+                val retry = send()
                 json = if (retry.first in 200..299) extractJsonRpcBody(retry.second) else null
             }
         }
@@ -180,24 +205,41 @@ class McpHttpClient {
         json
     }
 
+    private fun isCircuitOpen(server: McpServer): Boolean {
+        if (!circuitBreaker.canExecute(server.id)) {
+            Log.w(TAG, "Circuit open for ${server.name}, skipping call")
+            return true
+        }
+        return false
+    }
+
     suspend fun testConnection(server: McpServer): Pair<ServerStatus, Long> = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
-        sessions.remove(server.endpointUrl)
+        sessions.remove(sessionKey(server))
         val connected = performHandshake(server)
         val latency = System.currentTimeMillis() - startTime
-        if (connected) Pair(ServerStatus.CONNECTED, latency) else Pair(ServerStatus.ERROR, latency)
+        if (connected) {
+            circuitBreaker.recordSuccess(server.id)
+            Pair(ServerStatus.CONNECTED, latency)
+        } else {
+            circuitBreaker.recordFailure(server.id)
+            Pair(ServerStatus.ERROR, latency)
+        }
     }
 
     suspend fun discoverTools(server: McpServer): List<McpTool> = withContext(Dispatchers.IO) {
+        if (isCircuitOpen(server)) return@withContext emptyList()
         try {
-            val requestPayload = buildJsonRpcRequest(server, "tools/list")
-            val json = callWithSessionRetry(server, requestPayload)
+            val requestPayload = buildJsonRpcRequest("tools/list")
+            val json = callWithSessionRetry(server, requestPayload, retriable = true)
 
             if (json == null || json.has("error")) {
                 Log.e(TAG, "Tool discovery failed on ${server.name}: ${json?.optJSONObject("error")?.optString("message")}")
+                circuitBreaker.recordFailure(server.id)
                 return@withContext emptyList()
             }
 
+            circuitBreaker.recordSuccess(server.id)
             val result = json.optJSONObject("result") ?: JSONObject()
             val toolsArray = result.optJSONArray("tools") ?: JSONArray()
             val tools = mutableListOf<McpTool>()
@@ -222,8 +264,57 @@ class McpHttpClient {
             tools
         } catch (e: Exception) {
             Log.e(TAG, "Tool discovery error on ${server.name}: ${e.message}")
+            circuitBreaker.recordFailure(server.id)
             emptyList()
         }
+    }
+
+    private data class ToolCallResult(
+        val text: String,
+        val isSuccess: Boolean,
+        val errorMessage: String?
+    )
+
+    private fun errorResult(message: String): ToolCallResult =
+        ToolCallResult(
+            text = JSONObject().put("error", message).toString(),
+            isSuccess = false,
+            errorMessage = message
+        )
+
+    private fun parseToolResponse(json: JSONObject?): ToolCallResult {
+        return when {
+            json == null -> errorResult("Failed to connect to remote MCP server")
+            json.has("error") -> {
+                val message = json.getJSONObject("error").optString("message", "Unknown MCP server error")
+                errorResult(message)
+            }
+            else -> {
+                val resultObj = json.optJSONObject("result")
+                val isError = resultObj?.optBoolean("isError", false) ?: false
+                val text = extractContentText(resultObj)
+                if (isError) {
+                    ToolCallResult(text, false, text.take(MAX_ERROR_MESSAGE_LENGTH))
+                } else {
+                    ToolCallResult(text, true, null)
+                }
+            }
+        }
+    }
+
+    private fun extractContentText(resultObj: JSONObject?): String {
+        val contentArray = resultObj?.optJSONArray("content")
+        if (contentArray != null && contentArray.length() > 0) {
+            val textBuilder = StringBuilder()
+            for (i in 0 until contentArray.length()) {
+                val item = contentArray.getJSONObject(i)
+                if (item.optString("type") == "text") {
+                    textBuilder.append(item.optString("text"))
+                }
+            }
+            return textBuilder.toString()
+        }
+        return resultObj?.toString() ?: "{}"
     }
 
     suspend fun executeToolCall(
@@ -232,56 +323,24 @@ class McpHttpClient {
         arguments: Map<String, Any?>
     ): Pair<String, McpLogItem> = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
-        val requestJson = buildJsonRpcRequest(server, "tools/call", JSONObject().apply {
+        val requestJson = buildJsonRpcRequest("tools/call", JSONObject().apply {
             put("name", toolName)
             put("arguments", JSONObject(arguments))
         })
 
-        var isSuccess = true
-        var resultText = ""
-        var errorMessage: String? = null
-
-        try {
-            val json = callWithSessionRetry(server, requestJson)
-            val latency = System.currentTimeMillis() - startTime
-
-            when {
-                json == null -> {
-                    isSuccess = false
-                    errorMessage = "Failed to connect to remote MCP server"
-                    resultText = JSONObject().put("error", errorMessage).toString()
-                }
-                json.has("error") -> {
-                    isSuccess = false
-                    errorMessage = json.getJSONObject("error").optString("message", "Unknown MCP server error")
-                    resultText = JSONObject().put("error", errorMessage).toString()
-                }
-                else -> {
-                    val resultObj = json.optJSONObject("result")
-                    val isError = resultObj?.optBoolean("isError", false) ?: false
-                    val contentArray = resultObj?.optJSONArray("content")
-                    if (contentArray != null && contentArray.length() > 0) {
-                        val textBuilder = StringBuilder()
-                        for (i in 0 until contentArray.length()) {
-                            val item = contentArray.getJSONObject(i)
-                            if (item.optString("type") == "text") {
-                                textBuilder.append(item.optString("text"))
-                            }
-                        }
-                        resultText = textBuilder.toString()
-                    } else {
-                        resultText = resultObj?.toString() ?: "{}"
-                    }
-                    if (isError) {
-                        isSuccess = false
-                        errorMessage = resultText.take(MAX_ERROR_MESSAGE_LENGTH)
-                    }
-                }
+        val result = when {
+            isCircuitOpen(server) -> errorResult("Server ${server.name} is temporarily unavailable")
+            else -> try {
+                parseToolResponse(callWithSessionRetry(server, requestJson, retriable = false))
+            } catch (e: Exception) {
+                errorResult(e.message ?: "Failed to connect to remote MCP server")
             }
-        } catch (e: Exception) {
-            isSuccess = false
-            errorMessage = e.message ?: "Failed to connect to remote MCP server"
-            resultText = JSONObject().put("error", errorMessage).toString()
+        }
+
+        if (result.isSuccess) {
+            circuitBreaker.recordSuccess(server.id)
+        } else {
+            circuitBreaker.recordFailure(server.id)
         }
 
         val latency = System.currentTimeMillis() - startTime
@@ -290,16 +349,17 @@ class McpHttpClient {
             serverName = server.name,
             toolName = toolName,
             requestPayload = requestJson.toString(2),
-            responsePayload = resultText,
-            isSuccess = isSuccess,
+            responsePayload = result.text,
+            isSuccess = result.isSuccess,
             latencyMs = latency,
-            errorMessage = errorMessage
+            errorMessage = result.errorMessage
         )
 
-        Pair(resultText, logItem)
+        Pair(result.text, logItem)
     }
 
     companion object {
+        private const val TAG = "McpHttpClient"
         private const val HEADER_SESSION_ID = "Mcp-Session-Id"
         private const val MAX_ERROR_MESSAGE_LENGTH = 500
 
@@ -310,7 +370,7 @@ class McpHttpClient {
             if (trimmed.startsWith("{")) {
                 return try {
                     JSONObject(trimmed)
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     null
                 }
             }
@@ -325,7 +385,7 @@ class McpHttpClient {
                     } else {
                         try {
                             JSONObject(payload)
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             null
                         }
                     }

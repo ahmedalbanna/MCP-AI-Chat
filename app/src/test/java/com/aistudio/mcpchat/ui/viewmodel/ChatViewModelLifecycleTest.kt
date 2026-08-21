@@ -3,6 +3,7 @@ package com.aistudio.mcpchat.ui.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import com.aistudio.mcpchat.data.local.ChatMessageEntity
 import com.aistudio.mcpchat.data.local.ChatSessionEntity
+import com.aistudio.mcpchat.data.model.ChatException
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.repository.ChatRepository
@@ -15,7 +16,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -78,6 +81,9 @@ class ChatViewModelLifecycleTest {
 
         val savedStateHandle = SavedStateHandle(mapOf("current_session_id" to "s2"))
         val viewModel = ChatViewModel(mcpRepository, chatRepository, savedStateHandle)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect {}
+        }
         advanceUntilIdle()
 
         assertEquals("s2", viewModel.currentSessionId.value)
@@ -175,6 +181,9 @@ class ChatViewModelLifecycleTest {
 
         val savedStateHandle = SavedStateHandle()
         val viewModel = ChatViewModel(mcpRepository, chatRepository, savedStateHandle)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.messages.collect {}
+        }
         advanceUntilIdle()
 
         viewModel.selectSession("s1")
@@ -202,6 +211,9 @@ class ChatViewModelLifecycleTest {
 
         val savedStateHandle = SavedStateHandle()
         val viewModel = ChatViewModel(mcpRepository, chatRepository, savedStateHandle)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect {}
+        }
         advanceUntilIdle()
 
         viewModel.selectSession("s2")
@@ -248,6 +260,9 @@ class ChatViewModelLifecycleTest {
 
         val savedStateHandle = SavedStateHandle()
         val viewModel = ChatViewModel(mcpRepository, chatRepository, savedStateHandle)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect {}
+        }
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -262,7 +277,7 @@ class ChatViewModelLifecycleTest {
     @Test
     fun `sendMessage error maps to correct UiError types`() = runTest {
         coEvery { chatRepository.sendMessage(any(), any(), any()) } throws
-            RuntimeException("API_KEY_MISSING")
+            ChatException.ApiKeyMissing()
 
         sessionsFlow.value = listOf(ChatSessionEntity(id = "s1", title = "Test"))
         val savedStateHandle = SavedStateHandle()

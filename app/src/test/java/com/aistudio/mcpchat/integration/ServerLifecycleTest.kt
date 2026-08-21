@@ -61,8 +61,8 @@ class ServerLifecycleTest {
 
     @Test
     fun `add server inserts into database and syncs tools`() = runTest {
-        coEvery { httpClient.testConnection(any(), any()) } returns ServerStatus.CONNECTED
-        coEvery { httpClient.discoverTools(any(), any()) } returns listOf()
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
+        coEvery { httpClient.discoverTools(any()) } returns listOf()
 
         val server = repository.addCustomServer(
             name = "Test Server",
@@ -81,13 +81,13 @@ class ServerLifecycleTest {
 
     @Test
     fun `add server with auth header persists auth`() = runTest {
-        coEvery { httpClient.testConnection(any(), any()) } returns ServerStatus.CONNECTED
-        coEvery { httpClient.discoverTools(any(), any()) } returns listOf()
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
+        coEvery { httpClient.discoverTools(any()) } returns listOf()
 
         val server = repository.addCustomServer(
             name = "Auth Server",
             description = "Server with auth",
-            endpointUrl = "http://secure.com",
+            endpointUrl = "https://secure.com",
             authHeader = "Bearer token123"
         )
 
@@ -135,7 +135,7 @@ class ServerLifecycleTest {
         )
         database.mcpServerDao().insertServer(serverEntity)
 
-        coEvery { httpClient.testConnection(any(), any()) } returns ServerStatus.CONNECTED
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
 
         val server = repository.pingServer(
             com.aistudio.mcpchat.data.model.McpServer(
@@ -145,11 +145,13 @@ class ServerLifecycleTest {
         )
 
         assertEquals(ServerStatus.CONNECTED, server.status)
-        assertTrue(server.latencyMs >= 0)
+        assertEquals(42L, server.latencyMs)
     }
 
     @Test
-    fun `ping server with error clears tools`() = runTest {
+    fun `ping server with error preserves cached tools`() = runTest {
+        // A transient ping failure must not permanently wipe the discovered
+        // tool catalog — the server may come back on the next sync.
         val serverEntity = McpServerEntity(
             id = "srv1", name = "Server 1", description = "desc",
             endpointUrl = "http://test.com"
@@ -162,7 +164,7 @@ class ServerLifecycleTest {
         )
         database.mcpToolDao().insertTools(listOf(toolEntity))
 
-        coEvery { httpClient.testConnection(any(), any()) } returns ServerStatus.ERROR
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.ERROR, 100L)
 
         repository.pingServer(
             com.aistudio.mcpchat.data.model.McpServer(
@@ -172,7 +174,7 @@ class ServerLifecycleTest {
         )
 
         val tools = database.mcpToolDao().getToolsForServer("srv1").first()
-        assertTrue(tools.isEmpty())
+        assertEquals(1, tools.size)
     }
 
     @Test
@@ -183,8 +185,8 @@ class ServerLifecycleTest {
         )
         database.mcpServerDao().insertServer(serverEntity)
 
-        coEvery { httpClient.testConnection(any(), any()) } returns ServerStatus.CONNECTED
-        coEvery { httpClient.discoverTools(any(), any()) } returns listOf(
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
+        coEvery { httpClient.discoverTools(any()) } returns listOf(
             com.aistudio.mcpchat.data.model.McpTool(
                 id = "disc_t1", serverId = "srv1", serverName = "Server 1",
                 name = "get_weather", description = "Get weather",
@@ -250,8 +252,10 @@ class ServerLifecycleTest {
     @Test
     fun `get enabled tools returns only enabled`() = runTest {
         database.mcpToolDao().insertTools(listOf(
-            McpToolEntity(id = "t1", serverId = "s1", serverName = "S1", name = "Enabled Tool", description = "", inputSchemaJson = "{}", isEnabled = true),
-            McpToolEntity(id = "t2", serverId = "s1", serverName = "S1", name = "Disabled Tool", description = "", inputSchemaJson = "{}", isEnabled = false)
+            McpToolEntity(id = "t1", serverId = "s1", serverName = "S1", name = "Enabled Tool",
+                description = "", inputSchemaJson = "{}", isEnabled = true),
+            McpToolEntity(id = "t2", serverId = "s1", serverName = "S1", name = "Disabled Tool",
+                description = "", inputSchemaJson = "{}", isEnabled = false)
         ))
 
         val enabled = repository.getEnabledTools()
@@ -267,11 +271,14 @@ class ServerLifecycleTest {
         )
         database.mcpServerDao().insertServer(serverEntity)
 
-        coEvery { httpClient.executeToolCall(any(), any(), any(), any()) } returns
-            com.aistudio.mcpchat.data.model.McpLogItem(
-                serverId = "srv1", serverName = "Server 1", toolName = "get_weather",
-                requestPayload = "{}", responsePayload = """{"temp":"25C"}""",
-                isSuccess = true, latencyMs = 100, timestamp = System.currentTimeMillis()
+        coEvery { httpClient.executeToolCall(any(), any(), any()) } returns
+            Pair(
+                """{"temp":"25C"}""",
+                com.aistudio.mcpchat.data.model.McpLogItem(
+                    serverId = "srv1", serverName = "Server 1", toolName = "get_weather",
+                    requestPayload = "{}", responsePayload = """{"temp":"25C"}""",
+                    isSuccess = true, latencyMs = 100, timestamp = System.currentTimeMillis()
+                )
             )
 
         val (result, logItem) = repository.executeTool(
@@ -300,14 +307,14 @@ class ServerLifecycleTest {
             McpServerEntity(id = "s2", name = "Finance", description = "", endpointUrl = "http://f.com")
         )
 
-        coEvery { httpClient.testConnection(any(), any()) } returns ServerStatus.CONNECTED
-        coEvery { httpClient.discoverTools(match { it.endpointUrl == "http://w.com" }, any()) } returns listOf(
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
+        coEvery { httpClient.discoverTools(match { it.endpointUrl == "http://w.com" }) } returns listOf(
             com.aistudio.mcpchat.data.model.McpTool(
                 id = "w1", serverId = "s1", serverName = "Weather",
                 name = "get_weather", description = "Weather", inputSchemaJson = "{}"
             )
         )
-        coEvery { httpClient.discoverTools(match { it.endpointUrl == "http://f.com" }, any()) } returns listOf(
+        coEvery { httpClient.discoverTools(match { it.endpointUrl == "http://f.com" }) } returns listOf(
             com.aistudio.mcpchat.data.model.McpTool(
                 id = "f1", serverId = "s2", serverName = "Finance",
                 name = "get_stock", description = "Stock", inputSchemaJson = "{}"
@@ -342,7 +349,7 @@ class ServerLifecycleTest {
         )
         database.mcpServerDao().insertServer(serverEntity)
 
-        coEvery { httpClient.testConnection(any(), any()) } returns ServerStatus.CONNECTED
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
         repository.pingServer(
             com.aistudio.mcpchat.data.model.McpServer(
                 id = "srv1", name = "Server 1", description = "desc",
@@ -353,9 +360,9 @@ class ServerLifecycleTest {
         val afterPing = database.mcpServerDao().getServerById("srv1")
         assertNotNull(afterPing)
         assertEquals("CONNECTED", afterPing?.status)
-        assertTrue(afterPing?.latencyMs!! > 0)
+        assertEquals(42L, afterPing?.latencyMs)
 
-        coEvery { httpClient.testConnection(any(), any()) } returns ServerStatus.ERROR
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.ERROR, 100L)
         repository.pingServer(
             com.aistudio.mcpchat.data.model.McpServer(
                 id = "srv1", name = "Server 1", description = "desc",
@@ -406,11 +413,26 @@ class ServerLifecycleTest {
             repository.addCustomServer(
                 name = "",
                 description = "desc",
-                endpointUrl = "http://valid.com",
+                endpointUrl = "https://valid.com",
                 authHeader = ""
             )
         } catch (e: IllegalArgumentException) {
             assertTrue(e.message?.contains("name") == true || e.message?.contains("blank") == true)
+        }
+    }
+
+    @Test
+    fun `add custom server rejects plain http for non-loopback host`() = runTest {
+        try {
+            repository.addCustomServer(
+                name = "Insecure",
+                description = "desc",
+                endpointUrl = "http://insecure.example.com",
+                authHeader = ""
+            )
+            throw AssertionError("Expected IllegalArgumentException for plain http")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message?.contains("https") == true)
         }
     }
 }

@@ -1,22 +1,21 @@
 package com.aistudio.mcpchat
 
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onRoot
 import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.data.model.McpTool
-import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.model.ToolExecutionStatus
 import com.aistudio.mcpchat.ui.screens.ServerStatusBadge
 import com.aistudio.mcpchat.ui.screens.ToolCallCard
 import com.aistudio.mcpchat.ui.theme.MyApplicationTheme
-import com.github.takahirom.roborazzi.RobolectricRoborazziRule
+import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.io.File
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -26,10 +25,9 @@ class SnapshotTests {
     @get:Rule
     val composeTestRule = createComposeRule()
 
-    @get:Rule
-    val roborazziRule = RobolectricRoborazziRule(
-        outputDirectory = File("src/test/snapshots")
-    )
+    private fun capture(name: String) {
+        composeTestRule.onRoot().captureRoboImage("src/test/snapshots/$name.png")
+    }
 
     @Test
     fun serverStatusBadge_connected() {
@@ -38,7 +36,7 @@ class SnapshotTests {
                 ServerStatusBadge(status = ServerStatus.CONNECTED, latencyMs = 42)
             }
         }
-        roborazziRule.snapshot("server_status_connected")
+        capture("server_status_connected")
     }
 
     @Test
@@ -48,7 +46,7 @@ class SnapshotTests {
                 ServerStatusBadge(status = ServerStatus.DISCONNECTED)
             }
         }
-        roborazziRule.snapshot("server_status_disconnected")
+        capture("server_status_disconnected")
     }
 
     @Test
@@ -58,7 +56,7 @@ class SnapshotTests {
                 ServerStatusBadge(status = ServerStatus.ERROR)
             }
         }
-        roborazziRule.snapshot("server_status_error")
+        capture("server_status_error")
     }
 
     @Test
@@ -79,7 +77,7 @@ class SnapshotTests {
                 ToolCallCard(toolCall = toolCall)
             }
         }
-        roborazziRule.snapshot("tool_call_card_success")
+        capture("tool_call_card_success")
     }
 
     @Test
@@ -97,7 +95,7 @@ class SnapshotTests {
                 ToolCallCard(toolCall = toolCall)
             }
         }
-        roborazziRule.snapshot("tool_call_card_executing")
+        capture("tool_call_card_executing")
     }
 
     @Test
@@ -119,6 +117,6 @@ class SnapshotTests {
                 ToolCallCard(toolCall = toolCall)
             }
         }
-        roborazziRule.snapshot("tool_call_card_error")
+        capture("tool_call_card_error")
     }
 }

@@ -212,7 +212,8 @@ fun ServersScreen(
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "Connected servers expose tools to Gemini via JSON-RPC. When enabled, tools are dynamically registered for conversational function calling.",
+                                text = "Connected servers expose tools to Gemini via JSON-RPC. " +
+                                    "When enabled, tools are dynamically registered for conversational function calling.",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

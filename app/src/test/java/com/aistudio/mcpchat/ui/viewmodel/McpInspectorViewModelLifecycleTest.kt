@@ -13,7 +13,10 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -52,6 +55,14 @@ class McpInspectorViewModelLifecycleTest {
         Dispatchers.resetMain()
     }
 
+    private fun TestScope.observeUiState(viewModel: McpInspectorViewModel) {
+        // stateIn(WhileSubscribed) flows (uiState and the upstream
+        // servers/tools/logs flows) only produce values once collected.
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect {}
+        }
+    }
+
     @Test
     fun `savedStateHandle persists selectedToolId across ViewModel recreation`() = runTest {
         val tool = McpTool(
@@ -79,6 +90,7 @@ class McpInspectorViewModelLifecycleTest {
 
         val savedStateHandle = SavedStateHandle(mapOf("selected_tool_id" to "tool_1"))
         val viewModel = McpInspectorViewModel(repository, savedStateHandle)
+        observeUiState(viewModel)
         advanceUntilIdle()
 
         assertEquals("tool_1", viewModel.selectedToolId.value)
@@ -135,6 +147,7 @@ class McpInspectorViewModelLifecycleTest {
 
         val savedStateHandle = SavedStateHandle()
         val viewModel = McpInspectorViewModel(repository, savedStateHandle)
+        observeUiState(viewModel)
         viewModel.selectTool(tool)
         advanceUntilIdle()
 
@@ -167,6 +180,7 @@ class McpInspectorViewModelLifecycleTest {
 
         val savedStateHandle = SavedStateHandle()
         val viewModel = McpInspectorViewModel(repository, savedStateHandle)
+        observeUiState(viewModel)
         viewModel.selectTool(tool)
         advanceUntilIdle()
 
@@ -202,6 +216,7 @@ class McpInspectorViewModelLifecycleTest {
 
         val savedStateHandle = SavedStateHandle()
         val viewModel = McpInspectorViewModel(repository, savedStateHandle)
+        observeUiState(viewModel)
 
         viewModel.selectTool(tool)
         advanceUntilIdle()
@@ -283,6 +298,7 @@ class McpInspectorViewModelLifecycleTest {
 
         val savedStateHandle = SavedStateHandle()
         val viewModel = McpInspectorViewModel(repository, savedStateHandle)
+        observeUiState(viewModel)
         advanceUntilIdle()
 
         viewModel.reExecuteTool("get_weather", "srv1", mapOf("location" to "London"))
@@ -317,6 +333,7 @@ class McpInspectorViewModelLifecycleTest {
 
         val savedStateHandle = SavedStateHandle()
         val viewModel = McpInspectorViewModel(repository, savedStateHandle)
+        observeUiState(viewModel)
         viewModel.selectTool(tool)
         advanceUntilIdle()
 

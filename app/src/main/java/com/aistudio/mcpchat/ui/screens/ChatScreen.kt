@@ -95,6 +95,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -158,13 +159,6 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    val isAtBottom by remember {
-        derivedStateOf {
-            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            val totalItems = listState.layoutInfo.totalItemsCount
-            lastVisibleItem >= totalItems - 2
-        }
-    }
     var userHasScrolledUp by remember { mutableStateOf(false) }
 
     LaunchedEffect(messages.size, inProgressToolCalls.size) {
@@ -207,7 +201,12 @@ fun ChatScreen(
                                     .semantics {
                                         role = Role.Button
                                         contentDescription = "Select model"
-                                        stateDescription = if (currentSession?.model?.contains("pro") == true) "Gemini 3.1 Pro selected" else "Gemini 3.5 Flash selected"
+                                        stateDescription =
+                                            if (currentSession?.model?.contains("pro") == true) {
+                                                "Gemini 3.1 Pro selected"
+                                            } else {
+                                                "Gemini 3.5 Flash selected"
+                                            }
                                     }
                                     .clickable { showModelMenu = true }
                                     .testTag("model_picker_chip")
@@ -329,7 +328,6 @@ fun ChatScreen(
                             inputText = prompt
                             viewModel.sendMessage(prompt)
                         },
-                        onNavigateToServers = onNavigateToServers,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
@@ -579,7 +577,11 @@ fun ChatScreen(
                                 Icon(
                                     imageVector = Icons.Default.Send,
                                     contentDescription = "Send",
-                                    tint = if (inputText.isNotBlank()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = if (inputText.isNotBlank()) {
+                                        MaterialTheme.colorScheme.onPrimary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                     modifier = Modifier.size(Dimens.iconSizeLg)
                                 )
                             }
@@ -740,7 +742,7 @@ fun ChatScreen(
                     items(sessions) { session ->
                         val isSelected = session.id == currentSessionId
                         Surface(
-                            color = if (isSelected) IndigoPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            color = sessionSurfaceColor(isSelected),
                             shape = RoundedCornerShape(Dimens.cornerRadiusLg),
                             border = if (isSelected) BorderStroke(Dimens.borderWidth, IndigoPrimary) else null,
                             modifier = Modifier
@@ -943,7 +945,6 @@ fun ChatMessageItem(
 @Composable
 fun EmptyChatView(
     onPromptSelected: (String) -> Unit,
-    onNavigateToServers: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "logo_pulse")
@@ -1260,3 +1261,11 @@ fun TypingIndicator(modifier: Modifier = Modifier) {
         }
     }
 }
+
+@Composable
+private fun sessionSurfaceColor(isSelected: Boolean): Color =
+    if (isSelected) {
+        IndigoPrimary.copy(alpha = 0.15f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    }

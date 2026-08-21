@@ -78,7 +78,7 @@ class McpRepositoryTest {
     fun `addCustomServer rejects blank name`() = runTest {
         createRepository()
         try {
-            repository.addCustomServer("", "desc", "http://test.com")
+            repository.addCustomServer("", "desc", "https://test.com")
         } catch (e: IllegalArgumentException) {
             assertTrue(e.message!!.contains("empty"))
         }
@@ -95,12 +95,36 @@ class McpRepositoryTest {
     }
 
     @Test
+    fun `addCustomServer rejects plain http for non-loopback host`() = runTest {
+        createRepository()
+        try {
+            repository.addCustomServer("Test", "desc", "http://test.com/mcp")
+            throw AssertionError("Expected IllegalArgumentException for plain http")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message!!.contains("https"))
+        }
+    }
+
+    @Test
+    fun `addCustomServer allows http for localhost`() = runTest {
+        coEvery { httpClient.discoverTools(any()) } returns emptyList()
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 100)
+
+        createRepository()
+        val server = repository.addCustomServer("Local Server", "desc", "http://localhost:3000/mcp")
+
+        assertNotNull(server)
+        assertEquals("Local Server", server.name)
+        coVerify { serverDao.insertServer(any()) }
+    }
+
+    @Test
     fun `addCustomServer inserts server and syncs tools`() = runTest {
         coEvery { httpClient.discoverTools(any()) } returns emptyList()
         coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 100)
 
         createRepository()
-        val server = repository.addCustomServer("My Server", "desc", "http://test.com/mcp")
+        val server = repository.addCustomServer("My Server", "desc", "https://test.com/mcp")
 
         assertNotNull(server)
         assertEquals("My Server", server.name)
@@ -172,7 +196,8 @@ class McpRepositoryTest {
     }
 
     @Test
-    fun `pingServer with ERROR status deletes tools`() = runTest {
+    fun `pingServer with ERROR status preserves cached tools`() = runTest {
+        // Transient failures must not wipe the discovered tool catalog.
         val server = McpServer(
             id = "s1", name = "Server", description = "desc",
             endpointUrl = "http://test.com"
@@ -188,7 +213,7 @@ class McpRepositoryTest {
         repository.pingServer(server)
         advanceUntilIdle()
 
-        coVerify { toolDao.deleteToolsForServer("s1") }
+        coVerify(exactly = 0) { toolDao.deleteToolsForServer("s1") }
     }
 
     @Test

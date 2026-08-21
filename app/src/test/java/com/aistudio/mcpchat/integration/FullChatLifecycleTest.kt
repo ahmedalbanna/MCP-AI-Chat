@@ -129,12 +129,19 @@ class FullChatLifecycleTest {
         assertEquals("Hello from s2", s2Messages[0].content)
     }
 
+    private fun mcpTool(
+        id: String,
+        serverId: String,
+        serverName: String,
+        name: String,
+        description: String
+    ) = com.aistudio.mcpchat.data.model.McpTool(
+        id = id, serverId = serverId, serverName = serverName,
+        name = name, description = description, inputSchemaJson = "{}"
+    )
+
     @Test
     fun `tool call progress callback fires during invocation`() = runTest {
-        val server = McpServer(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com"
-        )
         database.mcpServerDao().insertServer(
             McpServerEntity(
                 id = "srv1", name = "Server 1", description = "desc",
@@ -198,11 +205,11 @@ class FullChatLifecycleTest {
         )
         assertTrue(listResult.contains("MCP integration is active"))
 
-        val idStr = saveResult.replace(Regex(".*id[:\\s]+(\\d+).*"), "$1").toLongOrNull()
+        val idStr = saveResult.replace(Regex(".*\"id\":(\\d+).*"), "$1").toLongOrNull()
         if (idStr != null) {
             val deleteResult = memoryTool.handleRequest(
                 "delete_memory_note",
-                mapOf("id" to idStr.toString())
+                mapOf("id" to idStr)
             )
             assertTrue(deleteResult.contains("deleted"))
         }
@@ -294,9 +301,9 @@ class FullChatLifecycleTest {
         )
 
         database.mcpToolDao().insertTools(listOf(
-            McpToolEntity(id = "t1", serverId = "s1", serverName = "Weather Server", name = "get_weather", description = "Weather", inputSchemaJson = "{}"),
-            McpToolEntity(id = "t2", serverId = "s1", serverName = "Weather Server", name = "get_forecast", description = "Forecast", inputSchemaJson = "{}"),
-            McpToolEntity(id = "t3", serverId = "s2", serverName = "Finance Server", name = "get_stock", description = "Stock", inputSchemaJson = "{}")
+            mcpTool("t1", "s1", "Weather Server", "get_weather", "Weather"),
+            mcpTool("t2", "s1", "Weather Server", "get_forecast", "Forecast"),
+            mcpTool("t3", "s2", "Finance Server", "get_stock", "Stock")
         ))
 
         val s1Tools = database.mcpToolDao().getToolsForServer("s1").first()
@@ -304,7 +311,11 @@ class FullChatLifecycleTest {
 
         assertEquals(2, s1Tools.size)
         assertEquals(1, s2Tools.size)
-        assertEquals("get_weather", s1Tools[0].name)
+        // Room does not guarantee row ordering without ORDER BY.
+        assertEquals(
+            setOf("get_weather", "get_forecast"),
+            s1Tools.map { it.name }.toSet()
+        )
         assertEquals("get_stock", s2Tools[0].name)
     }
 

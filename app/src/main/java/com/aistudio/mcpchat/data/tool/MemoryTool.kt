@@ -4,11 +4,11 @@ import android.util.Log
 import com.aistudio.mcpchat.data.local.AppDatabase
 import com.aistudio.mcpchat.data.local.MemoryNoteEntity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 class MemoryTool(private val database: AppDatabase) {
-    private val TAG = "MemoryTool"
     private val memoryDao = database.memoryNoteDao()
 
     suspend fun handleRequest(toolName: String, arguments: Map<String, Any?>): String {
@@ -79,11 +79,9 @@ class MemoryTool(private val database: AppDatabase) {
 
     private suspend fun listNotes(arguments: Map<String, Any?>): String {
         val limit = (arguments["limit"] as? Number)?.toInt() ?: 10
-        val notes = memoryDao.getAllNotes().let { flow ->
-            val allNotes = mutableListOf<MemoryNoteEntity>()
-            flow.collect { allNotes.addAll(it) }
-            allNotes.take(limit)
-        }
+        // Room Flows never complete on their own — take the first emission
+        // instead of collecting forever.
+        val notes = memoryDao.getAllNotes().first().take(limit)
 
         if (notes.isEmpty()) {
             return JSONObject().apply {
@@ -112,7 +110,7 @@ class MemoryTool(private val database: AppDatabase) {
         val id = (arguments["id"] as? Number)?.toLong()
             ?: return "Error: 'id' parameter is required"
 
-        val existing = memoryDao.getNoteById(id)
+        memoryDao.getNoteById(id)
             ?: return "Error: Note with id $id not found"
 
         memoryDao.deleteNoteById(id)
@@ -170,5 +168,9 @@ class MemoryTool(private val database: AppDatabase) {
                 )
             )
         )
+    }
+
+    private companion object {
+        private const val TAG = "MemoryTool"
     }
 }

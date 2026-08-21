@@ -2,6 +2,7 @@ package com.aistudio.mcpchat.data.network
 
 import android.util.Log
 import com.aistudio.mcpchat.BuildConfig
+import com.aistudio.mcpchat.data.model.DEFAULT_MODEL
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
 import com.aistudio.mcpchat.data.model.GeminiResponse
@@ -17,7 +18,6 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 class GeminiApiService {
-    private val TAG = "GeminiApiService"
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     private val client = OkHttpClient.Builder()
@@ -29,13 +29,13 @@ class GeminiApiService {
     fun getApiKey(): String {
         return try {
             BuildConfig.GEMINI_API_KEY
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             ""
         }
     }
 
     suspend fun generateContent(
-        modelName: String = "gemini-3.5-flash",
+        modelName: String = DEFAULT_MODEL,
         history: List<GeminiMessage>,
         tools: List<McpTool>,
         systemInstruction: String = ""
@@ -50,92 +50,7 @@ class GeminiApiService {
         }
 
         try {
-            val requestJson = JSONObject()
-
-            // Build contents
-            val contentsArray = JSONArray()
-            for (msg in history) {
-                val contentObj = JSONObject()
-                contentObj.put("role", if (msg.role == "assistant") "model" else if (msg.role == "tool") "function" else msg.role)
-                
-                val partsArray = JSONArray()
-                for (part in msg.parts) {
-                    when (part) {
-                        is GeminiPart.Text -> {
-                            partsArray.put(JSONObject().put("text", part.text))
-                        }
-                        is GeminiPart.FunctionCall -> {
-                            partsArray.put(JSONObject().apply {
-                                put("functionCall", JSONObject().apply {
-                                    put("name", part.name)
-                                    put("args", JSONObject(part.args))
-                                })
-                                if (part.thoughtSignature != null) {
-                                    put("thoughtSignature", part.thoughtSignature)
-                                }
-                            })
-                        }
-                        is GeminiPart.FunctionResponse -> {
-                            partsArray.put(JSONObject().apply {
-                                put("functionResponse", JSONObject().apply {
-                                    put("name", part.name)
-                                    put("response", JSONObject(part.response))
-                                })
-                                if (part.thoughtSignature != null) {
-                                    put("thoughtSignature", part.thoughtSignature)
-                                }
-                            })
-                        }
-                    }
-                }
-                contentObj.put("parts", partsArray)
-                contentsArray.put(contentObj)
-            }
-            requestJson.put("contents", contentsArray)
-
-            // System Instruction
-            if (systemInstruction.isNotBlank()) {
-                requestJson.put("systemInstruction", JSONObject().apply {
-                    put("parts", JSONArray().apply {
-                        put(JSONObject().put("text", systemInstruction))
-                    })
-                })
-            }
-
-            // MCP Tools converted to Gemini function declarations
-            if (tools.isNotEmpty()) {
-                val funcDeclarations = JSONArray()
-                for (tool in tools) {
-                    try {
-                        val schemaObj = if (tool.inputSchemaJson.isNotBlank()) {
-                            JSONObject(tool.inputSchemaJson)
-                        } else {
-                            JSONObject().apply {
-                                put("type", "object")
-                                put("properties", JSONObject())
-                            }
-                        }
-
-                        // Sanitize schema for Gemini API specification
-                        val sanitizedSchema = sanitizeSchemaForGemini(schemaObj)
-
-                        funcDeclarations.put(JSONObject().apply {
-                            put("name", sanitizeFunctionName(tool.name))
-                            put("description", tool.description.take(1024))
-                            put("parameters", sanitizedSchema)
-                        })
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to parse schema for tool ${tool.name}: ${e.message}")
-                    }
-                }
-
-                if (funcDeclarations.length() > 0) {
-                    requestJson.put("tools", JSONArray().apply {
-                        put(JSONObject().put("functionDeclarations", funcDeclarations))
-                    })
-                }
-            }
-
+            val requestJson = buildRequestBody(history, tools, systemInstruction)
             val targetModel = if (modelName.contains("/")) modelName else "models/$modelName"
             val url = "https://generativelanguage.googleapis.com/v1beta/$targetModel:generateContent?key=$apiKey"
 
@@ -149,65 +64,10 @@ class GeminiApiService {
             val responseBody = response.body?.string() ?: ""
 
             if (!response.isSuccessful) {
-                Log.e(TAG, "Gemini API failed with code ${response.code}: $responseBody")
-                val errorMsg = when (response.code) {
-                    429 -> "Rate limit exceeded. Please wait a moment and try again."
-                    403 -> "Gemini API access denied. Check your API key permissions."
-                    404 -> "Model '$modelName' not found. Try a different model."
-                    500, 502, 503 -> "Gemini API is temporarily unavailable. Please try again later."
-                    else -> "Gemini API Error (${response.code}): ${parseErrorMessage(responseBody)}"
-                }
-                return@withContext GeminiResponse(
-                    text = null,
-                    rawJson = responseBody,
-                    error = errorMsg
-                )
+                return@withContext errorResponse(modelName, response.code, responseBody)
             }
 
-            val json = JSONObject(responseBody)
-            val candidates = json.optJSONArray("candidates")
-            if (candidates == null || candidates.length() == 0) {
-                return@withContext GeminiResponse(
-                    text = "No response candidates returned.",
-                    rawJson = responseBody
-                )
-            }
-
-            val firstCandidate = candidates.getJSONObject(0)
-            val content = firstCandidate.optJSONObject("content")
-            val parts = content?.optJSONArray("parts")
-
-            val functionCalls = mutableListOf<GeminiPart.FunctionCall>()
-            val textBuilder = StringBuilder()
-
-            if (parts != null) {
-                for (i in 0 until parts.length()) {
-                    val partObj = parts.getJSONObject(i)
-                    if (partObj.has("text")) {
-                        textBuilder.append(partObj.getString("text"))
-                    }
-                    if (partObj.has("functionCall")) {
-                        val fc = partObj.getJSONObject("functionCall")
-                        val funcName = fc.getString("name")
-                        val argsObj = fc.optJSONObject("args") ?: JSONObject()
-                        val argsMap = mutableMapOf<String, Any?>()
-                        val keys = argsObj.keys()
-                        while (keys.hasNext()) {
-                            val key = keys.next()
-                            argsMap[key] = argsObj.get(key)
-                        }
-                        
-                        val thoughtSignature = partObj.optString("thoughtSignature", null)
-                        functionCalls.add(GeminiPart.FunctionCall(funcName, argsMap, thoughtSignature))
-                    }
-                }
-            }
-
-            GeminiResponse(
-                text = if (textBuilder.isNotEmpty()) textBuilder.toString() else null,
-                functionCalls = functionCalls,
-                rawJson = responseBody
-            )
+            parseGeminiResponse(responseBody)
         } catch (e: Exception) {
             Log.e(TAG, "Exception during Gemini generateContent", e)
             GeminiResponse(
@@ -217,35 +77,172 @@ class GeminiApiService {
         }
     }
 
+    private fun errorResponse(modelName: String, code: Int, responseBody: String): GeminiResponse {
+        Log.e(TAG, "Gemini API failed with code $code: $responseBody")
+        val errorMsg = when (code) {
+            429 -> "Rate limit exceeded. Please wait a moment and try again."
+            403 -> "Gemini API access denied. Check your API key permissions."
+            404 -> "Model '$modelName' not found. Try a different model."
+            500, 502, 503 -> "Gemini API is temporarily unavailable. Please try again later."
+            else -> "Gemini API Error ($code): ${parseErrorMessage(responseBody)}"
+        }
+        return GeminiResponse(text = null, rawJson = responseBody, error = errorMsg)
+    }
+
+    private fun buildRequestBody(
+        history: List<GeminiMessage>,
+        tools: List<McpTool>,
+        systemInstruction: String
+    ): JSONObject {
+        val requestJson = JSONObject()
+        requestJson.put("contents", buildContents(history))
+
+        if (systemInstruction.isNotBlank()) {
+            requestJson.put("systemInstruction", JSONObject().apply {
+                put("parts", JSONArray().apply {
+                    put(JSONObject().put("text", systemInstruction))
+                })
+            })
+        }
+
+        val functionDeclarations = buildFunctionDeclarations(tools)
+        if (functionDeclarations.length() > 0) {
+            requestJson.put("tools", JSONArray().apply {
+                put(JSONObject().put("functionDeclarations", functionDeclarations))
+            })
+        }
+        return requestJson
+    }
+
+    private fun buildContents(history: List<GeminiMessage>): JSONArray {
+        val contentsArray = JSONArray()
+        for (msg in history) {
+            val contentObj = JSONObject()
+            contentObj.put("role", when (msg.role) {
+                "assistant" -> "model"
+                "tool" -> "function"
+                else -> msg.role
+            })
+
+            val partsArray = JSONArray()
+            for (part in msg.parts) {
+                partsArray.put(when (part) {
+                    is GeminiPart.Text -> JSONObject().put("text", part.text)
+                    is GeminiPart.FunctionCall -> functionCallPart(part)
+                    is GeminiPart.FunctionResponse -> functionResponsePart(part)
+                })
+            }
+            contentObj.put("parts", partsArray)
+            contentsArray.put(contentObj)
+        }
+        return contentsArray
+    }
+
+    private fun functionCallPart(part: GeminiPart.FunctionCall): JSONObject {
+        return JSONObject().apply {
+            put("functionCall", JSONObject().apply {
+                put("name", part.name)
+                put("args", JSONObject(part.args))
+            })
+            if (part.thoughtSignature != null) {
+                put("thoughtSignature", part.thoughtSignature)
+            }
+        }
+    }
+
+    private fun functionResponsePart(part: GeminiPart.FunctionResponse): JSONObject {
+        return JSONObject().apply {
+            put("functionResponse", JSONObject().apply {
+                put("name", part.name)
+                put("response", JSONObject(part.response))
+            })
+            if (part.thoughtSignature != null) {
+                put("thoughtSignature", part.thoughtSignature)
+            }
+        }
+    }
+
+    private fun buildFunctionDeclarations(tools: List<McpTool>): JSONArray {
+        val funcDeclarations = JSONArray()
+        for (tool in tools) {
+            try {
+                val schemaObj = if (tool.inputSchemaJson.isNotBlank()) {
+                    JSONObject(tool.inputSchemaJson)
+                } else {
+                    JSONObject().put("type", "OBJECT")
+                }
+
+                funcDeclarations.put(JSONObject().apply {
+                    put("name", sanitizeFunctionName(tool.name))
+                    put("description", tool.description.take(1024))
+                    put("parameters", sanitizeSchemaForGemini(schemaObj))
+                })
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to parse schema for tool ${tool.name}: ${e.message}")
+            }
+        }
+        return funcDeclarations
+    }
+
+    private fun parseGeminiResponse(responseBody: String): GeminiResponse {
+        val json = JSONObject(responseBody)
+        val candidates = json.optJSONArray("candidates")
+        if (candidates == null || candidates.length() == 0) {
+            return GeminiResponse(text = "No response candidates returned.", rawJson = responseBody)
+        }
+
+        val firstCandidate = candidates.getJSONObject(0)
+        val parts = firstCandidate.optJSONObject("content")?.optJSONArray("parts")
+
+        val functionCalls = mutableListOf<GeminiPart.FunctionCall>()
+        val textBuilder = StringBuilder()
+
+        if (parts != null) {
+            collectParts(parts, textBuilder, functionCalls)
+        }
+
+        return GeminiResponse(
+            text = if (textBuilder.isNotEmpty()) textBuilder.toString() else null,
+            functionCalls = functionCalls,
+            rawJson = responseBody
+        )
+    }
+
+    private fun collectParts(
+        parts: JSONArray,
+        textBuilder: StringBuilder,
+        functionCalls: MutableList<GeminiPart.FunctionCall>
+    ) {
+        for (i in 0 until parts.length()) {
+            val partObj = parts.getJSONObject(i)
+            if (partObj.has("text")) {
+                textBuilder.append(partObj.getString("text"))
+            }
+            if (partObj.has("functionCall")) {
+                functionCalls.add(parseFunctionCall(partObj))
+            }
+        }
+    }
+
+    private fun parseFunctionCall(partObj: JSONObject): GeminiPart.FunctionCall {
+        val fc = partObj.getJSONObject("functionCall")
+        val argsMap = mutableMapOf<String, Any?>()
+        val argsObj = fc.optJSONObject("args") ?: JSONObject()
+        val keys = argsObj.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            argsMap[key] = argsObj.get(key)
+        }
+        val thoughtSignature = partObj.optString("thoughtSignature", null)
+        return GeminiPart.FunctionCall(fc.getString("name"), argsMap, thoughtSignature)
+    }
+
     private fun sanitizeFunctionName(name: String): String {
-        return name.replace(Regex("[^a-zA-Z0-9_]"), "_").take(63)
+        return sanitizeFunctionNameStatic(name)
     }
 
     private fun sanitizeSchemaForGemini(schema: JSONObject): JSONObject {
-        val copy = JSONObject(schema.toString())
-        if (!copy.has("type")) {
-            copy.put("type", "OBJECT")
-        } else {
-            val typeStr = copy.optString("type").uppercase()
-            copy.put("type", typeStr)
-        }
-
-        val properties = copy.optJSONObject("properties")
-        if (properties != null) {
-            val keys = properties.keys()
-            while (keys.hasNext()) {
-                val propKey = keys.next()
-                val propObj = properties.optJSONObject(propKey)
-                if (propObj != null) {
-                    if (propObj.has("type")) {
-                        propObj.put("type", propObj.getString("type").uppercase())
-                    } else {
-                        propObj.put("type", "STRING")
-                    }
-                }
-            }
-        }
-        return copy
+        return sanitizeSchema(schema)
     }
 
     private fun parseErrorMessage(body: String): String {
@@ -253,8 +250,74 @@ class GeminiApiService {
             val json = JSONObject(body)
             val err = json.optJSONObject("error")
             err?.optString("message") ?: body
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             body.take(200)
+        }
+    }
+
+    companion object {
+        private const val TAG = "GeminiApiService"
+
+        // Keys allowed by the Gemini API schema specification; anything else
+        // (e.g. "$schema", "additionalProperties", "exclusiveMaximum") is
+        // rejected with a 400 and must be stripped before sending.
+        private val allowedSchemaKeys =
+            setOf("type", "format", "description", "nullable", "enum", "properties",
+                "required", "items", "minimum", "maximum", "minLength", "maxLength",
+                "minItems", "maxItems", "example")
+        private const val MAX_FUNCTION_NAME_LENGTH = 63
+
+        fun sanitizeFunctionNameStatic(name: String): String {
+            return name.replace(Regex("[^a-zA-Z0-9_]"), "_").take(MAX_FUNCTION_NAME_LENGTH)
+        }
+
+        fun sanitizeSchema(schema: JSONObject): JSONObject {
+            val sanitized = JSONObject()
+            for (key in schema.keys()) {
+                if (key !in allowedSchemaKeys) continue
+                when (key) {
+                    "type" -> sanitized.put("type", normalizeType(schema.optString(key)))
+                    "properties" -> sanitized.put("properties", sanitizeProperties(schema.optJSONObject(key)))
+                    "items" -> {
+                        val items = schema.optJSONObject(key)
+                        if (items != null) {
+                            sanitized.put("items", sanitizeSchema(items))
+                        }
+                    }
+                    else -> sanitized.put(key, schema.get(key))
+                }
+            }
+            if (!sanitized.has("type")) {
+                // Gemini rejects property schemas without an explicit type.
+                if (sanitized.has("properties") || sanitized.has("required")) {
+                    sanitized.put("type", "OBJECT")
+                } else {
+                    sanitized.put("type", "STRING")
+                }
+            }
+            return sanitized
+        }
+
+        private fun sanitizeProperties(properties: JSONObject?): JSONObject {
+            val cleanProperties = JSONObject()
+            if (properties == null) return cleanProperties
+            for (propKey in properties.keys()) {
+                val propObj = properties.optJSONObject(propKey) ?: continue
+                cleanProperties.put(propKey, sanitizeSchema(propObj))
+            }
+            return cleanProperties
+        }
+
+        private fun normalizeType(raw: String): String {
+            return when (raw.lowercase()) {
+                "string" -> "STRING"
+                "number" -> "NUMBER"
+                "integer" -> "INTEGER"
+                "boolean" -> "BOOLEAN"
+                "array" -> "ARRAY"
+                "object" -> "OBJECT"
+                else -> "STRING"
+            }
         }
     }
 }

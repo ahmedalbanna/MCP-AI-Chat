@@ -11,7 +11,9 @@ class RetryManager(
     private val initialDelayMs: Long = 500,
     private val maxDelayMs: Long = 5000
 ) {
-    private val TAG = "RetryManager"
+    private companion object {
+        private const val TAG = "RetryManager"
+    }
 
     suspend fun <T> executeWithRetry(
         tag: String,
@@ -42,7 +44,9 @@ class CircuitBreaker(
     private val failureThreshold: Int = 3,
     private val resetTimeoutMs: Long = 60000
 ) {
-    private val TAG = "CircuitBreaker"
+    private companion object {
+        private const val TAG = "CircuitBreaker"
+    }
 
     enum class State { CLOSED, OPEN, HALF_OPEN }
 

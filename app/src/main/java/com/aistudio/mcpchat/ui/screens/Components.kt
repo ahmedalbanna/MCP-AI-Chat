@@ -561,7 +561,7 @@ private fun parseInlineMarkdown(text: String): androidx.compose.ui.text.Annotate
 private fun formatJsonArguments(map: Map<String, Any?>): String {
     return try {
         JSONObject(map).toString(2)
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         map.toString()
     }
 }

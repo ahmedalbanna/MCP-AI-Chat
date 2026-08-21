@@ -13,14 +13,14 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
-import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -232,10 +232,16 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         viewModel.sendMessage("First message")
+        // Pump the scheduler until the first send suspends inside its work —
+        // only then is _isGenerating true.
+        testDispatcher.scheduler.runCurrent()
+        assertTrue(viewModel.isGenerating.value)
+
         viewModel.sendMessage("Second message")
         advanceUntilIdle()
 
         coVerify(exactly = 1) { chatRepository.sendMessage(any(), any(), any()) }
+        assertFalse(viewModel.isGenerating.value)
     }
 
     @Test
@@ -257,6 +263,10 @@ class ChatViewModelTest {
         sessionsFlow.value = sessions
 
         createViewModel()
+        // stateIn(WhileSubscribed) only produces values once collected.
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect {}
+        }
         advanceUntilIdle()
 
         assertEquals(2, viewModel.uiState.value.sessions.size)
@@ -270,6 +280,9 @@ class ChatViewModelTest {
         serversFlow.value = servers
 
         createViewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect {}
+        }
         advanceUntilIdle()
 
         assertEquals(1, viewModel.uiState.value.servers.size)

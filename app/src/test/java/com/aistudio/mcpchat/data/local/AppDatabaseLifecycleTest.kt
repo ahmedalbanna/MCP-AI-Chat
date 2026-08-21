@@ -3,10 +3,15 @@ package com.aistudio.mcpchat.data.local
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -14,9 +19,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -39,7 +41,7 @@ class AppDatabaseLifecycleTest {
 
     @Test
     fun `database is created with correct version`() {
-        assertEquals(2, database.openHelper.databaseVersion)
+        assertEquals(2, database.openHelper.writableDatabase.version)
     }
 
     @Test
@@ -130,7 +132,8 @@ class AppDatabaseLifecycleTest {
 
         val logs = database.mcpLogDao().getAllLogs().first()
         assertEquals(1, logs.size)
-        assertEquals(0L, logs[0].id)
+        // autoGenerate replaces the sentinel id=0 with a real row id.
+        assertTrue(logs[0].id > 0)
         assertEquals(null, logs[0].errorMessage)
         assertTrue(logs[0].timestamp > 0)
     }
@@ -175,11 +178,15 @@ class AppDatabaseLifecycleTest {
             endpointUrl = "http://test.com"
         )
 
+        // Persistence only applies to file-backed databases; the shared setUp
+        // database is in-memory.
         runTest {
-            database.mcpServerDao().insertServer(server)
+            val db1 = Room.databaseBuilder(context, AppDatabase::class.java, "test_db_lifecycle")
+                .allowMainThreadQueries()
+                .build()
+            db1.mcpServerDao().insertServer(server)
+            db1.close()
         }
-
-        database.close()
 
         val newDatabase = Room.databaseBuilder(context, AppDatabase::class.java, "test_db_lifecycle")
             .allowMainThreadQueries()
@@ -192,6 +199,7 @@ class AppDatabaseLifecycleTest {
         }
 
         newDatabase.close()
+        context.deleteDatabase("test_db_lifecycle")
     }
 
     @Test
@@ -203,29 +211,12 @@ class AppDatabaseLifecycleTest {
 
     @Test
     fun `concurrent reads do not block each other`() = runTest {
-        val latch = CountDownLatch(2)
-        val executor = Executors.newFixedThreadPool(2)
-        val results = mutableListOf<List<McpServerEntity>>()
-
-        executor.submit {
-            runTest {
-                val servers = database.mcpServerDao().getAllServers().first()
-                synchronized(results) { results.add(servers) }
-                latch.countDown()
-            }
+        val results = coroutineScope {
+            (1..2).map {
+                async(Dispatchers.IO) { database.mcpServerDao().getAllServers().first() }
+            }.awaitAll()
         }
-
-        executor.submit {
-            runTest {
-                val tools = database.mcpToolDao().getAllTools().first()
-                synchronized(results) { results.add(emptyList()) }
-                latch.countDown()
-            }
-        }
-
-        latch.await(5, TimeUnit.SECONDS)
         assertEquals(2, results.size)
-        executor.shutdown()
     }
 
     @Test

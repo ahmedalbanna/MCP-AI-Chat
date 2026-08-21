@@ -3,12 +3,16 @@ package com.aistudio.mcpchat.data.network
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
+
 class ResilienceTest {
+
+    /** Specific exception satisfying detekt's TooGenericExceptionThrown. */
+    private class SimulatedNetworkException(message: String) : Exception(message)
+
 
     private lateinit var retryManager: RetryManager
 
@@ -35,7 +39,7 @@ class ResilienceTest {
         var attempts = 0
         val result = retryManager.executeWithRetry("test") {
             attempts++
-            if (attempts < 2) throw RuntimeException("failure")
+            if (attempts < 2) throw SimulatedNetworkException("failure")
             "success"
         }
         assertEquals("success", result)
@@ -45,13 +49,14 @@ class ResilienceTest {
     @Test
     fun `executeWithRetry throws after max retries exhausted`() = runTest {
         var attempts = 0
-        assertThrows(RuntimeException::class.java) {
-            runTest {
-                retryManager.executeWithRetry("test") {
-                    attempts++
-                    throw RuntimeException("persistent failure")
-                }
+        try {
+            retryManager.executeWithRetry("test") {
+                attempts++
+                throw SimulatedNetworkException("persistent failure")
             }
+            org.junit.Assert.fail("Expected SimulatedNetworkException")
+        } catch (_: SimulatedNetworkException) {
+            // expected
         }
     }
 
@@ -61,13 +66,14 @@ class ResilienceTest {
         val retryMgr = RetryManager(maxRetries = maxRetries, initialDelayMs = 10, maxDelayMs = 50)
         var attempts = 0
 
-        assertThrows(RuntimeException::class.java) {
-            runTest {
-                retryMgr.executeWithRetry("test") {
-                    attempts++
-                    throw RuntimeException("always fail")
-                }
+        try {
+            retryMgr.executeWithRetry("test") {
+                attempts++
+                throw SimulatedNetworkException("always fail")
             }
+            org.junit.Assert.fail("Expected SimulatedNetworkException")
+        } catch (_: SimulatedNetworkException) {
+            // expected
         }
         assertEquals(maxRetries, attempts)
     }
@@ -82,14 +88,13 @@ class ResilienceTest {
 
     @Test
     fun `executeWithRetry propagates custom exception type`() = runTest {
-        class CustomException(msg: String) : Exception(msg)
-
-        assertThrows(CustomException::class.java) {
-            runTest {
-                retryManager.executeWithRetry("test") {
-                    throw CustomException("custom error")
-                }
+        try {
+            retryManager.executeWithRetry("test") {
+                throw SimulatedNetworkException("custom error")
             }
+            org.junit.Assert.fail("Expected SimulatedNetworkException")
+        } catch (_: SimulatedNetworkException) {
+            // expected
         }
     }
 

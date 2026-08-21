@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aistudio.mcpchat.data.local.ChatMessageEntity
 import com.aistudio.mcpchat.data.local.ChatSessionEntity
+import com.aistudio.mcpchat.data.model.DEFAULT_MODEL
+import com.aistudio.mcpchat.data.model.ChatException
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.McpToolCall
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.IOException
 import javax.inject.Inject
 
 data class ChatUiState(
@@ -113,13 +116,18 @@ class ChatViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ChatUiState())
 
     init {
+        // Observe the repository flow directly: the `sessions` StateFlow seeds
+        // an artificial emptyList before the DB query lands, which would
+        // trigger spurious session creation on every cold start.
         viewModelScope.launch {
-            sessions.collect { list ->
-                if (_currentSessionId.value == null) {
-                    if (list.isNotEmpty()) {
-                        updateCurrentSessionId(list.first().id)
-                    } else {
-                        createNewChat()
+            chatRepository.allSessionsFlow.collect { list ->
+                val current = _currentSessionId.value
+                if (current.isNullOrBlank() || current == "") {
+                    when {
+                        list.isNotEmpty() -> {
+                            list.first().id.takeIf { it.isNotBlank() }?.let(::updateCurrentSessionId)
+                        }
+                        else -> createNewChat()
                     }
                 }
             }
@@ -133,7 +141,7 @@ class ChatViewModel @Inject constructor(
         _uiError.value = null
     }
 
-    fun createNewChat(model: String = "gemini-3.5-flash") {
+    fun createNewChat(model: String = DEFAULT_MODEL) {
         viewModelScope.launch {
             val session = chatRepository.createNewSession(
                 title = "New AI Chat",
@@ -191,17 +199,25 @@ class ChatViewModel @Inject constructor(
                         _inProgressToolCalls.value = toolCalls
                     }
                 )
-            } catch (e: Exception) {
-                val error = when {
-                    e.message?.contains("API_KEY_MISSING", true) == true ->
+            } catch (e: ChatException) {
+                val error = when (e) {
+                    is ChatException.ApiKeyMissing ->
                         UiError.Api("Gemini API key is missing. Configure it in the Secrets panel.")
-                    e.message?.contains("timeout", true) == true ->
-                        UiError.Network("Request timed out. Check your network connection.")
-                    e.message?.contains("unreachable", true) == true ||
-                    e.message?.contains("connect", true) == true ->
+                    is ChatException.RateLimit ->
+                        UiError.Api("Rate limit exceeded. Please wait a moment and try again.")
+                    is ChatException.Network ->
                         UiError.Network("Server unreachable. Check your network connection.")
-                    else -> UiError.Unknown(e.message ?: "An error occurred during generation.")
+                    is ChatException.GeminiApi ->
+                        UiError.Api(e.message ?: "Gemini request failed.")
                 }
+                _errorMessage.value = error.message
+                _uiError.value = error
+            } catch (_: IOException) {
+                val error = UiError.Network("Network error. Check your internet connection.")
+                _errorMessage.value = error.message
+                _uiError.value = error
+            } catch (e: Exception) {
+                val error = UiError.Unknown(e.message ?: "An error occurred during generation.")
                 _errorMessage.value = error.message
                 _uiError.value = error
             } finally {

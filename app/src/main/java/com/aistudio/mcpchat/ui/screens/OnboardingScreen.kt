@@ -50,8 +50,8 @@ import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.IndigoPrimary
 import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
 
-private const val ONBOARDING_PREFS = "mcp_chat_onboarding"
-private const val KEY_HAS_SEEN_ONBOARDING = "has_seen_onboarding"
+internal const val ONBOARDING_PREFS = "mcp_chat_onboarding"
+internal const val KEY_HAS_SEEN_ONBOARDING = "has_seen_onboarding"
 
 fun hasSeenOnboarding(context: Context): Boolean {
     return context.getSharedPreferences(ONBOARDING_PREFS, Context.MODE_PRIVATE)

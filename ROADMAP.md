@@ -2,6 +2,11 @@
 
 A phased plan to transform the current prototype into a production-ready, maintainable Android application.
 
+> **Status audit (Aug 2026 code review):** Several items previously marked `[x]`
+> were not actually implemented or were only partially implemented. Statuses below
+> have been corrected to reflect the actual state of the codebase. New
+> **Phase 9** tracks remediation work identified by the review.
+
 ---
 
 ## Phase 1: UI/UX Polish & Consistency
@@ -85,11 +90,12 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Inject `McpHttpClient`, `GeminiApiService`, DAOs, and repositories
 - Eliminate manual `new` instantiation in ViewModels
 
-### 2.2 Security Hardening [x]
-- Remove hardcoded `"gateway-dev-token"` from `McpRepository.kt` — move to `BuildConfig` or encrypted storage
-- Add URL validation for user-provided MCP server endpoints (scheme, host, path checks)
-- Store Gemini API key in `EncryptedSharedPreferences` instead of `BuildConfig` plain text
-- Remove `fallbackToDestructiveMigration()` — implement proper Room migrations
+### 2.2 Security Hardening [ ] — REOPENED Aug 2026
+- ~~Remove hardcoded `"gateway-dev-token"`~~ — **regression:** a live bearer token + IP for an ERPNext gateway is hardcoded in `McpRepository.kt` presets; must be removed and rotated
+- Add URL validation for user-provided MCP server endpoints (scheme, host, path checks) [x] — but must additionally require https except loopback hosts
+- Store Gemini API key in `EncryptedSharedPreferences` instead of `BuildConfig` plain text [ ]
+- Remove `fallbackToDestructiveMigration()` — still present in `AppDatabase.kt` despite real migrations existing [ ]
+- Encrypt server auth headers stored in Room, or exclude database from cloud backups (`data_extraction_rules.xml` is template-only today) [ ]
 
 ### 2.3 Package & Identity Cleanup [x]
 - Replace `com.example` package with a real namespace (e.g., `com.aistudio.mcpchat`)
@@ -139,29 +145,29 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Test navigation between tabs
 - Test server enable/disable toggle, tool call card rendering
 
-### 4.4 Snapshot Tests
-- Use Roborazzi (already in deps) for screenshot regression tests
+### 4.4 Snapshot Tests [ ]
+- Use Roborazzi (already in deps) for screenshot regression tests — plugin configured, but no golden images recorded
 - Capture key screens: chat with messages, server list, inspector with tool results
 
 ---
 
 ## Phase 5: Error Handling & Robustness
 
-### 5.1 Network Error Handling [x]
-- Add retry logic with exponential backoff for MCP server calls
-- Implement circuit breaker pattern for failing MCP servers
-- Add timeout configuration (connect, read, write) per server
-- Surface network errors to UI with actionable messages ("Server unreachable", "Invalid response")
+### 5.1 Network Error Handling [ ] — partially done
+- Retry logic with exponential backoff: `RetryManager` exists but is **not wired** into any network call [ ]
+- Circuit breaker pattern: `CircuitBreaker` exists but is **not consulted** anywhere [ ]
+- Timeout configuration (connect, read, write) per server [x] — global defaults only
+- Surface network errors to UI with actionable messages [~] — currently via fragile substring matching of error strings; needs typed exceptions
 
-### 5.2 Database Migrations [x]
-- Export Room schema (`exportSchema = true`, add schema directory)
-- Write migration from version 1 → 2 for any schema changes
-- Add CI check that validates migrations against exported schemas
+### 5.2 Database Migrations [ ] — partially done
+- Export Room schema: `exportSchema = true` set, but **no `room.schemaLocation` KSP arg**, so schemas are never exported [ ]
+- Write migration from version 1 → 2 [x]
+- Add CI check that validates migrations against exported schemas [ ]
 
-### 5.3 Graceful Degradation [x]
-- When an MCP server is unreachable, disable its tools gracefully (not crash)
-- Handle Gemini API rate limits with user-facing message and retry
-- Handle malformed JSON-RPC responses without crashing the chat loop
+### 5.3 Graceful Degradation [~]
+- When an MCP server is unreachable, its cached tools are **deleted permanently** on a single failed ping instead of being marked unavailable [ ]
+- Handle Gemini API rate limits with user-facing message [x]
+- Handle malformed JSON-RPC responses without crashing the chat loop [x]
 
 ---
 
@@ -170,13 +176,13 @@ A phased plan to transform the current prototype into a production-ready, mainta
 ### 6.1 Linting & Formatting [x]
 - Add `ktlint` or `detekt` with shared config
 - Add `.editorconfig` for consistent formatting
-- Run lint as part of CI
+- Run lint as part of CI *(blocked on Phase 7)*
 
-### 6.2 Remove Dead Code [x]
-- Remove unused dependencies from `libs.versions.toml` (Camera, Accompanist, Firestore, Play Services Location, Datastore)
-- Remove commented-out dependency blocks from `build.gradle.kts`
-- Clean up unused imports across all files
-- Remove `@Suppress("DEPRECATION")` by migrating to non-deprecated APIs
+### 6.2 Remove Dead Code [ ] — REOPENED Aug 2026
+- Unused dependencies remain in `libs.versions.toml`: Retrofit, Moshi (+converter/codegen), Coil, Firebase AI/App Check/BOM, logging-interceptor, mockk-android [ ]
+- Dead classes never wired into production code: `RetryManager`, `CircuitBreaker` (`Resilience.kt`), `McpSseClient`, `MemoryTool` [ ]
+- Clean up unused imports across all files [~]
+- Remove `@Suppress("DEPRECATION")` by migrating to non-deprecated APIs [x]
 
 ### 6.3 Documentation [x]
 - Write `README.md` with: project overview, setup instructions, architecture diagram, environment variables
@@ -192,28 +198,29 @@ A phased plan to transform the current prototype into a production-ready, mainta
 
 ## Phase 7: CI/CD & Build Pipeline
 
-### 7.1 GitHub Actions [x]
-- PR checks: build, lint, unit tests
-- Nightly: full test suite + screenshot comparison
-- Release: signed build + artifact upload
+### 7.1 GitHub Actions [ ] — `.github/workflows/` is empty; no workflows exist
+- PR checks: build, lint, unit tests [ ]
+- Nightly: full test suite + screenshot comparison [ ]
+- Release: signed build + artifact upload [ ]
 
-### 7.2 Quality Gates [x]
-- Minimum code coverage threshold (e.g., 60% for new code)
-- Lint must pass with zero errors
-- No hardcoded secrets (use `gitleaks` or similar)
+### 7.2 Quality Gates [ ]
+- Minimum code coverage threshold (e.g., 60% for new code) [ ]
+- Lint must pass with zero errors [ ]
+- No hardcoded secrets (use `gitleaks` or similar) [ ] — a live credential shipped to git in Aug 2026; see 2.2
 
 ---
 
 ## Phase 8: Feature Improvements
 
-### 8.1 Real MCP SSE Transport [x]
-- Implement Server-Sent Events transport alongside HTTP POST
-- Auto-detect transport type from server response headers
-- Add connection health monitoring for SSE connections
+### 8.1 Real MCP SSE Transport [ ] — partially done
+- `McpSseClient` implemented but **not integrated**: no DI binding, no repository/screen uses it [ ]
+- Auto-detect transport type from server response headers — HTTP client tolerates SSE-framed JSON-RPC responses, which covers streamable-http servers [x]
+- Connection health monitoring for SSE connections [ ]
 
-### 8.2 Memory Tool [x]
-- Replace hardcoded memory responses with actual Room-backed persistent storage
-- Add semantic search or simple keyword matching for `search_memory_notes`
+### 8.2 Memory Tool [ ] — dead code
+- Room-backed storage implemented (`MemoryTool`) but never registered as a tool source; unreachable from chat [ ]
+- Fix `listNotes`: collects an infinite Room Flow (`collect {}`) — hangs forever if ever called [ ]
+- Add semantic search or simple keyword matching for `search_memory_notes` [x]
 
 ### 8.3 Fallback Mode Improvement [x]
 - Replace simple keyword matching with a lightweight local LLM or better heuristic
@@ -221,30 +228,57 @@ A phased plan to transform the current prototype into a production-ready, mainta
 
 ---
 
+## Phase 9: Review Remediation (Aug 2026)
+
+Findings from the Aug 2026 code review, ordered by severity:
+
+### 9.1 Security [ ]
+- Remove hardcoded ERPNext gateway IP + bearer token from `McpRepository`; rotate the leaked credential [ ]
+- Require https for user-added servers (loopback exception) [ ]
+- Exclude database (auth headers, request/response logs, chat history) from cloud backup & device transfer [ ]
+
+### 9.2 Correctness [ ]
+- Persist function responses so multi-turn history satisfies Gemini's functionCall→functionResponse pairing [ ]
+- Map sanitized Gemini function names back to original tool names before execution (tools with `-`/`.` in names silently fail today) [ ]
+- Emit a visible message when the tool-call hop limit is reached instead of saving an empty reply [ ]
+- Stop deleting cached tools on transient ping failures [ ]
+- Replace fire-and-forget unscoped `CoroutineScope` seeding in `McpRepository.init` (also removes network I/O at DB construction) [ ]
+- Fix `MemoryTool.listNotes` infinite collect [ ]
+
+### 9.3 Resilience wiring [ ]
+- Wire `RetryManager` (idempotent calls only: initialize, tools/list — never tools/call) and `CircuitBreaker` into `McpHttpClient` [ ]
+- Monotonic JSON-RPC ids (replace random id collisions) [ ]
+- Key MCP sessions by endpoint+auth so distinct credentials don't share session state [ ]
+
+### 9.4 Error typing [ ]
+- Introduce typed chat exceptions; map them in `ChatViewModel` instead of substring matching [ ]
+- Single source of truth for default model name (`gemini-3.5-flash` duplicated in 4 files) [ ]
+
+### 9.5 Build hygiene [ ]
+- Remove unused dependencies (Retrofit, Moshi, Coil, Firebase stack, logging-interceptor) and google-services plugin [ ]
+- Configure `room.schemaLocation` KSP arg so schemas actually export [ ]
+- Remove `fallbackToDestructiveMigration()` now that migration 1→2 exists [ ]
+
+### 9.6 Still open (future)
+- EncryptedSharedPreferences for API key / auth headers (needs a crypto module decision)
+- GitHub Actions workflows (Phase 7)
+- Roborazzi goldens + CI validation of migrations
+- SSE transport integration or deletion decision
+
+---
+
 ## Priority Order
 
 | Priority | Phase | Effort | Impact |
 |----------|-------|--------|--------|
-| P0 | 1.3 Accessibility | Medium | Critical |
-| P0 | 1.4 Chat Screen UX | Medium | High |
-| P0 | 2.2 Security Hardening | Small | Critical |
-| P0 | 2.1 Dependency Injection | Medium | High |
-| P1 | 1.1 Design System Foundation | Small | High |
-| P1 | 1.2 Typography & Readability | Small | High |
-| P1 | 1.5 Tool Call UX | Medium | High |
-| P1 | 1.9 Error & Empty States | Medium | High |
-| P1 | 3.1 McpHttpClient Refinement | Small | High |
-| P1 | 4.1 Unit Tests (core logic) | Medium | High |
-| P1 | 5.1 Network Error Handling | Medium | High |
-| P2 | 1.6 Server Management UX | Medium | Medium |
-| P2 | 1.10 Dark Mode & Theming | Medium | Medium |
-| P2 | 2.3 Package Cleanup | Small | Medium |
-| P2 | 3.2-3.4 Architecture | Medium | Medium |
-| P2 | 6.1-6.2 Linting & Dead Code | Small | Medium |
-| P3 | 1.7 Inspector Screen UX | Medium | Medium |
-| P3 | 1.8 Navigation & Transitions | Medium | Medium |
-| P3 | 4.2-4.4 Integration/UI/Snapshot Tests | Large | Medium |
-| P3 | 5.2-5.3 Migrations & Degradation | Medium | Medium |
-| P3 | 6.3-6.4 Documentation & ProGuard | Small | Medium |
-| P4 | 7.1-7.2 CI/CD | Medium | Medium |
-| P5 | 8.1-8.3 Feature Improvements | Large | Low-Medium |
+| P0 | 9.1 Security remediation | Small | Critical |
+| P0 | 9.2 Correctness fixes | Medium | Critical |
+| P0 | 9.5 Build hygiene | Small | High |
+| P1 | 9.3 Resilience wiring | Medium | High |
+| P1 | 9.4 Error typing | Small | Medium |
+| P1 | 1.3 Accessibility | Medium | Critical |
+| P1 | 1.4 Chat Screen UX | Medium | High |
+| P1 | 2.2 Security Hardening (remaining) | Medium | Critical |
+| P2 | 7.1-7.2 CI/CD | Medium | Medium |
+| P2 | 4.4 Snapshot Tests | Large | Medium |
+| P3 | 8.1-8.2 SSE/Memory integration decision | Medium | Low-Medium |

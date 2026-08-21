@@ -28,9 +28,9 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         @Volatile
-        private var INSTANCE: AppDatabase? = null
+        private var instance: AppDatabase? = null
 
-        private val MIGRATION_1_2 = object : Migration(1, 2) {
+        private val migration1To2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE chat_sessions ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("""
@@ -46,16 +46,15 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         fun getDatabase(context: Context): AppDatabase {
-            return INSTANCE ?: synchronized(this) {
+            return instance ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "mcp_chat_database"
                 )
-                    .addMigrations(MIGRATION_1_2)
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(migration1To2)
                     .build()
-                INSTANCE = instance
+                instance = instance
                 instance
             }
         }

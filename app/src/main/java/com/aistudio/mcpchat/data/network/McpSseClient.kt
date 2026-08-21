@@ -21,7 +21,6 @@ import java.io.Closeable
 import java.util.concurrent.TimeUnit
 
 class McpSseClient : Closeable {
-    private val TAG = "McpSseClient"
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     private val client = OkHttpClient.Builder()
@@ -157,6 +156,10 @@ class McpSseClient : Closeable {
         cancelConnection()
         client.dispatcher.executorService.shutdown()
         client.connectionPool.evictAll()
+    }
+
+    private companion object {
+        private const val TAG = "McpSseClient"
     }
 }
 

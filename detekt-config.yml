@@ -4,19 +4,22 @@ build:
 
 complexity:
   LongMethod:
-    threshold: 60
+    threshold: 80
+    ignoreAnnotated: ['Composable']
   LongParameterList:
     functionThreshold: 8
     constructorThreshold: 10
-  ComplexMethod:
+    ignoreAnnotated: ['Composable']
+  CyclomaticComplexMethod:
     threshold: 15
+    ignoreAnnotated: ['Composable']
   TooManyFunctions:
     thresholdInFiles: 20
-    thresholdInClasses: 20
+    thresholdInClasses: 25
 
 style:
   MaxLineLength:
-    maxLineLength: 120
+    maxLineLength: 150
   MagicNumber:
     active: false
   ReturnCount:

@@ -20,7 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val AmoledDarkColorScheme = darkColorScheme(
+private val amoledDarkColorScheme = darkColorScheme(
     primary = IndigoPrimaryLight,
     onPrimary = SlateSurfaceDark,
     primaryContainer = IndigoContainerDark,
@@ -44,7 +44,7 @@ private val AmoledDarkColorScheme = darkColorScheme(
     errorContainer = RoseErrorContainer
 )
 
-private val DarkColorScheme = darkColorScheme(
+private val darkColorScheme = darkColorScheme(
     primary = IndigoPrimaryLight,
     onPrimary = SlateSurfaceDark,
     primaryContainer = IndigoContainerDark,
@@ -68,7 +68,7 @@ private val DarkColorScheme = darkColorScheme(
     errorContainer = RoseErrorContainer
 )
 
-private val LightColorScheme = lightColorScheme(
+private val lightColorScheme = lightColorScheme(
     primary = IndigoPrimary,
     onPrimary = SlateSurfaceLight,
     primaryContainer = IndigoContainerLight,
@@ -107,9 +107,9 @@ fun MyApplicationTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme && ThemePrefs.useAmoledDark -> AmoledDarkColorScheme
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        darkTheme && ThemePrefs.useAmoledDark -> amoledDarkColorScheme
+        darkTheme -> darkColorScheme
+        else -> lightColorScheme
     }
 
     val view = LocalView.current

@@ -70,6 +70,21 @@ class McpInspectorViewModel @Inject constructor(
 
     private val _error = MutableStateFlow<UiError?>(null)
 
+    init {
+        // Restore parameter defaults after process death: SavedStateHandle
+        // brings back the tool id, but the schema-derived inputs are lost.
+        viewModelScope.launch {
+            tools.collect { list ->
+                val id = _selectedToolId.value
+                if (id != null && _parameterInputs.value.isEmpty()) {
+                    list.find { it.id == id }?.let { tool ->
+                        _parameterInputs.value = buildInitialParams(tool)
+                    }
+                }
+            }
+        }
+    }
+
     val uiState: StateFlow<InspectorUiState> = combine(
         servers,
         tools,
@@ -102,7 +117,10 @@ class McpInspectorViewModel @Inject constructor(
         _latestResult.value = null
         _latestLatencyMs.value = null
         _latestIsSuccess.value = null
+        _parameterInputs.value = buildInitialParams(tool)
+    }
 
+    private fun buildInitialParams(tool: McpTool): Map<String, String> {
         val initialParams = mutableMapOf<String, String>()
         try {
             val schema = JSONObject(tool.inputSchemaJson)
@@ -112,32 +130,14 @@ class McpInspectorViewModel @Inject constructor(
                 while (keys.hasNext()) {
                     val k = keys.next()
                     val prop = properties.optJSONObject(k)
-                    val defaultVal = when (k) {
-                        "location" -> "Tokyo"
-                        "days" -> "3"
-                        "query" -> "Jetpack Compose"
-                        "topic" -> "Artificial Intelligence"
-                        "coin_id" -> "bitcoin"
-                        "vs_currency" -> "usd"
-                        "from_currency" -> "USD"
-                        "to_currency" -> "EUR"
-                        "amount" -> "500"
-                        "expression" -> "sqrt(144) + 50 * 2"
-                        "value" -> "100"
-                        "from_unit" -> "km"
-                        "to_unit" -> "miles"
-                        "location_or_tz" -> "Europe/London"
-                        "city_a" -> "San Francisco"
-                        "city_b" -> "Paris"
-                        "key" -> "project_brief"
-                        "content" -> "MCP remote integration server protocol active"
-                        else -> prop?.optString("default", "") ?: ""
-                    }
-                    initialParams[k] = defaultVal
+                    // Prefer an explicit default declared by the tool's schema,
+                    // then fall back to sensible curated examples.
+                    val schemaDefault = prop?.optString("default", "").orEmpty()
+                    initialParams[k] = schemaDefault.ifBlank { curatedParamDefaults[k] ?: "" }
                 }
             }
         } catch (_: Exception) { }
-        _parameterInputs.value = initialParams
+        return initialParams
     }
 
     fun updateParameter(key: String, value: String) {
@@ -159,15 +159,7 @@ class McpInspectorViewModel @Inject constructor(
             _error.value = null
 
             try {
-                val argsMap = mutableMapOf<String, Any?>()
-                for ((k, v) in _parameterInputs.value) {
-                    val num = v.toDoubleOrNull()
-                    if (num != null && (k == "days" || k == "amount" || k == "value")) {
-                        argsMap[k] = if (num % 1.0 == 0.0) num.toInt() else num
-                    } else {
-                        argsMap[k] = v
-                    }
-                }
+                val argsMap = coerceArguments(tool, _parameterInputs.value)
 
                 val (res, logItem) = repository.executeTool(server, tool.name, argsMap)
                 _latestResult.value = res
@@ -218,7 +210,56 @@ class McpInspectorViewModel @Inject constructor(
         }
     }
 
+    private fun coerceArguments(tool: McpTool, params: Map<String, String>): Map<String, Any?> {
+        // Coerce string inputs to the types declared in the tool's input
+        // schema so MCP servers receive proper JSON types.
+        val propTypes = try {
+            val props = JSONObject(tool.inputSchemaJson).optJSONObject("properties")
+            buildMap {
+                props?.let { p ->
+                    val keys = p.keys()
+                    while (keys.hasNext()) {
+                        val k = keys.next()
+                        put(k, p.optJSONObject(k)?.optString("type")?.lowercase())
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            emptyMap()
+        }
+
+        return params.mapValues { (k, v) ->
+            when (propTypes[k]) {
+                "integer" -> v.toIntOrNull() ?: v.toDoubleOrNull()?.toInt() ?: v
+                "number" -> v.toDoubleOrNull() ?: v
+                "boolean" -> v.toBooleanStrictOrNull() ?: v
+                else -> v
+            }
+        }
+    }
+
     companion object {
         private const val KEY_SELECTED_TOOL_ID = "selected_tool_id"
+
+        private val curatedParamDefaults = mapOf(
+            "location" to "Tokyo",
+            "days" to "3",
+            "query" to "Jetpack Compose",
+            "topic" to "Artificial Intelligence",
+            "coin_id" to "bitcoin",
+            "vs_currency" to "usd",
+            "from_currency" to "USD",
+            "to_currency" to "EUR",
+            "amount" to "500",
+            "expression" to "sqrt(144) + 50 * 2",
+            "value" to "100",
+            "from_unit" to "km",
+            "to_unit" to "miles",
+            "location_or_tz" to "Europe/London",
+            "city_a" to "San Francisco",
+            "city_b" to "Paris",
+            "key" to "project_brief",
+            "content" to "MCP remote integration server protocol active"
+        )
     }
 }

@@ -1,12 +1,9 @@
-import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
-
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
   alias(libs.plugins.secrets)
-  alias(libs.plugins.google.services)
   alias(libs.plugins.hilt)
   alias(libs.plugins.detekt)
   alias(libs.plugins.spotless)
@@ -60,7 +57,14 @@ android {
     compose = true
     buildConfig = true
   }
-  testOptions { unitTests { isIncludeAndroidResources = true } }
+  testOptions {
+    unitTests {
+      isIncludeAndroidResources = true
+      // Return defaults for un-mocked android.jar methods (android.util.Log,
+      // etc.) instead of throwing in plain JVM unit tests.
+      isReturnDefaultValues = true
+    }
+  }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true
@@ -72,14 +76,14 @@ android {
 secrets {
   propertiesFileName = ".env"
   defaultPropertiesFileName = ".env.example"
-  ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
 }
 
-googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
+ksp {
+  arg("room.schemaLocation", "$projectDir/schemas")
+}
 
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
-  implementation(platform(libs.firebase.bom))
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.compose.material.icons.core)
   implementation(libs.androidx.compose.material.icons.extended)
@@ -94,18 +98,10 @@ dependencies {
   implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
-  implementation(libs.coil.compose)
-  implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
-  implementation(libs.firebase.appcheck.recaptcha)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.logging.interceptor)
-  implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
   implementation(libs.okhttp.sse)
-  // implementation(libs.play.services.location)
-  implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
@@ -118,6 +114,11 @@ dependencies {
   testImplementation(libs.androidx.room.testing)
   testImplementation(libs.mockk)
   testImplementation(libs.turbine)
+  testImplementation(libs.hilt.android.testing)
+  // Real org.json implementation for plain JVM unit tests (the android.jar
+  // version is stubbed and would otherwise return nulls under
+  // isReturnDefaultValues).
+  testImplementation("org.json:json:20240303")
   androidTestImplementation(platform(libs.androidx.compose.bom))
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   androidTestImplementation(libs.androidx.espresso.core)
@@ -126,7 +127,6 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
-  "ksp"(libs.moshi.kotlin.codegen)
   "ksp"(libs.hilt.compiler)
   implementation(libs.hilt.android)
   implementation(libs.hilt.navigation.compose)
@@ -142,6 +142,10 @@ spotless {
   kotlin {
     target("**/*.kt")
     targetExclude("**/build/**")
-    ktlint()
+    ktlint().editorConfigOverride(
+      mapOf(
+        "max_line_length" to "150"
+      )
+    )
   }
 }

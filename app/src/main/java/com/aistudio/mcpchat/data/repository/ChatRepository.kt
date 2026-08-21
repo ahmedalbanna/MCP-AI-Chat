@@ -4,6 +4,8 @@ import android.util.Log
 import com.aistudio.mcpchat.data.local.AppDatabase
 import com.aistudio.mcpchat.data.local.ChatMessageEntity
 import com.aistudio.mcpchat.data.local.ChatSessionEntity
+import com.aistudio.mcpchat.data.model.DEFAULT_MODEL
+import com.aistudio.mcpchat.data.model.ChatException
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
 import com.aistudio.mcpchat.data.model.McpServer
@@ -24,10 +26,18 @@ class ChatRepository(
     private val mcpRepository: McpRepository,
     private val geminiService: GeminiApiService = GeminiApiService()
 ) {
-    private val TAG = "ChatRepository"
     private val chatDao = database.chatDao()
     private val systemPromptBuilder = SystemPromptBuilder()
     private val fallbackHandler = LocalFallbackHandler()
+
+    companion object {
+        private const val TAG = "ChatRepository"
+        private const val MAX_TOOL_HOPS = 5
+
+        private val hopLimitMessage =
+            "I reached the maximum number of tool-call rounds ($MAX_TOOL_HOPS) without completing this task. " +
+                "Please try rephrasing your request or breaking it into smaller steps."
+    }
 
     val allSessionsFlow: Flow<List<ChatSessionEntity>> = chatDao.getAllSessions()
 
@@ -37,7 +47,7 @@ class ChatRepository(
 
     suspend fun createNewSession(
         title: String = "New Chat",
-        model: String = "gemini-3.5-flash",
+        model: String = DEFAULT_MODEL,
         systemPrompt: String = ""
     ): ChatSessionEntity = withContext(Dispatchers.IO) {
         val session = ChatSessionEntity(
@@ -79,26 +89,7 @@ class ChatRepository(
         val session = chatDao.getSessionById(sessionId) ?: createNewSession(
             title = userPrompt.take(28) + if (userPrompt.length > 28) "..." else ""
         )
-
-        // If first user message, update session title
-        val existingMessages = chatDao.getMessagesList(sessionId)
-        if (existingMessages.isEmpty()) {
-            chatDao.updateSession(session.copy(
-                title = userPrompt.take(30) + if (userPrompt.length > 30) "..." else "",
-                updatedAt = System.currentTimeMillis()
-            ))
-        }
-
-        // 1. Save User Message
-        val userMsgId = UUID.randomUUID().toString()
-        val userMessage = ChatMessageEntity(
-            id = userMsgId,
-            sessionId = sessionId,
-            role = "user",
-            content = userPrompt,
-            timestamp = System.currentTimeMillis()
-        )
-        chatDao.insertMessage(userMessage)
+        persistUserTurn(sessionId, session, userPrompt)
 
         // 2. Fetch all enabled tools from active MCP servers
         val enabledServers = mcpRepository.getEnabledServers()
@@ -111,45 +102,28 @@ class ChatRepository(
         }
 
         val toolNameToToolMap = activeTools.associateBy { it.name }
+        // Gemini receives sanitized function names; map them back so tool
+        // execution uses the original MCP tool name.
+        val sanitizedToOriginalName = activeTools.associate { tool ->
+            GeminiApiService.sanitizeFunctionNameStatic(tool.name) to tool.name
+        }
 
         // 3. Construct conversation history for Gemini
         val allMsgs = chatDao.getMessagesList(sessionId)
-        val history = mutableListOf<GeminiMessage>()
-
-        // System prompt instructing model about MCP capabilities
         val systemInstruction = systemPromptBuilder.buildSystemPrompt(session.systemPrompt, activeTools)
-
-        for (m in allMsgs) {
-            if (m.role == "user") {
-                history.add(GeminiMessage(role = "user", parts = listOf(GeminiPart.Text(m.content))))
-            } else if (m.role == "assistant") {
-                val parts = mutableListOf<GeminiPart>()
-                if (m.toolCallsJson != null) {
-                    val calls = parseToolCallsJson(m.toolCallsJson)
-                    for (c in calls) {
-                        parts.add(GeminiPart.FunctionCall(c.toolName, c.inputArguments, c.thoughtSignature))
-                    }
-                }
-                if (m.content.isNotBlank()) {
-                    parts.add(GeminiPart.Text(m.content))
-                }
-                if (parts.isNotEmpty()) {
-                    history.add(GeminiMessage(role = "model", parts = parts))
-                }
-            }
-        }
+        val history = buildHistory(allMsgs)
 
         val accumulatedToolCalls = mutableListOf<McpToolCall>()
         var finalResponseText = ""
         var isError = false
+        var failureException: ChatException? = null
         val startTime = System.currentTimeMillis()
 
         // 4. Multi-turn execution loop (up to 5 function call hops)
-        var maxHops = 5
         var currentHop = 0
         var continueLoop = true
 
-        while (continueLoop && currentHop < maxHops) {
+        while (continueLoop && currentHop < MAX_TOOL_HOPS) {
             currentHop++
 
             val geminiResponse = geminiService.generateContent(
@@ -160,109 +134,30 @@ class ChatRepository(
             )
 
             if (geminiResponse.error != null) {
-                if (geminiResponse.error == "API_KEY_MISSING") {
-                    finalResponseText = fallbackHandler.getResponse(userPrompt)
-                    continueLoop = false
-                    break
-                } else if (geminiResponse.error.contains("Rate limit", ignoreCase = true)) {
-                    isError = true
-                    finalResponseText = "Rate limit exceeded. Please wait a moment and try sending your message again."
-                    continueLoop = false
-                    break
-                } else {
-                    isError = true
-                    finalResponseText = "${geminiResponse.error}"
-                    continueLoop = false
-                    break
-                }
+                val outcome = handleGeminiError(geminiResponse.error, userPrompt)
+                isError = outcome.isError
+                failureException = outcome.exception
+                finalResponseText = outcome.message
+                continueLoop = false
+                break
             }
 
             // Check if Gemini requested function calls
             if (geminiResponse.functionCalls.isNotEmpty()) {
-                val functionResponsesParts = mutableListOf<GeminiPart>()
-
-                for (fc in geminiResponse.functionCalls) {
-                    val toolDef = toolNameToToolMap[fc.name]
-                    val server = if (toolDef != null) serverMap[toolDef.serverId] else null
-
-                    val toolCallId = UUID.randomUUID().toString()
-                    var toolCall = McpToolCall(
-                        callId = toolCallId,
-                        serverId = server?.id ?: "unknown",
-                        serverName = server?.name ?: "Remote MCP Server",
-                        toolName = fc.name,
-                        inputArguments = fc.args,
-                        status = ToolExecutionStatus.EXECUTING,
-                        thoughtSignature = fc.thoughtSignature
-                    )
-
-                    accumulatedToolCalls.add(toolCall)
-                    onToolCallUpdate?.invoke(accumulatedToolCalls)
-
-                    // Execute over remote MCP HTTP / transport
-                    val targetServer = server ?: McpServer(
-                        id = "dynamic",
-                        name = "Remote Server",
-                        description = "Discovered tool",
-                        endpointUrl = "",
-                        isPreset = false
-                    )
-
-                    val (execResult, logItem) = mcpRepository.executeTool(targetServer, fc.name, fc.args)
-
-                    val updatedToolCall = toolCall.copy(
-                        outputResult = execResult,
-                        isSuccess = logItem.isSuccess,
-                        status = if (logItem.isSuccess) ToolExecutionStatus.SUCCESS else ToolExecutionStatus.ERROR,
-                        executionTimeMs = logItem.latencyMs,
-                        errorMessage = logItem.errorMessage
-                    )
-
-                    // Replace in accumulated list
-                    val index = accumulatedToolCalls.indexOfFirst { it.callId == toolCallId }
-                    if (index >= 0) {
-                        accumulatedToolCalls[index] = updatedToolCall
-                    }
-                    onToolCallUpdate?.invoke(accumulatedToolCalls)
-
-                    // Build function response payload for next turn
-                    val responseMap = try {
-                        val jsonObj = JSONObject(execResult)
-                        val map = mutableMapOf<String, Any?>()
-                        val keys = jsonObj.keys()
-                        while (keys.hasNext()) {
-                            val k = keys.next()
-                            map[k] = jsonObj.get(k)
-                        }
-                        map
-                    } catch (_: Exception) {
-                        mapOf("result" to (if (execResult.isNotBlank()) execResult.take(1000) else "Empty response"))
-                    }
-
-                    functionResponsesParts.add(
-                        GeminiPart.FunctionResponse(
-                            name = fc.name,
-                            response = responseMap,
-                            thoughtSignature = fc.thoughtSignature
-                        )
-                    )
-                }
+                val functionResponsesParts = executeFunctionCalls(
+                    geminiResponse.functionCalls,
+                    toolNameToToolMap,
+                    sanitizedToOriginalName,
+                    serverMap,
+                    accumulatedToolCalls,
+                    onToolCallUpdate
+                )
 
                 // Append assistant's function call message to history
-                history.add(
-                    GeminiMessage(
-                        role = "model",
-                        parts = geminiResponse.functionCalls
-                    )
-                )
+                history.add(GeminiMessage(role = "model", parts = geminiResponse.functionCalls))
 
                 // Append function response message to history
-                history.add(
-                    GeminiMessage(
-                        role = "tool",
-                        parts = functionResponsesParts
-                    )
-                )
+                history.add(GeminiMessage(role = "tool", parts = functionResponsesParts))
 
                 // Continue to next hop to get Gemini's natural language response!
                 continueLoop = true
@@ -274,24 +169,242 @@ class ChatRepository(
         }
 
         val totalLatency = System.currentTimeMillis() - startTime
+        return@withContext persistAssistantTurn(
+            sessionId, session, finalResponseText,
+            accumulatedToolCalls, isError, failureException, totalLatency
+        )
+    }
 
-        // 5. Save Assistant message to Database
-        val assistantMsgId = UUID.randomUUID().toString()
+    private suspend fun persistUserTurn(
+        sessionId: String,
+        session: ChatSessionEntity,
+        userPrompt: String
+    ) {
+        // If first user message, use it as the session title
+        if (chatDao.getMessagesList(sessionId).isEmpty()) {
+            chatDao.updateSession(session.copy(
+                title = userPrompt.take(30) + if (userPrompt.length > 30) "..." else "",
+                updatedAt = System.currentTimeMillis()
+            ))
+        }
+
+        val userMessage = ChatMessageEntity(
+            id = UUID.randomUUID().toString(),
+            sessionId = sessionId,
+            role = "user",
+            content = userPrompt,
+            timestamp = System.currentTimeMillis()
+        )
+        chatDao.insertMessage(userMessage)
+    }
+
+    private suspend fun persistAssistantTurn(
+        sessionId: String,
+        session: ChatSessionEntity,
+        finalResponseText: String,
+        accumulatedToolCalls: List<McpToolCall>,
+        isError: Boolean,
+        failureException: ChatException?,
+        totalLatency: Long
+    ): Result<ChatMessageEntity> {
+        var responseText = finalResponseText
+        var error = isError
+
+        // Loop exhausted while the model still wanted tools — surface it
+        // instead of saving an empty reply.
+        if (responseText.isBlank() && accumulatedToolCalls.isNotEmpty()) {
+            error = true
+            responseText = hopLimitMessage
+        }
+
         val assistantMessage = ChatMessageEntity(
-            id = assistantMsgId,
+            id = UUID.randomUUID().toString(),
             sessionId = sessionId,
             role = "assistant",
-            content = finalResponseText,
+            content = responseText,
             toolCallsJson = if (accumulatedToolCalls.isNotEmpty()) serializeToolCalls(accumulatedToolCalls) else null,
             latencyMs = totalLatency,
             timestamp = System.currentTimeMillis(),
-            isError = isError
+            isError = error
         )
 
         chatDao.insertMessage(assistantMessage)
         chatDao.updateSession(session.copy(updatedAt = System.currentTimeMillis()))
 
-        Result.success(assistantMessage)
+        // Surface hard failures to the caller as typed exceptions while
+        // keeping the persisted assistant message for history/UX.
+        failureException?.let { return Result.failure(it) }
+
+        return Result.success(assistantMessage)
+    }
+
+    private data class ErrorOutcome(
+        val message: String,
+        val isError: Boolean,
+        val exception: ChatException?
+    )
+
+    private fun handleGeminiError(error: String, userPrompt: String): ErrorOutcome {
+        if (error == "API_KEY_MISSING") {
+            // Graceful degradation: local fallback keeps the chat usable.
+            return ErrorOutcome(fallbackHandler.getResponse(userPrompt), false, null)
+        }
+        val exception = when {
+            error.contains("Rate limit", ignoreCase = true) ->
+                ChatException.RateLimit(error)
+            error.contains("timeout", ignoreCase = true) ||
+                error.contains("timed out", ignoreCase = true) ||
+                error.contains("unreachable", ignoreCase = true) ||
+                error.contains("connect", ignoreCase = true) ->
+                ChatException.Network(error)
+            else -> ChatException.GeminiApi(error)
+        }
+        return ErrorOutcome(error, true, exception)
+    }
+
+    private fun buildHistory(messages: List<ChatMessageEntity>): MutableList<GeminiMessage> {
+        val history = mutableListOf<GeminiMessage>()
+        for (m in messages) {
+            if (m.role == "user") {
+                history.add(GeminiMessage(role = "user", parts = listOf(GeminiPart.Text(m.content))))
+            } else if (m.role == "assistant") {
+                appendAssistantTurn(history, m)
+            }
+        }
+        return history
+    }
+
+    private fun appendAssistantTurn(history: MutableList<GeminiMessage>, m: ChatMessageEntity) {
+        var responseParts: List<GeminiPart>? = null
+        val parts = mutableListOf<GeminiPart>()
+        if (m.toolCallsJson != null) {
+            val calls = parseToolCallsJson(m.toolCallsJson)
+            for (c in calls) {
+                parts.add(GeminiPart.FunctionCall(c.toolName, c.inputArguments, c.thoughtSignature))
+            }
+            // Rebuild the matching function responses: Gemini rejects a
+            // request where a functionCall is not followed by its
+            // functionResponse in the next message.
+            val rebuiltResponses = calls.mapNotNull { c ->
+                c.outputResult?.takeIf { it.isNotBlank() }?.let { output ->
+                    GeminiPart.FunctionResponse(
+                        name = c.toolName,
+                        response = parseResultToMap(output),
+                        thoughtSignature = c.thoughtSignature
+                    )
+                }
+            }
+            if (rebuiltResponses.isNotEmpty()) {
+                responseParts = rebuiltResponses
+            }
+        }
+        if (m.content.isNotBlank()) {
+            parts.add(GeminiPart.Text(m.content))
+        }
+        if (parts.isNotEmpty()) {
+            history.add(GeminiMessage(role = "model", parts = parts))
+        }
+        if (responseParts != null) {
+            history.add(GeminiMessage(role = "tool", parts = responseParts))
+        }
+    }
+
+    private suspend fun executeFunctionCalls(
+        functionCalls: List<GeminiPart.FunctionCall>,
+        toolNameToToolMap: Map<String, McpTool>,
+        sanitizedToOriginalName: Map<String, String>,
+        serverMap: Map<String, McpServer>,
+        accumulatedToolCalls: MutableList<McpToolCall>,
+        onToolCallUpdate: ((List<McpToolCall>) -> Unit)?
+    ): List<GeminiPart> {
+        val functionResponsesParts = mutableListOf<GeminiPart>()
+
+        for (fc in functionCalls) {
+            // Gemini receives sanitized names; resolve the original MCP tool.
+            val originalToolName = toolNameToToolMap[fc.name]?.name
+                ?: sanitizedToOriginalName[fc.name]
+            val toolDef = originalToolName?.let { toolNameToToolMap[it] }
+            val server = toolDef?.let { def -> serverMap[def.serverId] }
+
+            val toolCallId = UUID.randomUUID().toString()
+            val toolCall = McpToolCall(
+                callId = toolCallId,
+                serverId = server?.id ?: "unknown",
+                serverName = server?.name ?: "Remote MCP Server",
+                toolName = originalToolName ?: fc.name,
+                inputArguments = fc.args,
+                status = ToolExecutionStatus.EXECUTING,
+                thoughtSignature = fc.thoughtSignature
+            )
+
+            accumulatedToolCalls.add(toolCall)
+            onToolCallUpdate?.invoke(accumulatedToolCalls)
+
+            val targetServer = server ?: McpServer(
+                id = "dynamic",
+                name = "Remote Server",
+                description = "Discovered tool",
+                endpointUrl = "",
+                isPreset = false
+            )
+
+            // Execute over remote MCP HTTP / transport using the original
+            // (unsanitized) tool name.
+            val (execResult, logItem) = mcpRepository.executeTool(
+                targetServer,
+                originalToolName ?: fc.name,
+                fc.args
+            )
+
+            replaceToolCall(
+                accumulatedToolCalls,
+                toolCallId,
+                toolCall.copy(
+                    outputResult = execResult,
+                    isSuccess = logItem.isSuccess,
+                    status = if (logItem.isSuccess) ToolExecutionStatus.SUCCESS else ToolExecutionStatus.ERROR,
+                    executionTimeMs = logItem.latencyMs,
+                    errorMessage = logItem.errorMessage
+                )
+            )
+            onToolCallUpdate?.invoke(accumulatedToolCalls)
+
+            // Build function response payload for next turn
+            functionResponsesParts.add(
+                GeminiPart.FunctionResponse(
+                    name = fc.name,
+                    response = parseResultToMap(execResult),
+                    thoughtSignature = fc.thoughtSignature
+                )
+            )
+        }
+        return functionResponsesParts
+    }
+
+    private fun replaceToolCall(
+        accumulatedToolCalls: MutableList<McpToolCall>,
+        callId: String,
+        updated: McpToolCall
+    ) {
+        val index = accumulatedToolCalls.indexOfFirst { it.callId == callId }
+        if (index >= 0) {
+            accumulatedToolCalls[index] = updated
+        }
+    }
+
+    private fun parseResultToMap(execResult: String): Map<String, Any?> {
+        return try {
+            val jsonObj = JSONObject(execResult)
+            buildMap {
+                val keys = jsonObj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    put(k, jsonObj.get(k))
+                }
+            }
+        } catch (_: Exception) {
+            mapOf("result" to (if (execResult.isNotBlank()) execResult.take(1000) else "Empty response"))
+        }
     }
 
     private fun serializeToolCalls(calls: List<McpToolCall>): String {
@@ -342,7 +455,7 @@ class ChatRepository(
                         executionTimeMs = obj.optLong("executionTimeMs", 0),
                         status = try {
                             ToolExecutionStatus.valueOf(obj.optString("status", "SUCCESS"))
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             ToolExecutionStatus.SUCCESS
                         },
                         thoughtSignature = obj.optString("thoughtSignature", null).takeIf { it != "null" },

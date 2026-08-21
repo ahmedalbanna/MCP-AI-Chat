@@ -1,6 +1,7 @@
 package com.aistudio.mcpchat.data.tool
 
 import java.util.Calendar
+import java.util.Locale
 
 class LocalFallbackHandler {
     private val greetings = listOf("hello", "hi", "hey", "good morning", "good afternoon", "good evening")
@@ -19,9 +20,14 @@ class LocalFallbackHandler {
             helpQueries.any { lowerMessage.contains(it) } -> getHelpResponse()
             mcpQueries.any { lowerMessage.contains(it) } -> getMcpResponse(lowerMessage)
             lowerMessage.contains("thank") -> "You're welcome! I'm here to help."
-            lowerMessage.contains("how are you") || lowerMessage.contains("how're you") -> "I'm doing well, thank you! I'm ready to help you with anything you need."
-            lowerMessage.contains("your name") || lowerMessage.contains("who are you") -> "I'm your AI Chat assistant with MCP integration. I can help you connect to remote servers and use their tools."
-            lowerMessage.length < 5 -> "I see you're trying to reach me. To enable full AI responses, please configure your Gemini API key in the Secrets panel."
+            lowerMessage.contains("how are you") || lowerMessage.contains("how're you") ->
+                "I'm doing well, thank you! I'm ready to help you with anything you need."
+            lowerMessage.contains("your name") || lowerMessage.contains("who are you") ->
+                "I'm your AI Chat assistant with MCP integration. I can help you connect to remote " +
+                    "servers and use their tools."
+            lowerMessage.length < 5 ->
+                "I see you're trying to reach me. To enable full AI responses, please configure your " +
+                    "Gemini API key in the Secrets panel."
             else -> getGenericResponse(userMessage)
         }
     }
@@ -58,19 +64,21 @@ class LocalFallbackHandler {
         val day = calendar.get(Calendar.DAY_OF_MONTH)
         val year = calendar.get(Calendar.YEAR)
 
-        return "It's $dayName, $monthName $day, $year at $displayHour:${String.format("%02d", minute)} $amPm."
+        val minuteText = String.format(Locale.US, "%02d", minute)
+        return "It's $dayName, $monthName $day, $year at $displayHour:$minuteText $amPm."
     }
 
-    private fun getHelpResponse(): String {
-        return """I can help you with:
-        
+    private val helpResponse =
+        """I can help you with:
+
 • **Chat** - Send messages and I'll respond (requires Gemini API key)
 • **MCP Servers** - Connect to remote servers with JSON-RPC or SSE
 • **Tools** - Discover and invoke capabilities from MCP servers
 • **Memory** - Save and search notes for future reference
 
 **Current Status:** Running in fallback mode. For full AI responses, configure your Gemini API key in the Secrets panel."""
-    }
+
+    private fun getHelpResponse(): String = helpResponse
 
     private fun getMcpResponse(message: String): String {
         return when {

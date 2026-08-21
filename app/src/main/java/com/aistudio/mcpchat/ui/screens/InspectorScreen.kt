@@ -118,7 +118,6 @@ fun InspectorScreen(
     val latestIsSuccess by viewModel.latestIsSuccess.collectAsStateWithLifecycle()
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val context = LocalContext.current
 
     LaunchedEffect(tools) {
         if (selectedToolId == null && tools.isNotEmpty()) {
@@ -127,7 +126,6 @@ fun InspectorScreen(
     }
 
     val selectedTool = tools.find { it.id == selectedToolId }
-    val selectedServer = if (selectedTool != null) servers.find { it.id == selectedTool.serverId } else null
 
     Scaffold(
         topBar = {
@@ -631,7 +629,6 @@ fun ExecutionResultCard(
     isSuccess: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
@@ -692,7 +689,6 @@ fun LogItemCard(
     onReExecute: ((String, String, Map<String, Any?>) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     var isExpanded by remember { mutableStateOf(false) }
 
     Surface(
@@ -784,7 +780,7 @@ fun LogItemCard(
                                     val rpc = JSONObject(logItem.requestPayload)
                                     val params = rpc.optJSONObject("params")
                                     params?.keys()?.asSequence()?.associateWith { k -> params.opt(k) } ?: emptyMap()
-                                } catch (e: Exception) { emptyMap<String, Any?>() }
+                                } catch (_: Exception) { emptyMap<String, Any?>() }
                                 onReExecute(logItem.toolName, logItem.serverId, args)
                             },
                             contentPadding = PaddingValues(horizontal = Spacing.sectionGap, vertical = Spacing.xs),

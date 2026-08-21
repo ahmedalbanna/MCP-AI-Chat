@@ -13,7 +13,10 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -49,8 +52,14 @@ class McpInspectorViewModelTest {
         every { repository.logsFlow } returns logsFlow
     }
 
-    private fun createViewModel() {
+    private fun TestScope.createViewModel() {
         viewModel = McpInspectorViewModel(repository, savedStateHandle)
+        // stateIn(WhileSubscribed) flows (uiState and the upstream
+        // servers/tools/logs flows) only produce values once collected.
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect {}
+        }
+        advanceUntilIdle()
     }
 
     @After
@@ -81,7 +90,7 @@ class McpInspectorViewModelTest {
         val tool = McpTool(
             id = "t1", serverId = "s1", serverName = "Server",
             name = "get_weather", description = "Get weather",
-            inputSchemaJson = """{"type":"object","properties":{"city":{"type":"string"}}}"""
+            inputSchemaJson = """{"type":"object","properties":{"city":{"type":"string","default":"Tokyo"}}}"""
         )
 
         createViewModel()

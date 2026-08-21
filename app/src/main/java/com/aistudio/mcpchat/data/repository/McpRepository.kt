@@ -9,12 +9,9 @@ import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.network.McpHttpClient
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.MalformedURLException
 import java.net.URL
@@ -27,11 +24,8 @@ class McpRepository(
     private val toolDao = database.mcpToolDao()
     private val logDao = database.mcpLogDao()
 
-    init {
-        CoroutineScope(Dispatchers.IO).launch {
-            seedDefaultPresetsIfEmpty()
-            ensureErpNextPresetExists()
-        }
+    companion object {
+        private val loopbackHosts = setOf("localhost", "127.0.0.1", "[::1]", "::1")
     }
 
     val serversFlow: Flow<List<McpServer>> = serverDao.getAllServers().map { entities ->
@@ -60,22 +54,9 @@ class McpRepository(
         endpointUrl: String,
         authHeader: String = ""
     ): McpServer = withContext(Dispatchers.IO) {
-        // Validate URL
-        try {
-            val url = URL(endpointUrl)
-            if (url.protocol != "http" && url.protocol != "https") {
-                throw IllegalArgumentException("URL must use http or https scheme")
-            }
-            if (url.host.isNullOrBlank()) {
-                throw IllegalArgumentException("URL must have a valid host")
-            }
-        } catch (e: MalformedURLException) {
-            throw IllegalArgumentException("Invalid URL format: ${e.message}")
-        }
+        validateEndpointUrl(endpointUrl)
 
-        if (name.isBlank()) {
-            throw IllegalArgumentException("Server name cannot be empty")
-        }
+        require(name.isNotBlank()) { "Server name cannot be empty" }
 
         val id = "custom_${System.currentTimeMillis()}"
         val server = McpServer(
@@ -117,15 +98,6 @@ class McpRepository(
         val (status, latency) = mcpHttpClient.testConnection(server)
         val updated = server.copy(status = status, latencyMs = latency)
         serverDao.updateServer(updated.toEntity())
-
-        if (status == ServerStatus.ERROR) {
-            toolDao.getToolsForServer(server.id).first().let { tools ->
-                if (tools.isNotEmpty()) {
-                    toolDao.deleteToolsForServer(server.id)
-                }
-            }
-        }
-
         updated
     }
 
@@ -162,61 +134,21 @@ class McpRepository(
         logDao.clearLogs()
     }
 
-    private suspend fun seedDefaultPresetsIfEmpty() = withContext(Dispatchers.IO) {
-        val existing = serverDao.getEnabledServersList()
-        if (existing.isNotEmpty()) return@withContext
-
-        val erpnext = McpServer(
-            id = "preset_erpnext",
-            name = "ERPNext Gateway",
-            description = "Enterprise Resource Planning gateway for ERPNext, providing tools for document management, accounting, and business automation.",
-            endpointUrl = "http://185.190.140.93:8022/mcp",
-            authHeader = "Bearer 3f712dd3b3fec4f17651eec9cd5fde87dccd3d92281cdbfdadaa0019eb429e2e",
-            isPreset = false,
-            isEnabled = true,
-            status = ServerStatus.DISCONNECTED,
-            latencyMs = 0,
-            toolsCount = 0
-        )
-
-        serverDao.insertServer(erpnext.toEntity())
-        val tools = mcpHttpClient.discoverTools(erpnext)
-        if (tools.isNotEmpty()) {
-            toolDao.insertTools(tools.map { it.toEntity() })
+    private fun validateEndpointUrl(endpointUrl: String) {
+        val url = try {
+            URL(endpointUrl)
+        } catch (e: MalformedURLException) {
+            throw IllegalArgumentException("Invalid URL format: ${e.message}")
         }
-    }
-
-    private suspend fun ensureErpNextPresetExists() = withContext(Dispatchers.IO) {
-        val serverId = "preset_erpnext"
-        val existing = serverDao.getServerById(serverId)
-        val erpnext = McpServer(
-            id = serverId,
-            name = "ERPNext Gateway",
-            description = "Enterprise Resource Planning gateway for ERPNext, providing tools for document management, accounting, and business automation.",
-            endpointUrl = "http://185.190.140.93:8022/mcp",
-            authHeader = "Bearer 3f712dd3b3fec4f17651eec9cd5fde87dccd3d92281cdbfdadaa0019eb429e2e",
-            isPreset = false,
-            isEnabled = true,
-            status = ServerStatus.DISCONNECTED,
-            latencyMs = 0,
-            toolsCount = 0
-        )
-
-        if (existing == null) {
-            serverDao.insertServer(erpnext.toEntity())
-            syncServerTools(erpnext)
-        } else {
-            val existingModel = existing.toModel()
-            if (existingModel.authHeader != erpnext.authHeader ||
-                existingModel.endpointUrl != erpnext.endpointUrl ||
-                existingModel.isPreset) {
-
-                val updated = erpnext.copy(
-                    status = ServerStatus.CONNECTING,
-                    toolsCount = existingModel.toolsCount
-                )
-                serverDao.updateServer(updated.toEntity())
-                syncServerTools(updated)
+        require(url.protocol == "http" || url.protocol == "https") {
+            "URL must use http or https scheme"
+        }
+        require(!url.host.isNullOrBlank()) { "URL must have a valid host" }
+        // Credentials sent over plain HTTP are exposed in transit; only allow
+        // loopback endpoints (local development servers) to opt out of TLS.
+        if (url.protocol == "http") {
+            require(url.host.lowercase() in loopbackHosts) {
+                "URL must use https (http is only allowed for localhost)"
             }
         }
     }
@@ -230,7 +162,7 @@ class McpRepository(
             authHeader = authHeader,
             isEnabled = isEnabled,
             isPreset = isPreset,
-            status = try { ServerStatus.valueOf(status) } catch (e: Exception) { ServerStatus.DISCONNECTED },
+            status = try { ServerStatus.valueOf(status) } catch (_: Exception) { ServerStatus.DISCONNECTED },
             latencyMs = latencyMs,
             protocolVersion = protocolVersion,
             toolsCount = toolsCount,

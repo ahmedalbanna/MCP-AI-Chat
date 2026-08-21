@@ -60,7 +60,7 @@ class NetworkResultTest {
 
     @Test
     fun `getOrDefault returns default for Error`() {
-        val result = NetworkResult.Error("fail")
+        val result: NetworkResult<Int> = NetworkResult.Error("fail")
         assertEquals(99, result.getOrDefault(99))
     }
 
