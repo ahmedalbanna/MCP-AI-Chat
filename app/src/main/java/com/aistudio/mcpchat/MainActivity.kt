@@ -119,22 +119,9 @@ fun MainApp() {
                                             }
                                         ) {
                                             Text("!", fontSize = 10.sp)
-        }
-    }
-
-    AnimatedVisibility(
-        visible = showOnboarding,
-        enter = fadeIn(),
-        exit = fadeOut()
-    ) {
-        OnboardingScreen(
-            onDismiss = {
-                markOnboardingSeen(context)
-                showOnboarding = false
-            }
-        )
-    }
-}
+                                        }
+                                    }
+                                }
                             ) {
                                 Icon(screen.icon, contentDescription = screen.title)
                             }
@@ -194,5 +181,18 @@ fun MainApp() {
                 InspectorScreen(viewModel = inspectorViewModel)
             }
         }
+    }
+
+    AnimatedVisibility(
+        visible = showOnboarding,
+        enter = fadeIn(),
+        exit = fadeOut()
+    ) {
+        OnboardingScreen(
+            onDismiss = {
+                markOnboardingSeen(context)
+                showOnboarding = false
+            }
+        )
     }
 }

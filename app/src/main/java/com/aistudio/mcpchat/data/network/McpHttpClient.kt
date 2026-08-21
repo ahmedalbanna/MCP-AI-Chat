@@ -3,6 +3,7 @@ package com.aistudio.mcpchat.data.network
 import android.util.Log
 import com.aistudio.mcpchat.data.model.McpLogItem
 import com.aistudio.mcpchat.data.model.McpServer
+import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.ServerStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

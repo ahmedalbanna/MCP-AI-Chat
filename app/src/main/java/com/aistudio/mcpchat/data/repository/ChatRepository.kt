@@ -236,7 +236,7 @@ class ChatRepository(
                         }
                         map
                     } catch (_: Exception) {
-                        mapOf("result" to (execResult.take(1000) if (execResult.isNotBlank() else "Empty response"))
+                        mapOf("result" to (if (execResult.isNotBlank()) execResult.take(1000) else "Empty response"))
                     }
 
                     functionResponsesParts.add(

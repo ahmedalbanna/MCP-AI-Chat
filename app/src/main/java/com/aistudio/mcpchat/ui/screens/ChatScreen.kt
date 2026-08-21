@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
@@ -33,7 +34,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.minimumInteractiveComponentSize
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -130,7 +131,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel,
@@ -321,74 +322,76 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (messages.isEmpty() && inProgressToolCalls.isEmpty()) {
-                EmptyChatView(
-                    onPromptSelected = { prompt ->
-                        inputText = prompt
-                        viewModel.sendMessage(prompt)
-                    },
-                    onNavigateToServers = onNavigateToServers,
-                    modifier = Modifier.weight(1f)
-                )
-            } else {
-                LazyColumn(
-                    state = listState,
-                    contentPadding = PaddingValues(Spacing.lg),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("chat_messages_list")
-                ) {
-                    items(messages, key = { it.id }) { msg ->
-                        ChatMessageItem(
-                            message = msg,
-                            viewModel = viewModel
-                        )
-                    }
+            Box(modifier = Modifier.weight(1f)) {
+                if (messages.isEmpty() && inProgressToolCalls.isEmpty()) {
+                    EmptyChatView(
+                        onPromptSelected = { prompt ->
+                            inputText = prompt
+                            viewModel.sendMessage(prompt)
+                        },
+                        onNavigateToServers = onNavigateToServers,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        contentPadding = PaddingValues(Spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("chat_messages_list")
+                    ) {
+                        items(messages, key = { it.id }) { msg ->
+                            ChatMessageItem(
+                                message = msg,
+                                viewModel = viewModel
+                            )
+                        }
 
-                    if (inProgressToolCalls.isNotEmpty()) {
-                        item {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = Spacing.md, end = Spacing.xxl)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(bottom = Spacing.sm)
+                        if (inProgressToolCalls.isNotEmpty()) {
+                            item {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = Spacing.md, end = Spacing.xxl)
                                 ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(Dimens.iconSizeSm),
-                                        strokeWidth = Dimens.borderWidthThick,
-                                        color = AmberWarning
-                                    )
-                                    Spacer(modifier = Modifier.width(Spacing.sm))
-                                    Text(
-                                        text = "Executing Remote MCP Tool Calls...",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = AmberWarning,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(bottom = Spacing.sm)
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(Dimens.iconSizeSm),
+                                            strokeWidth = Dimens.borderWidthThick,
+                                            color = AmberWarning
+                                        )
+                                        Spacer(modifier = Modifier.width(Spacing.sm))
+                                        Text(
+                                            text = "Executing Remote MCP Tool Calls...",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = AmberWarning,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
 
-                                for (call in inProgressToolCalls) {
-                                    ToolCallCard(toolCall = call)
+                                    for (call in inProgressToolCalls) {
+                                        ToolCallCard(toolCall = call)
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if (isGenerating && inProgressToolCalls.isEmpty() && messages.lastOrNull()?.role == "user") {
-                        item {
-                            TypingIndicator(
-                                modifier = Modifier.padding(start = Spacing.md, end = Spacing.xxl)
-                            )
+                        if (isGenerating && inProgressToolCalls.isEmpty() && messages.lastOrNull()?.role == "user") {
+                            item {
+                                TypingIndicator(
+                                    modifier = Modifier.padding(start = Spacing.md, end = Spacing.xxl)
+                                )
+                            }
                         }
                     }
                 }
 
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = userHasScrolledUp,
                     enter = slideInVertically(initialOffsetY = { it }),
                     exit = slideOutVertically(targetOffsetY = { it }),
@@ -791,6 +794,7 @@ fun ChatScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChatMessageItem(
     message: ChatMessageEntity,
@@ -1097,6 +1101,7 @@ private fun FeatureHighlightItem(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PromptSuggestionCard(
     icon: ImageVector,
@@ -1160,6 +1165,7 @@ fun PromptSuggestionCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun QuickActionChip(
     label: String,

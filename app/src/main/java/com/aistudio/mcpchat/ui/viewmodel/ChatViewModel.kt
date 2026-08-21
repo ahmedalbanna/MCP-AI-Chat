@@ -43,12 +43,16 @@ sealed class UiError(val message: String) {
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val mcpRepository: McpRepository,
-    private val chatRepository: ChatRepository,
-    savedStateHandle: SavedStateHandle
+    val chatRepository: ChatRepository,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _currentSessionId = savedStateHandle.getStateFlow<String?>(KEY_SESSION_ID, null)
-    val currentSessionId: StateFlow<String?> = _currentSessionId.asStateFlow()
+    val currentSessionId: StateFlow<String?> = _currentSessionId
+
+    private fun updateCurrentSessionId(id: String?) {
+        savedStateHandle[KEY_SESSION_ID] = id
+    }
 
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
@@ -113,7 +117,7 @@ class ChatViewModel @Inject constructor(
             sessions.collect { list ->
                 if (_currentSessionId.value == null) {
                     if (list.isNotEmpty()) {
-                        _currentSessionId.value = list.first().id
+                        updateCurrentSessionId(list.first().id)
                     } else {
                         createNewChat()
                     }
@@ -123,7 +127,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun selectSession(sessionId: String) {
-        _currentSessionId.value = sessionId
+        updateCurrentSessionId(sessionId)
         _inProgressToolCalls.value = emptyList()
         _errorMessage.value = null
         _uiError.value = null
@@ -135,7 +139,7 @@ class ChatViewModel @Inject constructor(
                 title = "New AI Chat",
                 model = model
             )
-            _currentSessionId.value = session.id
+            updateCurrentSessionId(session.id)
             _inProgressToolCalls.value = emptyList()
             _errorMessage.value = null
             _uiError.value = null
@@ -148,7 +152,7 @@ class ChatViewModel @Inject constructor(
             if (_currentSessionId.value == sessionId) {
                 val remaining = sessions.value.filter { it.id != sessionId }
                 if (remaining.isNotEmpty()) {
-                    _currentSessionId.value = remaining.first().id
+                    updateCurrentSessionId(remaining.first().id)
                 } else {
                     createNewChat()
                 }

@@ -34,7 +34,7 @@ data class InspectorUiState(
 @HiltViewModel
 class McpInspectorViewModel @Inject constructor(
     private val repository: McpRepository,
-    savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     val servers: StateFlow<List<McpServer>> = repository.serversFlow
@@ -47,7 +47,11 @@ class McpInspectorViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _selectedToolId = savedStateHandle.getStateFlow<String?>(KEY_SELECTED_TOOL_ID, null)
-    val selectedToolId: StateFlow<String?> = _selectedToolId.asStateFlow()
+    val selectedToolId: StateFlow<String?> = _selectedToolId
+
+    private fun updateSelectedToolId(id: String?) {
+        savedStateHandle[KEY_SELECTED_TOOL_ID] = id
+    }
 
     private val _parameterInputs = MutableStateFlow<Map<String, String>>(emptyMap())
     val parameterInputs: StateFlow<Map<String, String>> = _parameterInputs.asStateFlow()
@@ -94,7 +98,7 @@ class McpInspectorViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InspectorUiState())
 
     fun selectTool(tool: McpTool) {
-        _selectedToolId.value = tool.id
+        updateSelectedToolId(tool.id)
         _latestResult.value = null
         _latestLatencyMs.value = null
         _latestIsSuccess.value = null
@@ -183,7 +187,7 @@ class McpInspectorViewModel @Inject constructor(
         val server = servers.value.find { it.id == serverId } ?: return
         val tool = tools.value.find { it.name == toolName && it.serverId == serverId } ?: return
 
-        _selectedToolId.value = tool.id
+        updateSelectedToolId(tool.id)
         val paramMap = mutableMapOf<String, String>()
         args.forEach { (k, v) -> paramMap[k] = v?.toString() ?: "" }
         _parameterInputs.value = paramMap
