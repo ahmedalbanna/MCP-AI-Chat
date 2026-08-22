@@ -100,10 +100,15 @@ STORE_PASSWORD=... KEY_PASSWORD=... \
 ## Testing
 
 ```bash
-./gradlew test                    # Unit + Robolectric tests
+./gradlew testDebugUnitTest        # Unit + Robolectric tests (fast; skips snapshot tests)
+./gradlew testDebugUnitTest -PscreenshotTests=true   # include Roborazzi snapshot tests (CI runs this)
+./gradlew connectedDebugAndroidTest # Instrumented tests
 ./gradlew detekt                  # Static analysis
 ./gradlew spotlessCheck           # Code formatting check
 ```
+
+Snapshot tests are skipped by default because they render real pixels via
+Robolectric and are the slowest part of the suite.
 
 ## Project Structure
 

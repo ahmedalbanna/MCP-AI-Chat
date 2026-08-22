@@ -9,6 +9,12 @@ plugins {
   alias(libs.plugins.spotless)
 }
 
+// Roborazzi snapshot tests boot Robolectric's native graphics stack per test
+// and dominate unit-test runtime. Opt in for local runs / CI verification
+// with -PscreenshotTests=true; skipped otherwise.
+val screenshotTestsEnabled =
+  providers.gradleProperty("screenshotTests").getOrElse("false").toBoolean()
+
 android {
   namespace = "com.aistudio.mcpchat"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -63,6 +69,13 @@ android {
       // Return defaults for un-mocked android.jar methods (android.util.Log,
       // etc.) instead of throwing in plain JVM unit tests.
       isReturnDefaultValues = true
+      all { test ->
+        test.maxParallelForks =
+          (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
+        if (!screenshotTestsEnabled) {
+          test.exclude("**/SnapshotTests*")
+        }
+      }
     }
   }
   dependenciesInfo {
