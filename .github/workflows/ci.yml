@@ -35,7 +35,7 @@ jobs:
       run: ./gradlew spotlessCheck
 
     - name: Run Unit Tests
-      run: ./gradlew testDebugUnitTest
+      run: ./gradlew testDebugUnitTest -PscreenshotTests=true
 
     - name: Check Lint
       run: ./gradlew lintDebug
