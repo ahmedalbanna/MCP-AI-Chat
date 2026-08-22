@@ -78,8 +78,10 @@ secrets {
   defaultPropertiesFileName = ".env.example"
 }
 
+// Export Room schemas into the unit-test assets so MigrationTestHelper can
+// validate migrations on the JVM (see DatabaseMigrationTest).
 ksp {
-  arg("room.schemaLocation", "$projectDir/schemas")
+  arg("room.schemaLocation", "$projectDir/src/test/assets")
 }
 
 dependencies {
@@ -101,7 +103,7 @@ dependencies {
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.okhttp)
-  implementation(libs.okhttp.sse)
+  implementation(libs.androidx.security.crypto)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
@@ -113,6 +115,7 @@ dependencies {
   testImplementation(libs.roborazzi.junit.rule)
   testImplementation(libs.androidx.room.testing)
   testImplementation(libs.mockk)
+  testImplementation(libs.mockwebserver)
   testImplementation(libs.turbine)
   testImplementation(libs.hilt.android.testing)
   // Real org.json implementation for plain JVM unit tests (the android.jar

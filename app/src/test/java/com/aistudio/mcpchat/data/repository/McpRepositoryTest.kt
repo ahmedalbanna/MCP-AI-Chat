@@ -11,6 +11,7 @@ import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.network.McpHttpClient
+import com.aistudio.mcpchat.data.security.CryptoManager
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -54,8 +55,17 @@ class McpRepositoryTest {
         every { database.mcpLogDao() } returns logDao
     }
 
+
+    // AndroidKeyStore is unavailable on the JVM; inject a stable test key.
+    private val testCrypto = CryptoManager(
+        keyProvider = {
+            javax.crypto.KeyGenerator.getInstance("AES")
+                .apply { init(256) }.generateKey()
+        },
+    )
+
     private fun createRepository() {
-        repository = McpRepository(database, httpClient)
+        repository = McpRepository(database, httpClient, testCrypto)
     }
 
     @After

@@ -1,5 +1,6 @@
 package com.aistudio.mcpchat.data.network
 
+import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
 import com.aistudio.mcpchat.data.model.McpTool
@@ -20,17 +21,13 @@ class GeminiApiServiceTest {
     }
 
     @Test
-    fun `getApiKey returns string`() {
-        val key = service.getApiKey()
-        assertNotNull(key)
-    }
-
-    @Test
     fun `generateContent returns error when API key is missing`() = runTest {
         val response = service.generateContent(
+            config = AiProviderConfig.google(),
             modelName = "gemini-3.5-flash",
             history = listOf(GeminiMessage(role = "user", parts = listOf(GeminiPart.Text("Hello")))),
             tools = emptyList(),
+            systemInstruction = "",
         )
 
         if (response.error == "API_KEY_MISSING") {
@@ -42,9 +39,11 @@ class GeminiApiServiceTest {
     @Test
     fun `generateContent with empty history returns response or error`() = runTest {
         val response = service.generateContent(
+            config = AiProviderConfig.google(),
             modelName = "gemini-3.5-flash",
             history = emptyList(),
             tools = emptyList(),
+            systemInstruction = "",
         )
         assertNotNull(response)
     }
@@ -62,6 +61,7 @@ class GeminiApiServiceTest {
             ),
         )
         val response = service.generateContent(
+            config = AiProviderConfig.google(),
             modelName = "gemini-3.5-flash",
             history = listOf(GeminiMessage(role = "user", parts = listOf(GeminiPart.Text("Weather in Tokyo")))),
             tools = tools,
@@ -73,6 +73,7 @@ class GeminiApiServiceTest {
     @Test
     fun `generateContent with system instruction does not crash`() = runTest {
         val response = service.generateContent(
+            config = AiProviderConfig.google(),
             modelName = "gemini-3.5-flash",
             history = listOf(GeminiMessage(role = "user", parts = listOf(GeminiPart.Text("Hi")))),
             tools = emptyList(),
@@ -99,9 +100,11 @@ class GeminiApiServiceTest {
             ),
         )
         val response = service.generateContent(
+            config = AiProviderConfig.google(),
             modelName = "gemini-3.5-flash",
             history = history,
             tools = emptyList(),
+            systemInstruction = "",
         )
         assertNotNull(response)
     }
@@ -109,9 +112,11 @@ class GeminiApiServiceTest {
     @Test
     fun `generateContent response has rawJson field`() = runTest {
         val response = service.generateContent(
+            config = AiProviderConfig.google(),
             modelName = "gemini-3.5-flash",
             history = listOf(GeminiMessage(role = "user", parts = listOf(GeminiPart.Text("Test")))),
             tools = emptyList(),
+            systemInstruction = "",
         )
         assertNotNull(response.rawJson)
     }
@@ -119,9 +124,11 @@ class GeminiApiServiceTest {
     @Test
     fun `generateContent with custom model name does not crash`() = runTest {
         val response = service.generateContent(
+            config = AiProviderConfig.google(),
             modelName = "models/gemini-2.0-flash",
             history = listOf(GeminiMessage(role = "user", parts = listOf(GeminiPart.Text("Hi")))),
             tools = emptyList(),
+            systemInstruction = "",
         )
         assertNotNull(response)
     }

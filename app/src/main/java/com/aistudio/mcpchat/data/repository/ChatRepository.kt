@@ -12,7 +12,10 @@ import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.data.model.ToolExecutionStatus
+import com.aistudio.mcpchat.data.network.ActiveAiProviderSource
+import com.aistudio.mcpchat.data.network.AiChatService
 import com.aistudio.mcpchat.data.network.GeminiApiService
+import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.tool.LocalFallbackHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -24,7 +27,11 @@ import java.util.UUID
 class ChatRepository(
     private val database: AppDatabase,
     private val mcpRepository: McpRepository,
-    private val geminiService: GeminiApiService = GeminiApiService(),
+    // Provider-agnostic chat backend; the MCP tool loop is unchanged because
+    // every provider normalizes to GeminiResponse.
+    private val aiService: AiChatService = GeminiApiService(),
+    private val activeProvider: ActiveAiProviderSource =
+        ActiveAiProviderSource { AiProviderConfig.google() },
 ) {
     private val chatDao = database.chatDao()
     private val systemPromptBuilder = SystemPromptBuilder()
@@ -123,7 +130,9 @@ class ChatRepository(
         while (continueLoop && currentHop < MAX_TOOL_HOPS) {
             currentHop++
 
-            val geminiResponse = geminiService.generateContent(
+            val providerConfig = activeProvider.getActive()
+            val geminiResponse = aiService.generateContent(
+                config = providerConfig,
                 modelName = session.model,
                 history = history,
                 tools = activeTools,

@@ -1,8 +1,7 @@
 package com.aistudio.mcpchat.data.network
 
 import android.util.Log
-import com.aistudio.mcpchat.BuildConfig
-import com.aistudio.mcpchat.data.model.DEFAULT_MODEL
+import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
 import com.aistudio.mcpchat.data.model.GeminiResponse
@@ -17,7 +16,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-class GeminiApiService {
+class GeminiApiService : AiChatService {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     private val client = OkHttpClient.Builder()
@@ -26,21 +25,14 @@ class GeminiApiService {
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    fun getApiKey(): String {
-        return try {
-            BuildConfig.GEMINI_API_KEY
-        } catch (_: Exception) {
-            ""
-        }
-    }
-
-    suspend fun generateContent(
-        modelName: String = DEFAULT_MODEL,
+    override suspend fun generateContent(
+        config: AiProviderConfig,
+        modelName: String,
         history: List<GeminiMessage>,
         tools: List<McpTool>,
-        systemInstruction: String = "",
+        systemInstruction: String,
     ): GeminiResponse = withContext(Dispatchers.IO) {
-        val apiKey = getApiKey()
+        val apiKey = config.apiKey.trim()
         if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
             Log.w(TAG, "Gemini API key is not configured or is placeholder.")
             return@withContext GeminiResponse(
@@ -52,7 +44,9 @@ class GeminiApiService {
         try {
             val requestJson = buildRequestBody(history, tools, systemInstruction)
             val targetModel = if (modelName.contains("/")) modelName else "models/$modelName"
-            val url = "https://generativelanguage.googleapis.com/v1beta/$targetModel:generateContent?key=$apiKey"
+            val baseUrl = config.baseUrl.trimEnd('/')
+                .ifBlank { "https://generativelanguage.googleapis.com/v1beta" }
+            val url = "$baseUrl/$targetModel:generateContent?key=$apiKey"
 
             val request = Request.Builder()
                 .url(url)

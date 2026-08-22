@@ -12,6 +12,7 @@ import com.aistudio.mcpchat.data.network.GeminiApiService
 import com.aistudio.mcpchat.data.network.McpHttpClient
 import com.aistudio.mcpchat.data.repository.ChatRepository
 import com.aistudio.mcpchat.data.repository.McpRepository
+import com.aistudio.mcpchat.data.security.CryptoManager
 import com.aistudio.mcpchat.data.tool.MemoryTool
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -45,6 +46,13 @@ class FullChatLifecycleTest {
     private lateinit var chatRepository: ChatRepository
     private lateinit var memoryTool: MemoryTool
 
+
+    // AndroidKeyStore is unavailable on the JVM; inject one stable test key.
+    private val testKey: javax.crypto.SecretKey =
+        javax.crypto.KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
+
+    private val testCrypto = CryptoManager(keyProvider = { testKey })
+
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
@@ -56,7 +64,7 @@ class FullChatLifecycleTest {
 
         mcpHttpClient = mockk(relaxed = true)
         geminiApiService = mockk(relaxed = true)
-        mcpRepository = McpRepository(database, mcpHttpClient)
+        mcpRepository = McpRepository(database, mcpHttpClient, testCrypto)
         chatRepository = ChatRepository(database, mcpRepository, geminiApiService)
         memoryTool = MemoryTool(database)
     }
@@ -182,7 +190,7 @@ class FullChatLifecycleTest {
     fun `error recovery - network error during message send`() = runTest {
         val session = chatRepository.createNewSession("Error Chat", "gemini-3.5-flash")
 
-        coEvery { geminiApiService.generateContent(any(), any(), any(), any()) } throws
+        coEvery { geminiApiService.generateContent(any(), any(), any(), any(), any()) } throws
             RuntimeException("Network timeout")
 
         try {
@@ -228,7 +236,9 @@ class FullChatLifecycleTest {
 
     @Test
     fun `fallback mode - API key missing uses local handler`() = runTest {
-        coEvery { geminiApiService.getApiKey() } returns ""
+        coEvery {
+            geminiApiService.generateContent(any(), any(), any(), any(), any())
+        } returns com.aistudio.mcpchat.data.model.GeminiResponse(text = null, error = "API_KEY_MISSING")
 
         val session = chatRepository.createNewSession("Fallback Chat", "gemini-3.5-flash")
 

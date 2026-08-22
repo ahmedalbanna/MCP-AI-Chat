@@ -9,6 +9,7 @@ import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.network.McpHttpClient
+import com.aistudio.mcpchat.data.security.CryptoManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -19,6 +20,8 @@ import java.net.URL
 class McpRepository(
     private val database: AppDatabase,
     private val mcpHttpClient: McpHttpClient = McpHttpClient(),
+    // Auth headers are secrets; they are encrypted before touching Room.
+    private val crypto: CryptoManager = CryptoManager(),
 ) {
     private val serverDao = database.mcpServerDao()
     private val toolDao = database.mcpToolDao()
@@ -152,7 +155,8 @@ class McpRepository(
             name = name,
             description = description,
             endpointUrl = endpointUrl,
-            authHeader = authHeader,
+            // Decrypt at read; legacy plaintext values pass through untouched.
+            authHeader = crypto.decrypt(authHeader),
             isEnabled = isEnabled,
             isPreset = isPreset,
             status = try {
@@ -173,7 +177,8 @@ class McpRepository(
             name = name,
             description = description,
             endpointUrl = endpointUrl,
-            authHeader = authHeader,
+            // Encrypt at rest; already-encrypted values are left as-is.
+            authHeader = crypto.encrypt(authHeader),
             isEnabled = isEnabled,
             isPreset = isPreset,
             status = status.name,

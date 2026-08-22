@@ -102,6 +102,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -122,7 +123,12 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun ChatScreen(viewModel: ChatViewModel, onNavigateToServers: () -> Unit, modifier: Modifier = Modifier) {
+fun ChatScreen(
+    viewModel: ChatViewModel,
+    providerViewModel: com.aistudio.mcpchat.ui.viewmodel.AiProviderSettingsViewModel,
+    onNavigateToServers: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
     val currentSessionId by viewModel.currentSessionId.collectAsStateWithLifecycle()
     val messages by viewModel.messages.collectAsStateWithLifecycle()
@@ -135,6 +141,9 @@ fun ChatScreen(viewModel: ChatViewModel, onNavigateToServers: () -> Unit, modifi
     var showServersSheet by remember { mutableStateOf(false) }
     var showSessionsSheet by remember { mutableStateOf(false) }
     var showModelMenu by remember { mutableStateOf(false) }
+    var showProviderSheet by remember { mutableStateOf(false) }
+    val providerUiState by providerViewModel.uiState.collectAsStateWithLifecycle()
+    val activeProviderConfig = providerUiState.configs.find { it.id == providerUiState.activeId }
     val keyboardController = LocalSoftwareKeyboardController.current
 
     val currentSession = sessions.find { it.id == currentSessionId }
@@ -192,7 +201,7 @@ fun ChatScreen(viewModel: ChatViewModel, onNavigateToServers: () -> Unit, modifi
                                                 "Gemini 3.5 Flash selected"
                                             }
                                     }
-                                    .clickable { showModelMenu = true }
+                                    .clickable { showProviderSheet = true }
                                     .testTag("model_picker_chip"),
                             ) {
                                 Row(
@@ -200,32 +209,18 @@ fun ChatScreen(viewModel: ChatViewModel, onNavigateToServers: () -> Unit, modifi
                                     modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
                                 ) {
                                     Text(
-                                        text = if (currentSession?.model?.contains("pro") == true) "3.1 Pro" else "3.5 Flash",
+                                        text = buildString {
+                                            append(activeProviderConfig?.name ?: "AI Provider")
+                                            append(": ")
+                                            append(currentSession?.model?.substringAfterLast('/') ?: "")
+                                        },
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = IndigoPrimaryLight,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 }
-                            }
-
-                            DropdownMenu(
-                                expanded = showModelMenu,
-                                onDismissRequest = { showModelMenu = false },
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("gemini-3.5-flash (Fast & Responsive)") },
-                                    onClick = {
-                                        viewModel.updateSessionModel("gemini-3.5-flash")
-                                        showModelMenu = false
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("gemini-3.1-pro-preview (Advanced Reasoning)") },
-                                    onClick = {
-                                        viewModel.updateSessionModel("gemini-3.1-pro-preview")
-                                        showModelMenu = false
-                                    },
-                                )
                             }
                         }
 
@@ -573,6 +568,50 @@ fun ChatScreen(viewModel: ChatViewModel, onNavigateToServers: () -> Unit, modifi
                     }
                 }
             }
+        }
+    }
+
+    if (showProviderSheet) {
+        val sheetState = rememberModalBottomSheetState()
+        ModalBottomSheet(
+            onDismissRequest = { showProviderSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            ProviderSettingsSheetContent(
+                uiState = providerUiState,
+                onSelectActive = { id ->
+                    providerViewModel.selectActive(id)
+                    // Keep the session's model compatible with the new provider.
+                    val config = providerUiState.configs.find { it.id == id }
+                    if (config != null) {
+                        val compatible = when (config.type) {
+                            com.aistudio.mcpchat.data.model.AiProviderType.GOOGLE ->
+                                currentSession?.model?.startsWith("gemini") == true
+                            else -> currentSession?.model?.startsWith("gemini") != true
+                        }
+                        if (!compatible && currentSession != null) {
+                            viewModel.updateSessionModel(config.model)
+                        }
+                    }
+                },
+                onStartEdit = providerViewModel::startEdit,
+                onDelete = providerViewModel::delete,
+                onDraftChange = providerViewModel::updateDraft,
+                onSaveDraft = providerViewModel::saveDraft,
+                onDismissDraft = providerViewModel::dismissDraft,
+                onNewDraft = { type ->
+                    val preset = when (type) {
+                        com.aistudio.mcpchat.data.model.AiProviderType.GOOGLE ->
+                            com.aistudio.mcpchat.data.model.AiProviderConfig.google()
+                        com.aistudio.mcpchat.data.model.AiProviderType.ANTHROPIC ->
+                            com.aistudio.mcpchat.data.model.AiProviderConfig.anthropic()
+                        else -> com.aistudio.mcpchat.data.model.AiProviderConfig.custom()
+                    }
+                    providerViewModel.startEdit(preset.copy(id = ""))
+                },
+            )
+            Spacer(modifier = Modifier.height(Spacing.lg))
         }
     }
 

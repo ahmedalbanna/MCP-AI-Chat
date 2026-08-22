@@ -1,0 +1,66 @@
+package com.aistudio.mcpchat.data.network
+
+import com.aistudio.mcpchat.data.model.AiProviderConfig
+import com.aistudio.mcpchat.data.model.AiProviderType
+import com.aistudio.mcpchat.data.model.GeminiMessage
+import com.aistudio.mcpchat.data.model.GeminiResponse
+import com.aistudio.mcpchat.data.model.McpTool
+import okhttp3.OkHttpClient
+
+/**
+ * Picks the protocol client matching the active [AiProviderConfig] and keeps
+ * the requested model compatible with that provider.
+ *
+ * The MCP tool-execution loop is identical for every provider because all
+ * clients normalize to [GeminiResponse].
+ */
+class ProviderChatRouter(
+    geminiClient: OkHttpClient,
+    private val settings: ActiveAiProviderSource,
+) : AiChatService {
+
+    private val openAiCompatible = OpenAiCompatibleClient(geminiClient)
+    private val anthropic = AnthropicClient(geminiClient)
+    private val google = GeminiApiService()
+
+    override suspend fun generateContent(
+        config: AiProviderConfig,
+        modelName: String,
+        history: List<GeminiMessage>,
+        tools: List<McpTool>,
+        systemInstruction: String,
+    ): GeminiResponse {
+        val model = resolveModel(config, modelName)
+
+        return when (config.type) {
+            AiProviderType.GOOGLE -> google.generateContent(config, model, history, tools, systemInstruction)
+            AiProviderType.OPENAI_COMPATIBLE ->
+                openAiCompatible.generateContent(config, model, history, tools, systemInstruction)
+            AiProviderType.ANTHROPIC ->
+                anthropic.generateContent(config, model, history, tools, systemInstruction)
+        }
+    }
+
+    /**
+     * Sessions persist their model string. When the active provider changes,
+     * a model from a different family would be rejected — fall back to the
+     * provider's own default in that case.
+     */
+    fun resolveModel(config: AiProviderConfig, sessionModel: String): String {
+        val isGeminiModel = sessionModel.startsWith("gemini")
+        return when (config.type) {
+            AiProviderType.GOOGLE -> if (isGeminiModel || sessionModel.isBlank()) {
+                sessionModel.ifBlank { config.model }
+            } else {
+                config.model
+            }
+
+            else -> if (!isGeminiModel && sessionModel.isNotBlank()) sessionModel else config.model
+        }
+    }
+}
+
+/** Read-only access to the user's currently selected provider. */
+fun interface ActiveAiProviderSource {
+    fun getActive(): AiProviderConfig
+}

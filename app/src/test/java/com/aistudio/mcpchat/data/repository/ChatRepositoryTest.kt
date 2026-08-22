@@ -189,7 +189,7 @@ class ChatRepositoryTest {
     fun `sendMessage with API_KEY_MISSING uses fallback handler`() = runTest {
         coEvery { chatDao.getSessionById(any()) } returns ChatSessionEntity(id = "s1", title = "Test")
         coEvery { chatDao.getMessagesList(any()) } returns emptyList()
-        coEvery { geminiService.generateContent(any(), any(), any(), any()) } returns
+        coEvery { geminiService.generateContent(any(), any(), any(), any(), any()) } returns
             com.aistudio.mcpchat.data.model.GeminiResponse(text = null, error = "API_KEY_MISSING")
 
         createRepository()

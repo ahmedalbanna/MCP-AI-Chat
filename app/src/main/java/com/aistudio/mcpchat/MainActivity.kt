@@ -53,6 +53,7 @@ import com.aistudio.mcpchat.ui.screens.markOnboardingSeen
 import com.aistudio.mcpchat.ui.theme.IndigoPrimary
 import com.aistudio.mcpchat.ui.theme.MyApplicationTheme
 import com.aistudio.mcpchat.ui.theme.RoseError
+import com.aistudio.mcpchat.ui.viewmodel.AiProviderSettingsViewModel
 import com.aistudio.mcpchat.ui.viewmodel.ChatViewModel
 import com.aistudio.mcpchat.ui.viewmodel.McpInspectorViewModel
 import com.aistudio.mcpchat.ui.viewmodel.McpServersViewModel
@@ -83,6 +84,7 @@ fun MainApp() {
     var showOnboarding by remember { mutableStateOf(!hasSeenOnboarding(context)) }
     val navController = rememberNavController()
     val chatViewModel: ChatViewModel = hiltViewModel()
+    val providerViewModel: AiProviderSettingsViewModel = hiltViewModel()
     val serversViewModel: McpServersViewModel = hiltViewModel()
     val inspectorViewModel: McpInspectorViewModel = hiltViewModel()
 
@@ -163,6 +165,7 @@ fun MainApp() {
             composable(Screen.Chat.route) {
                 ChatScreen(
                     viewModel = chatViewModel,
+                    providerViewModel = providerViewModel,
                     onNavigateToServers = {
                         navController.navigate(Screen.Servers.route) {
                             popUpTo(navController.graph.findStartDestination().id) {

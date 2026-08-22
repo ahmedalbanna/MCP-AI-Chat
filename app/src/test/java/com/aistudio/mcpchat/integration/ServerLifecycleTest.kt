@@ -9,6 +9,7 @@ import com.aistudio.mcpchat.data.local.McpToolEntity
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.network.McpHttpClient
 import com.aistudio.mcpchat.data.repository.McpRepository
+import com.aistudio.mcpchat.data.security.CryptoManager
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +40,13 @@ class ServerLifecycleTest {
     private lateinit var httpClient: McpHttpClient
     private lateinit var repository: McpRepository
 
+
+    // AndroidKeyStore is unavailable on the JVM; inject one stable test key.
+    private val testKey: javax.crypto.SecretKey =
+        javax.crypto.KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
+
+    private val testCrypto = CryptoManager(keyProvider = { testKey })
+
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
@@ -49,7 +57,7 @@ class ServerLifecycleTest {
         ).allowMainThreadQueries().build()
 
         httpClient = mockk(relaxed = true)
-        repository = McpRepository(database, httpClient)
+        repository = McpRepository(database, httpClient, testCrypto)
     }
 
     @After
@@ -92,7 +100,9 @@ class ServerLifecycleTest {
 
         val dbServer = database.mcpServerDao().getServerById(server.id)
         assertNotNull(dbServer)
-        assertEquals("Bearer token123", dbServer?.authHeader)
+        // Stored encrypted at rest; decrypts back to the original secret.
+        assertTrue(dbServer!!.authHeader.startsWith("enc:v1:"))
+        assertEquals("Bearer token123", testCrypto.decrypt(dbServer.authHeader))
     }
 
     @Test
