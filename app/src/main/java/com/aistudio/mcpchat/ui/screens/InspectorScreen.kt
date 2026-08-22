@@ -1,9 +1,5 @@
 package com.aistudio.mcpchat.ui.screens
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -23,7 +19,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,14 +29,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Science
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -49,15 +41,12 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -65,6 +54,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -74,7 +64,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -86,13 +75,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.model.McpLogItem
-import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.EmeraldTertiary
 import com.aistudio.mcpchat.ui.theme.IndigoPrimary
-import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
 import com.aistudio.mcpchat.ui.theme.RoseError
 import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.McpInspectorViewModel
@@ -103,10 +90,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InspectorScreen(
-    viewModel: McpInspectorViewModel,
-    modifier: Modifier = Modifier
-) {
+fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier) {
     val servers by viewModel.servers.collectAsStateWithLifecycle()
     val tools by viewModel.tools.collectAsStateWithLifecycle()
     val logs by viewModel.logs.collectAsStateWithLifecycle()
@@ -132,36 +116,36 @@ fun InspectorScreen(
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
                 title = {
                     Column {
                         Text(
                             text = "MCP Inspector & Test Bench",
                             fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                         Text(
                             text = "Direct JSON-RPC tool invocation & telemetry logs",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = FontFamily.Monospace,
                         )
                     }
-                }
+                },
             )
         },
-        modifier = modifier.fillMaxSize()
+        modifier = modifier.fillMaxSize(),
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
         ) {
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = IndigoPrimary
+                contentColor = IndigoPrimary,
             ) {
                 Tab(
                     selected = selectedTabIndex == 0,
@@ -171,12 +155,12 @@ fun InspectorScreen(
                             Icon(
                                 Icons.Default.Science,
                                 contentDescription = "Tool Playground tab",
-                                modifier = Modifier.size(Dimens.iconSizeMd)
+                                modifier = Modifier.size(Dimens.iconSizeMd),
                             )
                             Spacer(modifier = Modifier.width(Spacing.sm))
                             Text("Tool Playground", fontWeight = FontWeight.SemiBold)
                         }
-                    }
+                    },
                 )
                 Tab(
                     selected = selectedTabIndex == 1,
@@ -186,12 +170,12 @@ fun InspectorScreen(
                             Icon(
                                 Icons.Default.History,
                                 contentDescription = "Audit Logs tab",
-                                modifier = Modifier.size(Dimens.iconSizeMd)
+                                modifier = Modifier.size(Dimens.iconSizeMd),
                             )
                             Spacer(modifier = Modifier.width(Spacing.sm))
                             Text("Audit Logs (${logs.size})", fontWeight = FontWeight.SemiBold)
                         }
-                    }
+                    },
                 )
             }
 
@@ -202,7 +186,7 @@ fun InspectorScreen(
                         .togetherWith(slideOutVertically { height -> -height } + fadeOut(tween(200)))
                 },
                 modifier = Modifier.fillMaxSize(),
-                label = "tab_content"
+                label = "tab_content",
             ) { tabIndex ->
                 when (tabIndex) {
                     0 -> {
@@ -211,35 +195,35 @@ fun InspectorScreen(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .padding(Spacing.lg),
-                                contentAlignment = Alignment.Center
+                                contentAlignment = Alignment.Center,
                             ) {
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Build,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(Dimens.iconSizeXl)
+                                        modifier = Modifier.size(Dimens.iconSizeXl),
                                     )
                                     Text(
                                         text = "No tools available",
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
                                         text = "Connect to an MCP server and sync tools to get started",
                                         fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                     )
                                     Spacer(modifier = Modifier.height(Spacing.xxs))
                                     Text(
                                         text = "Go to MCP Servers tab",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = IndigoPrimary
+                                        color = IndigoPrimary,
                                     )
                                 }
                             }
@@ -249,13 +233,13 @@ fun InspectorScreen(
                                 verticalArrangement = Arrangement.spacedBy(Spacing.md),
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .testTag("tool_playground_view")
+                                    .testTag("tool_playground_view"),
                             ) {
                                 item {
                                     ToolSelectorCard(
                                         tools = tools,
                                         selectedTool = selectedTool,
-                                        onToolSelected = { viewModel.selectTool(it) }
+                                        onToolSelected = { viewModel.selectTool(it) },
                                     )
                                 }
 
@@ -266,7 +250,7 @@ fun InspectorScreen(
                                             parameterInputs = parameterInputs,
                                             onParameterChange = { k, v -> viewModel.updateParameter(k, v) },
                                             isInvoking = isInvoking,
-                                            onInvoke = { viewModel.invokeSelectedTool() }
+                                            onInvoke = { viewModel.invokeSelectedTool() },
                                         )
                                     }
                                 }
@@ -276,7 +260,7 @@ fun InspectorScreen(
                                         ExecutionResultCard(
                                             result = latestResult ?: "",
                                             latencyMs = latestLatencyMs ?: 0,
-                                            isSuccess = latestIsSuccess ?: true
+                                            isSuccess = latestIsSuccess ?: true,
                                         )
                                     }
                                 }
@@ -289,26 +273,26 @@ fun InspectorScreen(
                             verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
                             modifier = Modifier
                                 .fillMaxSize()
-                                .testTag("audit_logs_list")
+                                .testTag("audit_logs_list"),
                         ) {
                             item {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween,
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text(
                                         text = "RAW JSON-RPC TELEMETRY",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = CyanSecondary,
-                                        fontFamily = FontFamily.Monospace
+                                        fontFamily = FontFamily.Monospace,
                                     )
 
                                     if (logs.isNotEmpty()) {
                                         TextButton(
                                             onClick = { viewModel.clearLogs() },
-                                            colors = ButtonDefaults.textButtonColors(contentColor = RoseError)
+                                            colors = ButtonDefaults.textButtonColors(contentColor = RoseError),
                                         ) {
                                             Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeMd))
                                             Spacer(modifier = Modifier.width(Spacing.xs))
@@ -328,52 +312,52 @@ fun InspectorScreen(
                                     Surface(
                                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                                         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth(),
                                     ) {
                                         Row(
                                             horizontalArrangement = Arrangement.Center,
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)
+                                            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
                                         ) {
                                             Text(
                                                 text = "$totalCount calls",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = MaterialTheme.colorScheme.onSurface,
-                                                fontFamily = FontFamily.Monospace
+                                                fontFamily = FontFamily.Monospace,
                                             )
                                             Text(
                                                 text = "  |  ",
                                                 fontSize = 12.sp,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontFamily = FontFamily.Monospace
+                                                fontFamily = FontFamily.Monospace,
                                             )
                                             Text(
                                                 text = "$successCount success",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = EmeraldTertiary,
-                                                fontFamily = FontFamily.Monospace
+                                                fontFamily = FontFamily.Monospace,
                                             )
                                             Text(
                                                 text = "  |  ",
                                                 fontSize = 12.sp,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontFamily = FontFamily.Monospace
+                                                fontFamily = FontFamily.Monospace,
                                             )
                                             Text(
                                                 text = "$failCount failed",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = RoseError,
-                                                fontFamily = FontFamily.Monospace
+                                                fontFamily = FontFamily.Monospace,
                                             )
                                             Text(
                                                 text = "  ($successRate% success rate)",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.Medium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontFamily = FontFamily.Monospace
+                                                fontFamily = FontFamily.Monospace,
                                             )
                                         }
                                     }
@@ -387,28 +371,28 @@ fun InspectorScreen(
                                         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(vertical = Spacing.xxl)
+                                            .padding(vertical = Spacing.xxl),
                                     ) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally,
-                                            modifier = Modifier.padding(Spacing.xl)
+                                            modifier = Modifier.padding(Spacing.xl),
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Terminal,
                                                 contentDescription = "Audit log",
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(Dimens.iconSizeXl)
+                                                modifier = Modifier.size(Dimens.iconSizeXl),
                                             )
                                             Spacer(modifier = Modifier.height(Spacing.sectionGap))
                                             Text(
                                                 text = "No MCP invocations recorded yet.",
                                                 fontSize = 13.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
                                             Text(
                                                 text = "Execute tools in Chat or Playground to view audit logs.",
                                                 fontSize = 11.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                             )
                                         }
                                     }
@@ -417,7 +401,7 @@ fun InspectorScreen(
                                 items(logs, key = { it.id }) { logItem ->
                                     LogItemCard(
                                         logItem = logItem,
-                                        onReExecute = { toolName, serverId, args -> viewModel.reExecuteTool(toolName, serverId, args) }
+                                        onReExecute = { toolName, serverId, args -> viewModel.reExecuteTool(toolName, serverId, args) },
                                     )
                                 }
                             }
@@ -430,19 +414,14 @@ fun InspectorScreen(
 }
 
 @Composable
-fun ToolSelectorCard(
-    tools: List<McpTool>,
-    selectedTool: McpTool?,
-    onToolSelected: (McpTool) -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelected: (McpTool) -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
         border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(Spacing.cardPadding)) {
             Text(
@@ -450,7 +429,7 @@ fun ToolSelectorCard(
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 color = CyanSecondary,
-                fontFamily = FontFamily.Monospace
+                fontFamily = FontFamily.Monospace,
             )
             Spacer(modifier = Modifier.height(Spacing.sm))
 
@@ -465,12 +444,12 @@ fun ToolSelectorCard(
                         contentDescription = "Select a tool"
                     }
                     .clickable { expanded = true }
-                    .testTag("tool_picker_dropdown")
+                    .testTag("tool_picker_dropdown"),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sectionGap)
+                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sectionGap),
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -478,13 +457,13 @@ fun ToolSelectorCard(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = FontFamily.Monospace,
                         )
                         if (selectedTool != null) {
                             Text(
                                 text = "Server: ${selectedTool.serverName}",
                                 fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -492,13 +471,13 @@ fun ToolSelectorCard(
                     Icon(
                         imageVector = Icons.Default.ArrowDropDown,
                         contentDescription = "Dropdown",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
                 DropdownMenu(
                     expanded = expanded,
-                    onDismissRequest = { expanded = false }
+                    onDismissRequest = { expanded = false },
                 ) {
                     for (t in tools) {
                         DropdownMenuItem(
@@ -511,7 +490,7 @@ fun ToolSelectorCard(
                             onClick = {
                                 onToolSelected(t)
                                 expanded = false
-                            }
+                            },
                         )
                     }
                 }
@@ -522,7 +501,7 @@ fun ToolSelectorCard(
                 Text(
                     text = selectedTool.description,
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -536,13 +515,13 @@ fun ParametersCard(
     onParameterChange: (String, String) -> Unit,
     isInvoking: Boolean,
     onInvoke: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
         border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(Spacing.cardPadding)) {
             Text(
@@ -550,7 +529,7 @@ fun ParametersCard(
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 color = CyanSecondary,
-                fontFamily = FontFamily.Monospace
+                fontFamily = FontFamily.Monospace,
             )
 
             Spacer(modifier = Modifier.height(Spacing.md))
@@ -559,7 +538,7 @@ fun ParametersCard(
                 Text(
                     text = "No parameters required for this tool.",
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
@@ -582,11 +561,11 @@ fun ParametersCard(
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = if (isError || helperText != null) RoseError else IndigoPrimary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .testTag("param_input_$key")
+                                .testTag("param_input_$key"),
                         )
                     }
                 }
@@ -602,13 +581,13 @@ fun ParametersCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(Dimens.minHeightInput)
-                    .testTag("invoke_tool_button")
+                    .testTag("invoke_tool_button"),
             ) {
                 if (isInvoking) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(Dimens.iconSizeMd),
                         strokeWidth = Dimens.borderWidthThick,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = MaterialTheme.colorScheme.onPrimary,
                     )
                     Spacer(modifier = Modifier.width(Spacing.md))
                     Text("Invoking over JSON-RPC...", fontSize = 13.sp)
@@ -623,31 +602,25 @@ fun ParametersCard(
 }
 
 @Composable
-fun ExecutionResultCard(
-    result: String,
-    latencyMs: Long,
-    isSuccess: Boolean,
-    modifier: Modifier = Modifier
-) {
-
+fun ExecutionResultCard(result: String, latencyMs: Long, isSuccess: Boolean, modifier: Modifier = Modifier) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
         border = BorderStroke(Dimens.borderWidth, if (isSuccess) EmeraldTertiary.copy(alpha = 0.5f) else RoseError.copy(alpha = 0.5f)),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(Spacing.cardPadding)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
                         contentDescription = if (isSuccess) "Success" else "Error",
                         tint = if (isSuccess) EmeraldTertiary else RoseError,
-                        modifier = Modifier.size(Dimens.iconSizeMd)
+                        modifier = Modifier.size(Dimens.iconSizeMd),
                     )
                     Spacer(modifier = Modifier.width(Spacing.sm))
                     Text(
@@ -655,20 +628,20 @@ fun ExecutionResultCard(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isSuccess) EmeraldTertiary else RoseError,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
                     )
                 }
 
                 Surface(
                     color = MaterialTheme.colorScheme.background,
-                    shape = RoundedCornerShape(Dimens.cornerRadiusSm)
+                    shape = RoundedCornerShape(Dimens.cornerRadiusSm),
                 ) {
                     Text(
                         text = "${latencyMs}ms",
                         fontSize = 11.sp,
                         color = EmeraldTertiary,
                         fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs)
+                        modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs),
                     )
                 }
             }
@@ -677,18 +650,14 @@ fun ExecutionResultCard(
 
             CodeBlock(
                 code = result,
-                language = "json"
+                language = "json",
             )
         }
     }
 }
 
 @Composable
-fun LogItemCard(
-    logItem: McpLogItem,
-    onReExecute: ((String, String, Map<String, Any?>) -> Unit)? = null,
-    modifier: Modifier = Modifier
-) {
+fun LogItemCard(logItem: McpLogItem, onReExecute: ((String, String, Map<String, Any?>) -> Unit)? = null, modifier: Modifier = Modifier) {
     var isExpanded by remember { mutableStateOf(false) }
 
     Surface(
@@ -701,20 +670,20 @@ fun LogItemCard(
                 role = Role.Button
                 contentDescription = "Expand or collapse log details for ${logItem.toolName}"
             }
-            .clickable { isExpanded = !isExpanded }
+            .clickable { isExpanded = !isExpanded },
     ) {
         Column(modifier = Modifier.padding(Spacing.sectionGap)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = if (logItem.isSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
                         contentDescription = if (logItem.isSuccess) "Success" else "Error",
                         tint = if (logItem.isSuccess) EmeraldTertiary else RoseError,
-                        modifier = Modifier.size(Dimens.iconSizeSm)
+                        modifier = Modifier.size(Dimens.iconSizeSm),
                     )
                     Spacer(modifier = Modifier.width(Spacing.sm))
                     Text(
@@ -722,7 +691,7 @@ fun LogItemCard(
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
 
@@ -731,13 +700,13 @@ fun LogItemCard(
                         text = "${logItem.latencyMs}ms",
                         fontSize = 10.sp,
                         color = EmeraldTertiary,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
                     )
                     Spacer(modifier = Modifier.width(Spacing.md))
                     Text(
                         text = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(logItem.timestamp)),
                         fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -745,7 +714,7 @@ fun LogItemCard(
             Text(
                 text = "Server: ${logItem.serverName}",
                 fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             AnimatedVisibility(visible = isExpanded) {
@@ -755,7 +724,7 @@ fun LogItemCard(
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         color = CyanSecondary,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
                     )
                     Spacer(modifier = Modifier.height(Spacing.xxs))
                     CodeBlock(code = logItem.requestPayload, language = "json")
@@ -767,7 +736,7 @@ fun LogItemCard(
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (logItem.isSuccess) EmeraldTertiary else RoseError,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
                     )
                     Spacer(modifier = Modifier.height(Spacing.xxs))
                     CodeBlock(code = logItem.responsePayload, language = "json")
@@ -780,13 +749,15 @@ fun LogItemCard(
                                     val rpc = JSONObject(logItem.requestPayload)
                                     val params = rpc.optJSONObject("params")
                                     params?.keys()?.asSequence()?.associateWith { k -> params.opt(k) } ?: emptyMap()
-                                } catch (_: Exception) { emptyMap<String, Any?>() }
+                                } catch (_: Exception) {
+                                    emptyMap<String, Any?>()
+                                }
                                 onReExecute(logItem.toolName, logItem.serverId, args)
                             },
                             contentPadding = PaddingValues(horizontal = Spacing.sectionGap, vertical = Spacing.xs),
                             modifier = Modifier
                                 .height(30.dp)
-                                .minimumInteractiveComponentSize()
+                                .minimumInteractiveComponentSize(),
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeSm))
                             Spacer(modifier = Modifier.width(Spacing.xs))

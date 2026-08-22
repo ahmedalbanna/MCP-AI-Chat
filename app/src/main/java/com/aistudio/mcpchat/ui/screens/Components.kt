@@ -10,6 +10,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,13 +32,13 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,7 +52,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -59,9 +59,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.isSystemInDarkTheme
 import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.model.ToolExecutionStatus
@@ -74,31 +72,27 @@ import com.aistudio.mcpchat.ui.theme.Spacing
 import org.json.JSONObject
 
 @Composable
-fun ServerStatusBadge(
-    status: ServerStatus,
-    latencyMs: Long = 0,
-    modifier: Modifier = Modifier
-) {
+fun ServerStatusBadge(status: ServerStatus, latencyMs: Long = 0, modifier: Modifier = Modifier) {
     val (bgColor, textColor, label) = when (status) {
         ServerStatus.CONNECTED -> Triple(
             EmeraldTertiary.copy(alpha = 0.15f),
             EmeraldTertiary,
-            if (latencyMs > 0) "${latencyMs}ms" else "Online"
+            if (latencyMs > 0) "${latencyMs}ms" else "Online",
         )
         ServerStatus.CONNECTING -> Triple(
             AmberWarning.copy(alpha = 0.15f),
             AmberWarning,
-            "Connecting..."
+            "Connecting...",
         )
         ServerStatus.ERROR -> Triple(
             RoseError.copy(alpha = 0.15f),
             RoseError,
-            "Offline"
+            "Offline",
         )
         ServerStatus.DISCONNECTED -> Triple(
             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f),
             MaterialTheme.colorScheme.onSurfaceVariant,
-            "Disabled"
+            "Disabled",
         )
     }
 
@@ -106,17 +100,17 @@ fun ServerStatusBadge(
         color = bgColor,
         shape = RoundedCornerShape(Dimens.cornerRadiusMd),
         border = BorderStroke(Dimens.borderWidth, textColor.copy(alpha = 0.3f)),
-        modifier = modifier
+        modifier = modifier,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs)
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
         ) {
             Box(
                 modifier = Modifier
                     .size(Spacing.xs)
                     .clip(CircleShape)
-                    .background(textColor)
+                    .background(textColor),
             )
             Spacer(modifier = Modifier.width(Spacing.xxs))
             Text(
@@ -124,17 +118,14 @@ fun ServerStatusBadge(
                 color = textColor,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                fontFamily = FontFamily.Monospace
+                fontFamily = FontFamily.Monospace,
             )
         }
     }
 }
 
 @Composable
-fun ToolCallCard(
-    toolCall: McpToolCall,
-    modifier: Modifier = Modifier
-) {
+fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var isExpanded by remember { mutableStateOf(false) }
 
@@ -153,14 +144,14 @@ fun ToolCallCard(
             .fillMaxWidth()
             .padding(vertical = Spacing.xs)
             .animateContentSize()
-            .testTag("tool_call_card_${toolCall.toolName}")
+            .testTag("tool_call_card_${toolCall.toolName}"),
     ) {
         Row(modifier = Modifier.clip(RoundedCornerShape(Dimens.cornerRadiusLg))) {
             Box(
                 modifier = Modifier
                     .width(Dimens.accentBarWidth)
                     .fillMaxHeight()
-                    .background(borderColor)
+                    .background(borderColor),
             )
             Column(modifier = Modifier.padding(Spacing.cardPadding)) {
                 Row(
@@ -172,18 +163,18 @@ fun ToolCallCard(
                             role = Role.Button
                             contentDescription = "Expand or collapse tool call details for ${toolCall.toolName}"
                         }
-                        .clickable { isExpanded = !isExpanded }
+                        .clickable { isExpanded = !isExpanded },
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
                     ) {
                         when (toolCall.status) {
                             ToolExecutionStatus.EXECUTING -> {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(Dimens.iconSizeMd),
                                     strokeWidth = Dimens.borderWidthThick,
-                                    color = AmberWarning
+                                    color = AmberWarning,
                                 )
                             }
                             ToolExecutionStatus.SUCCESS -> {
@@ -191,7 +182,7 @@ fun ToolCallCard(
                                     imageVector = Icons.Default.CheckCircle,
                                     contentDescription = "Success",
                                     tint = EmeraldTertiary,
-                                    modifier = Modifier.size(Dimens.iconSizeMd)
+                                    modifier = Modifier.size(Dimens.iconSizeMd),
                                 )
                             }
                             ToolExecutionStatus.ERROR -> {
@@ -199,7 +190,7 @@ fun ToolCallCard(
                                     imageVector = Icons.Default.Error,
                                     contentDescription = "Error",
                                     tint = RoseError,
-                                    modifier = Modifier.size(Dimens.iconSizeMd)
+                                    modifier = Modifier.size(Dimens.iconSizeMd),
                                 )
                             }
                             ToolExecutionStatus.PENDING -> {
@@ -207,7 +198,7 @@ fun ToolCallCard(
                                     imageVector = Icons.Default.Bolt,
                                     contentDescription = "Pending",
                                     tint = CyanSecondary,
-                                    modifier = Modifier.size(Dimens.iconSizeMd)
+                                    modifier = Modifier.size(Dimens.iconSizeMd),
                                 )
                             }
                         }
@@ -219,7 +210,7 @@ fun ToolCallCard(
                                 Text(
                                     text = "MCP Tool:",
                                     fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Spacer(modifier = Modifier.width(Spacing.xs))
                                 Text(
@@ -227,13 +218,13 @@ fun ToolCallCard(
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary,
-                                    fontFamily = FontFamily.Monospace
+                                    fontFamily = FontFamily.Monospace,
                                 )
                             }
                             Text(
                                 text = toolCall.serverName,
                                 fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -243,26 +234,26 @@ fun ToolCallCard(
                             Surface(
                                 color = MaterialTheme.colorScheme.background,
                                 shape = RoundedCornerShape(Dimens.cornerRadiusSm),
-                                modifier = Modifier.padding(end = Spacing.xs)
+                                modifier = Modifier.padding(end = Spacing.xs),
                             ) {
                                 Text(
                                     text = "${toolCall.executionTimeMs}ms",
                                     fontSize = 10.sp,
                                     color = EmeraldTertiary,
                                     fontFamily = FontFamily.Monospace,
-                                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs)
+                                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
                                 )
                             }
                         }
 
                         IconButton(
                             onClick = { isExpanded = !isExpanded },
-                            modifier = Modifier.size(Dimens.iconSizeLg)
+                            modifier = Modifier.size(Dimens.iconSizeLg),
                         ) {
                             Icon(
                                 imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                 contentDescription = if (isExpanded) "Collapse" else "Expand",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -275,12 +266,12 @@ fun ToolCallCard(
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.secondary,
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = FontFamily.Monospace,
                         )
                         Spacer(modifier = Modifier.height(Spacing.xs))
                         CodeBlock(
                             code = formatJsonArguments(toolCall.inputArguments),
-                            language = "json"
+                            language = "json",
                         )
 
                         Spacer(modifier = Modifier.height(Spacing.sm))
@@ -289,33 +280,33 @@ fun ToolCallCard(
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Text(
                                     text = "OUTPUT RESULT:",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (toolCall.isSuccess) EmeraldTertiary else RoseError,
-                                    fontFamily = FontFamily.Monospace
+                                    fontFamily = FontFamily.Monospace,
                                 )
 
                                 IconButton(
                                     onClick = {
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                         clipboard.setPrimaryClip(
-                                            ClipData.newPlainText("MCP Result", toolCall.outputResult ?: toolCall.errorMessage)
+                                            ClipData.newPlainText("MCP Result", toolCall.outputResult ?: toolCall.errorMessage),
                                         )
                                         Toast.makeText(context, "Copied payload to clipboard", Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier
                                         .size(Dimens.touchTargetMin)
-                                        .minimumInteractiveComponentSize()
+                                        .minimumInteractiveComponentSize(),
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.ContentCopy,
                                         contentDescription = "Copy",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(Dimens.iconSizeSm)
+                                        modifier = Modifier.size(Dimens.iconSizeSm),
                                     )
                                 }
                             }
@@ -323,7 +314,7 @@ fun ToolCallCard(
                             Spacer(modifier = Modifier.height(Spacing.xs))
                             CodeBlock(
                                 code = toolCall.outputResult ?: toolCall.errorMessage ?: "",
-                                language = "json"
+                                language = "json",
                             )
                         }
                     }
@@ -334,11 +325,7 @@ fun ToolCallCard(
 }
 
 @Composable
-fun CodeBlock(
-    code: String,
-    language: String = "",
-    modifier: Modifier = Modifier
-) {
+fun CodeBlock(code: String, language: String = "", modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
 
@@ -352,7 +339,7 @@ fun CodeBlock(
         color = codeBgColor,
         shape = RoundedCornerShape(Dimens.cornerRadiusMd),
         border = BorderStroke(Dimens.borderWidth, borderColorCode),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
     ) {
         Column {
             if (language.isNotBlank()) {
@@ -362,14 +349,14 @@ fun CodeBlock(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(headerBgColor)
-                        .padding(horizontal = Spacing.cardPadding, vertical = Spacing.xs)
+                        .padding(horizontal = Spacing.cardPadding, vertical = Spacing.xs),
                 ) {
                     Text(
                         text = language.uppercase(),
                         fontSize = 10.sp,
                         color = CyanSecondary,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
                     )
                     IconButton(
                         onClick = {
@@ -379,13 +366,13 @@ fun CodeBlock(
                         },
                         modifier = Modifier
                             .size(Dimens.touchTargetMin)
-                            .minimumInteractiveComponentSize()
+                            .minimumInteractiveComponentSize(),
                     ) {
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
                             contentDescription = "Copy code",
                             tint = iconTintColor,
-                            modifier = Modifier.size(Dimens.iconSizeXs)
+                            modifier = Modifier.size(Dimens.iconSizeXs),
                         )
                     }
                 }
@@ -395,14 +382,14 @@ fun CodeBlock(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(Spacing.sm)
-                    .horizontalScroll(rememberScrollState())
+                    .horizontalScroll(rememberScrollState()),
             ) {
                 Text(
                     text = code,
                     color = codeTextColor,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
-                    lineHeight = 16.sp
+                    lineHeight = 16.sp,
                 )
             }
         }
@@ -410,10 +397,7 @@ fun CodeBlock(
 }
 
 @Composable
-fun MarkdownFormattedText(
-    text: String,
-    modifier: Modifier = Modifier
-) {
+fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
     val lines = text.split("\n")
     Column(modifier = modifier) {
         var inCodeBlock = false
@@ -426,7 +410,7 @@ fun MarkdownFormattedText(
                     CodeBlock(
                         code = codeBuilder.toString().trimEnd(),
                         language = codeLang,
-                        modifier = Modifier.padding(vertical = Spacing.xs)
+                        modifier = Modifier.padding(vertical = Spacing.xs),
                     )
                     codeBuilder.clear()
                     inCodeBlock = false
@@ -443,7 +427,7 @@ fun MarkdownFormattedText(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs)
+                        modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs),
                     )
                 } else if (line.startsWith("## ")) {
                     Text(
@@ -451,7 +435,7 @@ fun MarkdownFormattedText(
                         fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = Spacing.cardPadding, bottom = Spacing.xs)
+                        modifier = Modifier.padding(top = Spacing.cardPadding, bottom = Spacing.xs),
                     )
                 } else if (line.startsWith("# ")) {
                     Text(
@@ -459,7 +443,7 @@ fun MarkdownFormattedText(
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.sm)
+                        modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.sm),
                     )
                 } else if (line.trimStart().startsWith("- ") || line.trimStart().startsWith("* ")) {
                     val bulletText = line.trimStart().drop(2)
@@ -469,13 +453,13 @@ fun MarkdownFormattedText(
                             color = MaterialTheme.colorScheme.secondary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            modifier = Modifier.padding(end = Spacing.sm)
+                            modifier = Modifier.padding(end = Spacing.sm),
                         )
                         Text(
                             text = parseInlineMarkdown(bulletText),
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 20.sp
+                            lineHeight = 20.sp,
                         )
                     }
                 } else if (line.isNotBlank()) {
@@ -484,7 +468,7 @@ fun MarkdownFormattedText(
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                         lineHeight = 20.sp,
-                        modifier = Modifier.padding(vertical = Spacing.xxs)
+                        modifier = Modifier.padding(vertical = Spacing.xxs),
                     )
                 } else {
                     Spacer(modifier = Modifier.height(Spacing.xs))
@@ -496,7 +480,7 @@ fun MarkdownFormattedText(
             CodeBlock(
                 code = codeBuilder.toString().trimEnd(),
                 language = codeLang,
-                modifier = Modifier.padding(vertical = Spacing.xs)
+                modifier = Modifier.padding(vertical = Spacing.xs),
             )
         }
     }
@@ -543,8 +527,8 @@ private fun parseInlineMarkdown(text: String): androidx.compose.ui.text.Annotate
                         SpanStyle(
                             fontFamily = FontFamily.Monospace,
                             color = CyanSecondary,
-                            background = Color(0xFF1E293B).copy(alpha = 0.5f)
-                        )
+                            background = Color(0xFF1E293B).copy(alpha = 0.5f),
+                        ),
                     ) {
                         append(text.substring(codeStart + 1, codeEnd))
                     }

@@ -19,17 +19,17 @@ data class ServersUiState(
     val servers: List<McpServer> = emptyList(),
     val tools: List<McpTool> = emptyList(),
     val isTestingServerId: String? = null,
-    val feedback: FeedbackMessage? = null
+    val feedback: FeedbackMessage? = null,
 )
 
 data class FeedbackMessage(
     val text: String,
-    val isError: Boolean = false
+    val isError: Boolean = false,
 )
 
 @HiltViewModel
 class McpServersViewModel @Inject constructor(
-    private val repository: McpRepository
+    private val repository: McpRepository,
 ) : ViewModel() {
 
     val servers: StateFlow<List<McpServer>> = repository.serversFlow
@@ -48,13 +48,13 @@ class McpServersViewModel @Inject constructor(
         servers,
         tools,
         _isTesting,
-        _feedbackMessage
+        _feedbackMessage,
     ) { serverList, toolList, testingId, feedback ->
         ServersUiState(
             servers = serverList,
             tools = toolList,
             isTestingServerId = testingId,
-            feedback = feedback
+            feedback = feedback,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ServersUiState())
 
@@ -76,12 +76,12 @@ class McpServersViewModel @Inject constructor(
             try {
                 val updated = repository.pingServer(server)
                 _feedbackMessage.value = FeedbackMessage(
-                    "Ping to ${server.name}: ${updated.status} (${updated.latencyMs}ms)"
+                    "Ping to ${server.name}: ${updated.status} (${updated.latencyMs}ms)",
                 )
             } catch (e: Exception) {
                 _feedbackMessage.value = FeedbackMessage(
                     "Failed to ping ${server.name}: ${e.message}",
-                    isError = true
+                    isError = true,
                 )
             } finally {
                 _isTesting.value = null
@@ -95,12 +95,12 @@ class McpServersViewModel @Inject constructor(
             try {
                 val discovered = repository.syncServerTools(server)
                 _feedbackMessage.value = FeedbackMessage(
-                    "Discovered ${discovered.size} tools from ${server.name}"
+                    "Discovered ${discovered.size} tools from ${server.name}",
                 )
             } catch (e: Exception) {
                 _feedbackMessage.value = FeedbackMessage(
                     "Sync failed: ${e.message}",
-                    isError = true
+                    isError = true,
                 )
             } finally {
                 _isTesting.value = null
@@ -108,30 +108,25 @@ class McpServersViewModel @Inject constructor(
         }
     }
 
-    fun addCustomServer(
-        name: String,
-        description: String,
-        endpointUrl: String,
-        authHeader: String
-    ) {
+    fun addCustomServer(name: String, description: String, endpointUrl: String, authHeader: String) {
         viewModelScope.launch {
             try {
                 val server = repository.addCustomServer(
                     name = name.trim(),
                     description = description.trim(),
                     endpointUrl = endpointUrl.trim(),
-                    authHeader = authHeader.trim()
+                    authHeader = authHeader.trim(),
                 )
                 _feedbackMessage.value = FeedbackMessage("Added MCP Server: ${server.name}")
             } catch (e: IllegalArgumentException) {
                 _feedbackMessage.value = FeedbackMessage(
                     "Error: ${e.message}",
-                    isError = true
+                    isError = true,
                 )
             } catch (e: Exception) {
                 _feedbackMessage.value = FeedbackMessage(
                     "Error adding server: ${e.message}",
-                    isError = true
+                    isError = true,
                 )
             }
         }

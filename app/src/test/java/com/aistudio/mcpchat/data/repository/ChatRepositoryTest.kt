@@ -4,14 +4,11 @@ import com.aistudio.mcpchat.data.local.AppDatabase
 import com.aistudio.mcpchat.data.local.ChatDao
 import com.aistudio.mcpchat.data.local.ChatMessageEntity
 import com.aistudio.mcpchat.data.local.ChatSessionEntity
-import com.aistudio.mcpchat.data.model.McpServer
-import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.network.GeminiApiService
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -58,7 +55,7 @@ class ChatRepositoryTest {
     fun `allSessionsFlow delegates to chatDao`() = runTest {
         val sessions = listOf(
             ChatSessionEntity(id = "s1", title = "Session 1"),
-            ChatSessionEntity(id = "s2", title = "Session 2")
+            ChatSessionEntity(id = "s2", title = "Session 2"),
         )
         every { chatDao.getAllSessions() } returns flowOf(sessions)
 
@@ -70,7 +67,7 @@ class ChatRepositoryTest {
     @Test
     fun `getMessagesForSession delegates to chatDao`() = runTest {
         val messages = listOf(
-            ChatMessageEntity(id = "m1", sessionId = "s1", role = "user", content = "Hi")
+            ChatMessageEntity(id = "m1", sessionId = "s1", role = "user", content = "Hi"),
         )
         every { chatDao.getMessagesForSession("s1") } returns flowOf(messages)
 

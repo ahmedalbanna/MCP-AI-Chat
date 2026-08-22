@@ -66,9 +66,12 @@ class McpInspectorViewModelLifecycleTest {
     @Test
     fun `savedStateHandle persists selectedToolId across ViewModel recreation`() = runTest {
         val tool = McpTool(
-            id = "tool_1", serverId = "srv1", serverName = "Server 1",
-            name = "get_weather", description = "Get weather",
-            inputSchemaJson = """{"type":"object","properties":{"location":{"type":"string"}}}"""
+            id = "tool_1",
+            serverId = "srv1",
+            serverName = "Server 1",
+            name = "get_weather",
+            description = "Get weather",
+            inputSchemaJson = """{"type":"object","properties":{"location":{"type":"string"}}}""",
         )
         toolsFlow.value = listOf(tool)
 
@@ -82,9 +85,12 @@ class McpInspectorViewModelLifecycleTest {
     @Test
     fun `savedStateHandle restores tool selection from prepopulated state`() = runTest {
         val tool = McpTool(
-            id = "tool_1", serverId = "srv1", serverName = "Server 1",
-            name = "get_weather", description = "Get weather",
-            inputSchemaJson = """{"type":"object","properties":{"location":{"type":"string","default":"Tokyo"}}}"""
+            id = "tool_1",
+            serverId = "srv1",
+            serverName = "Server 1",
+            name = "get_weather",
+            description = "Get weather",
+            inputSchemaJson = """{"type":"object","properties":{"location":{"type":"string","default":"Tokyo"}}}""",
         )
         toolsFlow.value = listOf(tool)
 
@@ -100,14 +106,20 @@ class McpInspectorViewModelLifecycleTest {
     @Test
     fun `parameter inputs reset when switching tools`() = runTest {
         val tool1 = McpTool(
-            id = "t1", serverId = "srv1", serverName = "Server 1",
-            name = "tool1", description = "Tool 1",
-            inputSchemaJson = """{"type":"object","properties":{"query":{"type":"string"}}}"""
+            id = "t1",
+            serverId = "srv1",
+            serverName = "Server 1",
+            name = "tool1",
+            description = "Tool 1",
+            inputSchemaJson = """{"type":"object","properties":{"query":{"type":"string"}}}""",
         )
         val tool2 = McpTool(
-            id = "t2", serverId = "srv1", serverName = "Server 1",
-            name = "tool2", description = "Tool 2",
-            inputSchemaJson = """{"type":"object","properties":{"location":{"type":"string"}}}"""
+            id = "t2",
+            serverId = "srv1",
+            serverName = "Server 1",
+            name = "tool2",
+            description = "Tool 2",
+            inputSchemaJson = """{"type":"object","properties":{"location":{"type":"string"}}}""",
         )
         toolsFlow.value = listOf(tool1, tool2)
 
@@ -127,21 +139,32 @@ class McpInspectorViewModelLifecycleTest {
     @Test
     fun `invocation state lifecycle tracks isInvoking correctly`() = runTest {
         val server = McpServer(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com", status = ServerStatus.CONNECTED
+            id = "srv1",
+            name = "Server 1",
+            description = "desc",
+            endpointUrl = "http://test.com",
+            status = ServerStatus.CONNECTED,
         )
         val tool = McpTool(
-            id = "t1", serverId = "srv1", serverName = "Server 1",
-            name = "get_weather", description = "Get weather",
-            inputSchemaJson = """{"type":"object","properties":{"location":{"type":"string"}}}"""
+            id = "t1",
+            serverId = "srv1",
+            serverName = "Server 1",
+            name = "get_weather",
+            description = "Get weather",
+            inputSchemaJson = """{"type":"object","properties":{"location":{"type":"string"}}}""",
         )
         serversFlow.value = listOf(server)
         toolsFlow.value = listOf(tool)
 
         val logItem = McpLogItem(
-            serverId = "srv1", serverName = "Server 1", toolName = "get_weather",
-            requestPayload = "{}", responsePayload = """{"temp":"25C"}""",
-            isSuccess = true, latencyMs = 150, timestamp = System.currentTimeMillis()
+            serverId = "srv1",
+            serverName = "Server 1",
+            toolName = "get_weather",
+            requestPayload = "{}",
+            responsePayload = """{"temp":"25C"}""",
+            isSuccess = true,
+            latencyMs = 150,
+            timestamp = System.currentTimeMillis(),
         )
         coEvery { repository.executeTool(any(), any(), any()) } returns Pair("""{"temp":"25C"}""", logItem)
 
@@ -165,13 +188,19 @@ class McpInspectorViewModelLifecycleTest {
     @Test
     fun `invocation error sets error state and resets isInvoking`() = runTest {
         val server = McpServer(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com", status = ServerStatus.CONNECTED
+            id = "srv1",
+            name = "Server 1",
+            description = "desc",
+            endpointUrl = "http://test.com",
+            status = ServerStatus.CONNECTED,
         )
         val tool = McpTool(
-            id = "t1", serverId = "srv1", serverName = "Server 1",
-            name = "failing_tool", description = "Fails",
-            inputSchemaJson = """{"type":"object","properties":{}}"""
+            id = "t1",
+            serverId = "srv1",
+            serverName = "Server 1",
+            name = "failing_tool",
+            description = "Fails",
+            inputSchemaJson = """{"type":"object","properties":{}}""",
         )
         serversFlow.value = listOf(server)
         toolsFlow.value = listOf(tool)
@@ -196,21 +225,32 @@ class McpInspectorViewModelLifecycleTest {
     @Test
     fun `selecting new tool clears previous results`() = runTest {
         val server = McpServer(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com", status = ServerStatus.CONNECTED
+            id = "srv1",
+            name = "Server 1",
+            description = "desc",
+            endpointUrl = "http://test.com",
+            status = ServerStatus.CONNECTED,
         )
         val tool = McpTool(
-            id = "t1", serverId = "srv1", serverName = "Server 1",
-            name = "tool1", description = "Tool 1",
-            inputSchemaJson = """{"type":"object","properties":{}}"""
+            id = "t1",
+            serverId = "srv1",
+            serverName = "Server 1",
+            name = "tool1",
+            description = "Tool 1",
+            inputSchemaJson = """{"type":"object","properties":{}}""",
         )
         serversFlow.value = listOf(server)
         toolsFlow.value = listOf(tool)
 
         val logItem = McpLogItem(
-            serverId = "srv1", serverName = "Server 1", toolName = "tool1",
-            requestPayload = "{}", responsePayload = """{"result":"ok"}""",
-            isSuccess = true, latencyMs = 100, timestamp = System.currentTimeMillis()
+            serverId = "srv1",
+            serverName = "Server 1",
+            toolName = "tool1",
+            requestPayload = "{}",
+            responsePayload = """{"result":"ok"}""",
+            isSuccess = true,
+            latencyMs = 100,
+            timestamp = System.currentTimeMillis(),
         )
         coEvery { repository.executeTool(any(), any(), any()) } returns Pair("""{"result":"ok"}""", logItem)
 
@@ -238,9 +278,12 @@ class McpInspectorViewModelLifecycleTest {
     @Test
     fun `updateParameter modifies specific parameter without affecting others`() = runTest {
         val tool = McpTool(
-            id = "t1", serverId = "srv1", serverName = "Server 1",
-            name = "tool1", description = "Tool 1",
-            inputSchemaJson = """{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"}}}"""
+            id = "t1",
+            serverId = "srv1",
+            serverName = "Server 1",
+            name = "tool1",
+            description = "Tool 1",
+            inputSchemaJson = """{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"}}}""",
         )
         toolsFlow.value = listOf(tool)
 
@@ -278,21 +321,32 @@ class McpInspectorViewModelLifecycleTest {
     @Test
     fun `reExecuteTool sets tool and parameters then invokes`() = runTest {
         val server = McpServer(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com", status = ServerStatus.CONNECTED
+            id = "srv1",
+            name = "Server 1",
+            description = "desc",
+            endpointUrl = "http://test.com",
+            status = ServerStatus.CONNECTED,
         )
         val tool = McpTool(
-            id = "t1", serverId = "srv1", serverName = "Server 1",
-            name = "get_weather", description = "Get weather",
-            inputSchemaJson = """{"type":"object","properties":{"location":{"type":"string"}}}"""
+            id = "t1",
+            serverId = "srv1",
+            serverName = "Server 1",
+            name = "get_weather",
+            description = "Get weather",
+            inputSchemaJson = """{"type":"object","properties":{"location":{"type":"string"}}}""",
         )
         serversFlow.value = listOf(server)
         toolsFlow.value = listOf(tool)
 
         val logItem = McpLogItem(
-            serverId = "srv1", serverName = "Server 1", toolName = "get_weather",
-            requestPayload = "{}", responsePayload = """{"result":"ok"}""",
-            isSuccess = true, latencyMs = 100, timestamp = System.currentTimeMillis()
+            serverId = "srv1",
+            serverName = "Server 1",
+            toolName = "get_weather",
+            requestPayload = "{}",
+            responsePayload = """{"result":"ok"}""",
+            isSuccess = true,
+            latencyMs = 100,
+            timestamp = System.currentTimeMillis(),
         )
         coEvery { repository.executeTool(any(), any(), any()) } returns Pair("""{"result":"ok"}""", logItem)
 
@@ -312,22 +366,33 @@ class McpInspectorViewModelLifecycleTest {
     @Test
     fun `numeric parameter coercion for days amount value`() = runTest {
         val tool = McpTool(
-            id = "t1", serverId = "srv1", serverName = "Server 1",
-            name = "tool1", description = "Tool 1",
-            inputSchemaJson = """{"type":"object","properties":{"days":{"type":"integer"},"amount":{"type":"number"},"value":{"type":"integer"}}}"""
+            id = "t1",
+            serverId = "srv1",
+            serverName = "Server 1",
+            name = "tool1",
+            description = "Tool 1",
+            inputSchemaJson = """{"type":"object","properties":{"days":{"type":"integer"},"amount":{"type":"number"},"value":{"type":"integer"}}}""",
         )
         toolsFlow.value = listOf(tool)
 
         val server = McpServer(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com", status = ServerStatus.CONNECTED
+            id = "srv1",
+            name = "Server 1",
+            description = "desc",
+            endpointUrl = "http://test.com",
+            status = ServerStatus.CONNECTED,
         )
         serversFlow.value = listOf(server)
 
         val logItem = McpLogItem(
-            serverId = "srv1", serverName = "Server 1", toolName = "tool1",
-            requestPayload = "{}", responsePayload = "{}",
-            isSuccess = true, latencyMs = 50, timestamp = System.currentTimeMillis()
+            serverId = "srv1",
+            serverName = "Server 1",
+            toolName = "tool1",
+            requestPayload = "{}",
+            responsePayload = "{}",
+            isSuccess = true,
+            latencyMs = 50,
+            timestamp = System.currentTimeMillis(),
         )
         coEvery { repository.executeTool(any(), any(), any()) } returns Pair("{}", logItem)
 
@@ -349,7 +414,7 @@ class McpInspectorViewModelLifecycleTest {
                 any(),
                 match { args ->
                     args["days"] == 5 && args["amount"] == 100.0 && args["value"] == 42
-                }
+                },
             )
         }
     }

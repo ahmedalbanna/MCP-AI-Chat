@@ -15,7 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -46,7 +45,7 @@ class ServerLifecycleTest {
 
         database = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(),
-            AppDatabase::class.java
+            AppDatabase::class.java,
         ).allowMainThreadQueries().build()
 
         httpClient = mockk(relaxed = true)
@@ -68,7 +67,7 @@ class ServerLifecycleTest {
             name = "Test Server",
             description = "A test MCP server",
             endpointUrl = "http://localhost:3000",
-            authHeader = ""
+            authHeader = "",
         )
 
         assertNotNull(server)
@@ -88,7 +87,7 @@ class ServerLifecycleTest {
             name = "Auth Server",
             description = "Server with auth",
             endpointUrl = "https://secure.com",
-            authHeader = "Bearer token123"
+            authHeader = "Bearer token123",
         )
 
         val dbServer = database.mcpServerDao().getServerById(server.id)
@@ -99,8 +98,11 @@ class ServerLifecycleTest {
     @Test
     fun `toggle server updates enabled state`() = runTest {
         val serverEntity = McpServerEntity(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com", isEnabled = true
+            id = "srv1",
+            name = "Server 1",
+            description = "desc",
+            endpointUrl = "http://test.com",
+            isEnabled = true,
         )
         database.mcpServerDao().insertServer(serverEntity)
 
@@ -114,9 +116,13 @@ class ServerLifecycleTest {
     @Test
     fun `toggle tool updates enabled state`() = runTest {
         val toolEntity = McpToolEntity(
-            id = "t1", serverId = "srv1", serverName = "Server 1",
-            name = "get_weather", description = "Weather",
-            inputSchemaJson = "{}", isEnabled = true
+            id = "t1",
+            serverId = "srv1",
+            serverName = "Server 1",
+            name = "get_weather",
+            description = "Weather",
+            inputSchemaJson = "{}",
+            isEnabled = true,
         )
         database.mcpToolDao().insertTools(listOf(toolEntity))
 
@@ -130,8 +136,11 @@ class ServerLifecycleTest {
     @Test
     fun `ping server updates status and latency`() = runTest {
         val serverEntity = McpServerEntity(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com", status = "DISCONNECTED"
+            id = "srv1",
+            name = "Server 1",
+            description = "desc",
+            endpointUrl = "http://test.com",
+            status = "DISCONNECTED",
         )
         database.mcpServerDao().insertServer(serverEntity)
 
@@ -139,9 +148,11 @@ class ServerLifecycleTest {
 
         val server = repository.pingServer(
             com.aistudio.mcpchat.data.model.McpServer(
-                id = "srv1", name = "Server 1", description = "desc",
-                endpointUrl = "http://test.com"
-            )
+                id = "srv1",
+                name = "Server 1",
+                description = "desc",
+                endpointUrl = "http://test.com",
+            ),
         )
 
         assertEquals(ServerStatus.CONNECTED, server.status)
@@ -153,14 +164,20 @@ class ServerLifecycleTest {
         // A transient ping failure must not permanently wipe the discovered
         // tool catalog — the server may come back on the next sync.
         val serverEntity = McpServerEntity(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com"
+            id = "srv1",
+            name = "Server 1",
+            description = "desc",
+            endpointUrl = "http://test.com",
         )
         database.mcpServerDao().insertServer(serverEntity)
 
         val toolEntity = McpToolEntity(
-            id = "t1", serverId = "srv1", serverName = "Server 1",
-            name = "tool1", description = "Tool 1", inputSchemaJson = "{}"
+            id = "t1",
+            serverId = "srv1",
+            serverName = "Server 1",
+            name = "tool1",
+            description = "Tool 1",
+            inputSchemaJson = "{}",
         )
         database.mcpToolDao().insertTools(listOf(toolEntity))
 
@@ -168,9 +185,11 @@ class ServerLifecycleTest {
 
         repository.pingServer(
             com.aistudio.mcpchat.data.model.McpServer(
-                id = "srv1", name = "Server 1", description = "desc",
-                endpointUrl = "http://test.com"
-            )
+                id = "srv1",
+                name = "Server 1",
+                description = "desc",
+                endpointUrl = "http://test.com",
+            ),
         )
 
         val tools = database.mcpToolDao().getToolsForServer("srv1").first()
@@ -180,30 +199,40 @@ class ServerLifecycleTest {
     @Test
     fun `sync tools discovers and stores tools`() = runTest {
         val serverEntity = McpServerEntity(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com"
+            id = "srv1",
+            name = "Server 1",
+            description = "desc",
+            endpointUrl = "http://test.com",
         )
         database.mcpServerDao().insertServer(serverEntity)
 
         coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
         coEvery { httpClient.discoverTools(any()) } returns listOf(
             com.aistudio.mcpchat.data.model.McpTool(
-                id = "disc_t1", serverId = "srv1", serverName = "Server 1",
-                name = "get_weather", description = "Get weather",
-                inputSchemaJson = """{"type":"object","properties":{"location":{"type":"string"}}}"""
+                id = "disc_t1",
+                serverId = "srv1",
+                serverName = "Server 1",
+                name = "get_weather",
+                description = "Get weather",
+                inputSchemaJson = """{"type":"object","properties":{"location":{"type":"string"}}}""",
             ),
             com.aistudio.mcpchat.data.model.McpTool(
-                id = "disc_t2", serverId = "srv1", serverName = "Server 1",
-                name = "get_forecast", description = "Get forecast",
-                inputSchemaJson = """{"type":"object","properties":{"days":{"type":"integer"}}}"""
-            )
+                id = "disc_t2",
+                serverId = "srv1",
+                serverName = "Server 1",
+                name = "get_forecast",
+                description = "Get forecast",
+                inputSchemaJson = """{"type":"object","properties":{"days":{"type":"integer"}}}""",
+            ),
         )
 
         val discovered = repository.syncServerTools(
             com.aistudio.mcpchat.data.model.McpServer(
-                id = "srv1", name = "Server 1", description = "desc",
-                endpointUrl = "http://test.com"
-            )
+                id = "srv1",
+                name = "Server 1",
+                description = "desc",
+                endpointUrl = "http://test.com",
+            ),
         )
 
         assertEquals(2, discovered.size)
@@ -215,14 +244,16 @@ class ServerLifecycleTest {
     @Test
     fun `delete server cascades to tools`() = runTest {
         val serverEntity = McpServerEntity(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com"
+            id = "srv1",
+            name = "Server 1",
+            description = "desc",
+            endpointUrl = "http://test.com",
         )
         database.mcpServerDao().insertServer(serverEntity)
 
         val tools = listOf(
             McpToolEntity(id = "t1", serverId = "srv1", serverName = "Server 1", name = "tool1", description = "Tool 1", inputSchemaJson = "{}"),
-            McpToolEntity(id = "t2", serverId = "srv1", serverName = "Server 1", name = "tool2", description = "Tool 2", inputSchemaJson = "{}")
+            McpToolEntity(id = "t2", serverId = "srv1", serverName = "Server 1", name = "tool2", description = "Tool 2", inputSchemaJson = "{}"),
         )
         database.mcpToolDao().insertTools(tools)
 
@@ -238,10 +269,10 @@ class ServerLifecycleTest {
     @Test
     fun `get enabled servers returns only enabled`() = runTest {
         database.mcpServerDao().insertServer(
-            McpServerEntity(id = "s1", name = "Enabled", description = "", endpointUrl = "http://e.com", isEnabled = true)
+            McpServerEntity(id = "s1", name = "Enabled", description = "", endpointUrl = "http://e.com", isEnabled = true),
         )
         database.mcpServerDao().insertServer(
-            McpServerEntity(id = "s2", name = "Disabled", description = "", endpointUrl = "http://d.com", isEnabled = false)
+            McpServerEntity(id = "s2", name = "Disabled", description = "", endpointUrl = "http://d.com", isEnabled = false),
         )
 
         val enabled = repository.getEnabledServers()
@@ -251,12 +282,28 @@ class ServerLifecycleTest {
 
     @Test
     fun `get enabled tools returns only enabled`() = runTest {
-        database.mcpToolDao().insertTools(listOf(
-            McpToolEntity(id = "t1", serverId = "s1", serverName = "S1", name = "Enabled Tool",
-                description = "", inputSchemaJson = "{}", isEnabled = true),
-            McpToolEntity(id = "t2", serverId = "s1", serverName = "S1", name = "Disabled Tool",
-                description = "", inputSchemaJson = "{}", isEnabled = false)
-        ))
+        database.mcpToolDao().insertTools(
+            listOf(
+                McpToolEntity(
+                    id = "t1",
+                    serverId = "s1",
+                    serverName = "S1",
+                    name = "Enabled Tool",
+                    description = "",
+                    inputSchemaJson = "{}",
+                    isEnabled = true,
+                ),
+                McpToolEntity(
+                    id = "t2",
+                    serverId = "s1",
+                    serverName = "S1",
+                    name = "Disabled Tool",
+                    description = "",
+                    inputSchemaJson = "{}",
+                    isEnabled = false,
+                ),
+            ),
+        )
 
         val enabled = repository.getEnabledTools()
         assertEquals(1, enabled.size)
@@ -266,8 +313,10 @@ class ServerLifecycleTest {
     @Test
     fun `execute tool calls httpClient and logs result`() = runTest {
         val serverEntity = McpServerEntity(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com"
+            id = "srv1",
+            name = "Server 1",
+            description = "desc",
+            endpointUrl = "http://test.com",
         )
         database.mcpServerDao().insertServer(serverEntity)
 
@@ -275,19 +324,26 @@ class ServerLifecycleTest {
             Pair(
                 """{"temp":"25C"}""",
                 com.aistudio.mcpchat.data.model.McpLogItem(
-                    serverId = "srv1", serverName = "Server 1", toolName = "get_weather",
-                    requestPayload = "{}", responsePayload = """{"temp":"25C"}""",
-                    isSuccess = true, latencyMs = 100, timestamp = System.currentTimeMillis()
-                )
+                    serverId = "srv1",
+                    serverName = "Server 1",
+                    toolName = "get_weather",
+                    requestPayload = "{}",
+                    responsePayload = """{"temp":"25C"}""",
+                    isSuccess = true,
+                    latencyMs = 100,
+                    timestamp = System.currentTimeMillis(),
+                ),
             )
 
         val (result, logItem) = repository.executeTool(
             com.aistudio.mcpchat.data.model.McpServer(
-                id = "srv1", name = "Server 1", description = "desc",
-                endpointUrl = "http://test.com"
+                id = "srv1",
+                name = "Server 1",
+                description = "desc",
+                endpointUrl = "http://test.com",
             ),
             "get_weather",
-            mapOf("location" to "Tokyo")
+            mapOf("location" to "Tokyo"),
         )
 
         assertEquals("""{"temp":"25C"}""", result)
@@ -301,35 +357,49 @@ class ServerLifecycleTest {
     @Test
     fun `multiple servers independent tool discovery`() = runTest {
         database.mcpServerDao().insertServer(
-            McpServerEntity(id = "s1", name = "Weather", description = "", endpointUrl = "http://w.com")
+            McpServerEntity(id = "s1", name = "Weather", description = "", endpointUrl = "http://w.com"),
         )
         database.mcpServerDao().insertServer(
-            McpServerEntity(id = "s2", name = "Finance", description = "", endpointUrl = "http://f.com")
+            McpServerEntity(id = "s2", name = "Finance", description = "", endpointUrl = "http://f.com"),
         )
 
         coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
         coEvery { httpClient.discoverTools(match { it.endpointUrl == "http://w.com" }) } returns listOf(
             com.aistudio.mcpchat.data.model.McpTool(
-                id = "w1", serverId = "s1", serverName = "Weather",
-                name = "get_weather", description = "Weather", inputSchemaJson = "{}"
-            )
+                id = "w1",
+                serverId = "s1",
+                serverName = "Weather",
+                name = "get_weather",
+                description = "Weather",
+                inputSchemaJson = "{}",
+            ),
         )
         coEvery { httpClient.discoverTools(match { it.endpointUrl == "http://f.com" }) } returns listOf(
             com.aistudio.mcpchat.data.model.McpTool(
-                id = "f1", serverId = "s2", serverName = "Finance",
-                name = "get_stock", description = "Stock", inputSchemaJson = "{}"
-            )
+                id = "f1",
+                serverId = "s2",
+                serverName = "Finance",
+                name = "get_stock",
+                description = "Stock",
+                inputSchemaJson = "{}",
+            ),
         )
 
         repository.syncServerTools(
             com.aistudio.mcpchat.data.model.McpServer(
-                id = "s1", name = "Weather", description = "", endpointUrl = "http://w.com"
-            )
+                id = "s1",
+                name = "Weather",
+                description = "",
+                endpointUrl = "http://w.com",
+            ),
         )
         repository.syncServerTools(
             com.aistudio.mcpchat.data.model.McpServer(
-                id = "s2", name = "Finance", description = "", endpointUrl = "http://f.com"
-            )
+                id = "s2",
+                name = "Finance",
+                description = "",
+                endpointUrl = "http://f.com",
+            ),
         )
 
         val wTools = database.mcpToolDao().getToolsForServer("s1").first()
@@ -344,17 +414,23 @@ class ServerLifecycleTest {
     @Test
     fun `server health monitoring lifecycle`() = runTest {
         val serverEntity = McpServerEntity(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com", status = "DISCONNECTED", latencyMs = 0
+            id = "srv1",
+            name = "Server 1",
+            description = "desc",
+            endpointUrl = "http://test.com",
+            status = "DISCONNECTED",
+            latencyMs = 0,
         )
         database.mcpServerDao().insertServer(serverEntity)
 
         coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
         repository.pingServer(
             com.aistudio.mcpchat.data.model.McpServer(
-                id = "srv1", name = "Server 1", description = "desc",
-                endpointUrl = "http://test.com"
-            )
+                id = "srv1",
+                name = "Server 1",
+                description = "desc",
+                endpointUrl = "http://test.com",
+            ),
         )
 
         val afterPing = database.mcpServerDao().getServerById("srv1")
@@ -365,9 +441,11 @@ class ServerLifecycleTest {
         coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.ERROR, 100L)
         repository.pingServer(
             com.aistudio.mcpchat.data.model.McpServer(
-                id = "srv1", name = "Server 1", description = "desc",
-                endpointUrl = "http://test.com"
-            )
+                id = "srv1",
+                name = "Server 1",
+                description = "desc",
+                endpointUrl = "http://test.com",
+            ),
         )
 
         val afterError = database.mcpServerDao().getServerById("srv1")
@@ -378,9 +456,13 @@ class ServerLifecycleTest {
     @Test
     fun `clear logs empties the log table`() = runTest {
         val log = com.aistudio.mcpchat.data.local.McpLogEntity(
-            serverId = "srv1", serverName = "Server 1", toolName = "tool1",
-            requestPayload = "{}", responsePayload = "{}",
-            isSuccess = true, latencyMs = 50
+            serverId = "srv1",
+            serverName = "Server 1",
+            toolName = "tool1",
+            requestPayload = "{}",
+            responsePayload = "{}",
+            isSuccess = true,
+            latencyMs = 50,
         )
         database.mcpLogDao().insertLog(log)
 
@@ -400,7 +482,7 @@ class ServerLifecycleTest {
                 name = "Bad URL",
                 description = "desc",
                 endpointUrl = "ftp://invalid.com",
-                authHeader = ""
+                authHeader = "",
             )
         } catch (e: IllegalArgumentException) {
             assertTrue(e.message?.contains("URL") == true || e.message?.contains("scheme") == true)
@@ -414,7 +496,7 @@ class ServerLifecycleTest {
                 name = "",
                 description = "desc",
                 endpointUrl = "https://valid.com",
-                authHeader = ""
+                authHeader = "",
             )
         } catch (e: IllegalArgumentException) {
             assertTrue(e.message?.contains("name") == true || e.message?.contains("blank") == true)
@@ -428,7 +510,7 @@ class ServerLifecycleTest {
                 name = "Insecure",
                 description = "desc",
                 endpointUrl = "http://insecure.example.com",
-                authHeader = ""
+                authHeader = "",
             )
             throw AssertionError("Expected IllegalArgumentException for plain http")
         } catch (e: IllegalArgumentException) {

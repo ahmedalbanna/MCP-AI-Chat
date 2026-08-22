@@ -18,7 +18,7 @@ import java.net.URL
 
 class McpRepository(
     private val database: AppDatabase,
-    private val mcpHttpClient: McpHttpClient = McpHttpClient()
+    private val mcpHttpClient: McpHttpClient = McpHttpClient(),
 ) {
     private val serverDao = database.mcpServerDao()
     private val toolDao = database.mcpToolDao()
@@ -48,31 +48,27 @@ class McpRepository(
         toolDao.getAllEnabledTools().map { it.toModel() }
     }
 
-    suspend fun addCustomServer(
-        name: String,
-        description: String,
-        endpointUrl: String,
-        authHeader: String = ""
-    ): McpServer = withContext(Dispatchers.IO) {
-        validateEndpointUrl(endpointUrl)
+    suspend fun addCustomServer(name: String, description: String, endpointUrl: String, authHeader: String = ""): McpServer =
+        withContext(Dispatchers.IO) {
+            validateEndpointUrl(endpointUrl)
 
-        require(name.isNotBlank()) { "Server name cannot be empty" }
+            require(name.isNotBlank()) { "Server name cannot be empty" }
 
-        val id = "custom_${System.currentTimeMillis()}"
-        val server = McpServer(
-            id = id,
-            name = name,
-            description = description,
-            endpointUrl = endpointUrl,
-            authHeader = authHeader,
-            isEnabled = true,
-            isPreset = false,
-            status = ServerStatus.CONNECTING
-        )
-        serverDao.insertServer(server.toEntity())
-        syncServerTools(server)
-        server
-    }
+            val id = "custom_${System.currentTimeMillis()}"
+            val server = McpServer(
+                id = id,
+                name = name,
+                description = description,
+                endpointUrl = endpointUrl,
+                authHeader = authHeader,
+                isEnabled = true,
+                isPreset = false,
+                status = ServerStatus.CONNECTING,
+            )
+            serverDao.insertServer(server.toEntity())
+            syncServerTools(server)
+            server
+        }
 
     suspend fun updateServer(server: McpServer) = withContext(Dispatchers.IO) {
         serverDao.updateServer(server.toEntity())
@@ -114,21 +110,18 @@ class McpRepository(
             status = status,
             latencyMs = latency,
             toolsCount = tools.size,
-            lastSyncTime = System.currentTimeMillis()
+            lastSyncTime = System.currentTimeMillis(),
         )
         serverDao.updateServer(updatedServer.toEntity())
         tools
     }
 
-    suspend fun executeTool(
-        server: McpServer,
-        toolName: String,
-        arguments: Map<String, Any?>
-    ): Pair<String, McpLogItem> = withContext(Dispatchers.IO) {
-        val (result, logItem) = mcpHttpClient.executeToolCall(server, toolName, arguments)
-        logDao.insertLog(logItem.toEntity())
-        Pair(result, logItem)
-    }
+    suspend fun executeTool(server: McpServer, toolName: String, arguments: Map<String, Any?>): Pair<String, McpLogItem> =
+        withContext(Dispatchers.IO) {
+            val (result, logItem) = mcpHttpClient.executeToolCall(server, toolName, arguments)
+            logDao.insertLog(logItem.toEntity())
+            Pair(result, logItem)
+        }
 
     suspend fun clearAllLogs() = withContext(Dispatchers.IO) {
         logDao.clearLogs()
@@ -162,11 +155,15 @@ class McpRepository(
             authHeader = authHeader,
             isEnabled = isEnabled,
             isPreset = isPreset,
-            status = try { ServerStatus.valueOf(status) } catch (_: Exception) { ServerStatus.DISCONNECTED },
+            status = try {
+                ServerStatus.valueOf(status)
+            } catch (_: Exception) {
+                ServerStatus.DISCONNECTED
+            },
             latencyMs = latencyMs,
             protocolVersion = protocolVersion,
             toolsCount = toolsCount,
-            lastSyncTime = lastSyncTime
+            lastSyncTime = lastSyncTime,
         )
     }
 
@@ -183,7 +180,7 @@ class McpRepository(
             latencyMs = latencyMs,
             protocolVersion = protocolVersion,
             toolsCount = toolsCount,
-            lastSyncTime = lastSyncTime
+            lastSyncTime = lastSyncTime,
         )
     }
 
@@ -195,7 +192,7 @@ class McpRepository(
             name = name,
             description = description,
             inputSchemaJson = inputSchemaJson,
-            isEnabled = isEnabled
+            isEnabled = isEnabled,
         )
     }
 
@@ -207,7 +204,7 @@ class McpRepository(
             name = name,
             description = description,
             inputSchemaJson = inputSchemaJson,
-            isEnabled = isEnabled
+            isEnabled = isEnabled,
         )
     }
 
@@ -222,7 +219,7 @@ class McpRepository(
             isSuccess = isSuccess,
             latencyMs = latencyMs,
             timestamp = timestamp,
-            errorMessage = errorMessage
+            errorMessage = errorMessage,
         )
     }
 
@@ -237,7 +234,7 @@ class McpRepository(
             isSuccess = isSuccess,
             latencyMs = latencyMs,
             timestamp = timestamp,
-            errorMessage = errorMessage
+            errorMessage = errorMessage,
         )
     }
 }

@@ -28,13 +28,13 @@ data class InspectorUiState(
     val latestResult: String? = null,
     val latestLatencyMs: Long? = null,
     val latestIsSuccess: Boolean? = null,
-    val error: UiError? = null
+    val error: UiError? = null,
 )
 
 @HiltViewModel
 class McpInspectorViewModel @Inject constructor(
     private val repository: McpRepository,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
     val servers: StateFlow<List<McpServer>> = repository.serversFlow
@@ -69,6 +69,7 @@ class McpInspectorViewModel @Inject constructor(
     val latestIsSuccess: StateFlow<Boolean?> = _latestIsSuccess.asStateFlow()
 
     private val _error = MutableStateFlow<UiError?>(null)
+    val error: StateFlow<UiError?> = _error.asStateFlow()
 
     init {
         // Restore parameter defaults after process death: SavedStateHandle
@@ -95,7 +96,7 @@ class McpInspectorViewModel @Inject constructor(
         _latestResult,
         _latestLatencyMs,
         _latestIsSuccess,
-        _error
+        _error,
     ) { results ->
         @Suppress("UNCHECKED_CAST")
         InspectorUiState(
@@ -108,7 +109,7 @@ class McpInspectorViewModel @Inject constructor(
             latestResult = results[6] as? String,
             latestLatencyMs = results[7] as? Long,
             latestIsSuccess = results[8] as? Boolean,
-            error = results[9] as? UiError
+            error = results[9] as? UiError,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InspectorUiState())
 
@@ -259,7 +260,7 @@ class McpInspectorViewModel @Inject constructor(
             "city_a" to "San Francisco",
             "city_b" to "Paris",
             "key" to "project_brief",
-            "content" to "MCP remote integration server protocol active"
+            "content" to "MCP remote integration server protocol active",
         )
     }
 }

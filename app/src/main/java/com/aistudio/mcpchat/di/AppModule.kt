@@ -37,20 +37,13 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideMcpRepository(
-        database: AppDatabase,
-        httpClient: McpHttpClient
-    ): McpRepository {
+    fun provideMcpRepository(database: AppDatabase, httpClient: McpHttpClient): McpRepository {
         return McpRepository(database, httpClient)
     }
 
     @Provides
     @Singleton
-    fun provideChatRepository(
-        database: AppDatabase,
-        mcpRepository: McpRepository,
-        geminiService: GeminiApiService
-    ): ChatRepository {
+    fun provideChatRepository(database: AppDatabase, mcpRepository: McpRepository, geminiService: GeminiApiService): ChatRepository {
         return ChatRepository(database, mcpRepository, geminiService)
     }
 }

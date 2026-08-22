@@ -24,7 +24,6 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -88,9 +87,12 @@ class McpInspectorViewModelTest {
     @Test
     fun `selectTool sets selectedToolId and parses schema defaults`() = runTest {
         val tool = McpTool(
-            id = "t1", serverId = "s1", serverName = "Server",
-            name = "get_weather", description = "Get weather",
-            inputSchemaJson = """{"type":"object","properties":{"city":{"type":"string","default":"Tokyo"}}}"""
+            id = "t1",
+            serverId = "s1",
+            serverName = "Server",
+            name = "get_weather",
+            description = "Get weather",
+            inputSchemaJson = """{"type":"object","properties":{"city":{"type":"string","default":"Tokyo"}}}""",
         )
 
         createViewModel()
@@ -104,9 +106,12 @@ class McpInspectorViewModelTest {
     @Test
     fun `selectTool clears previous results`() = runTest {
         val tool = McpTool(
-            id = "t1", serverId = "s1", serverName = "Server",
-            name = "tool", description = "desc",
-            inputSchemaJson = "{}"
+            id = "t1",
+            serverId = "s1",
+            serverName = "Server",
+            name = "tool",
+            description = "desc",
+            inputSchemaJson = "{}",
         )
 
         createViewModel()
@@ -130,18 +135,29 @@ class McpInspectorViewModelTest {
     @Test
     fun `invokeSelectedTool calls repository and updates result`() = runTest {
         val server = McpServer(
-            id = "s1", name = "Server", description = "desc",
-            endpointUrl = "http://test.com", status = ServerStatus.CONNECTED
+            id = "s1",
+            name = "Server",
+            description = "desc",
+            endpointUrl = "http://test.com",
+            status = ServerStatus.CONNECTED,
         )
         val tool = McpTool(
-            id = "t1", serverId = "s1", serverName = "Server",
-            name = "get_weather", description = "Get weather",
-            inputSchemaJson = """{"type":"object","properties":{"city":{"type":"string"}}}"""
+            id = "t1",
+            serverId = "s1",
+            serverName = "Server",
+            name = "get_weather",
+            description = "Get weather",
+            inputSchemaJson = """{"type":"object","properties":{"city":{"type":"string"}}}""",
         )
         val logItem = McpLogItem(
-            id = 1, serverId = "s1", serverName = "Server", toolName = "get_weather",
-            requestPayload = "{}", responsePayload = """{"temp":22}""",
-            isSuccess = true, latencyMs = 150
+            id = 1,
+            serverId = "s1",
+            serverName = "Server",
+            toolName = "get_weather",
+            requestPayload = "{}",
+            responsePayload = """{"temp":22}""",
+            isSuccess = true,
+            latencyMs = 150,
         )
 
         serversFlow.value = listOf(server)
@@ -163,13 +179,18 @@ class McpInspectorViewModelTest {
     @Test
     fun `invokeSelectedTool handles error`() = runTest {
         val server = McpServer(
-            id = "s1", name = "Server", description = "desc",
-            endpointUrl = "http://test.com"
+            id = "s1",
+            name = "Server",
+            description = "desc",
+            endpointUrl = "http://test.com",
         )
         val tool = McpTool(
-            id = "t1", serverId = "s1", serverName = "Server",
-            name = "tool", description = "desc",
-            inputSchemaJson = "{}"
+            id = "t1",
+            serverId = "s1",
+            serverName = "Server",
+            name = "tool",
+            description = "desc",
+            inputSchemaJson = "{}",
         )
 
         serversFlow.value = listOf(server)
@@ -209,9 +230,15 @@ class McpInspectorViewModelTest {
     fun `uiState reflects logs from repository`() = runTest {
         val logs = listOf(
             McpLogItem(
-                id = 1, serverId = "s1", serverName = "Server", toolName = "tool1",
-                requestPayload = "{}", responsePayload = "{}", isSuccess = true, latencyMs = 100
-            )
+                id = 1,
+                serverId = "s1",
+                serverName = "Server",
+                toolName = "tool1",
+                requestPayload = "{}",
+                responsePayload = "{}",
+                isSuccess = true,
+                latencyMs = 100,
+            ),
         )
         logsFlow.value = logs
 

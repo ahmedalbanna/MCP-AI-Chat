@@ -37,7 +37,7 @@ class MemoryTool(private val database: AppDatabase) {
             content = content,
             tags = tags,
             createdAt = System.currentTimeMillis(),
-            updatedAt = System.currentTimeMillis()
+            updatedAt = System.currentTimeMillis(),
         )
         val id = memoryDao.insertNote(note)
         return JSONObject().apply {
@@ -130,10 +130,10 @@ class MemoryTool(private val database: AppDatabase) {
                     "type" to "object",
                     "properties" to mapOf(
                         "content" to mapOf("type" to "string", "description" to "The content to remember"),
-                        "tags" to mapOf("type" to "string", "description" to "Comma-separated tags for categorization")
+                        "tags" to mapOf("type" to "string", "description" to "Comma-separated tags for categorization"),
                     ),
-                    "required" to listOf("content")
-                )
+                    "required" to listOf("content"),
+                ),
             ),
             mapOf(
                 "name" to "search_memory_notes",
@@ -141,10 +141,10 @@ class MemoryTool(private val database: AppDatabase) {
                 "inputSchema" to mapOf(
                     "type" to "object",
                     "properties" to mapOf(
-                        "query" to mapOf("type" to "string", "description" to "Search query to match against notes")
+                        "query" to mapOf("type" to "string", "description" to "Search query to match against notes"),
                     ),
-                    "required" to listOf("query")
-                )
+                    "required" to listOf("query"),
+                ),
             ),
             mapOf(
                 "name" to "list_memory_notes",
@@ -152,9 +152,9 @@ class MemoryTool(private val database: AppDatabase) {
                 "inputSchema" to mapOf(
                     "type" to "object",
                     "properties" to mapOf(
-                        "limit" to mapOf("type" to "integer", "description" to "Maximum number of notes to return (default 10)")
-                    )
-                )
+                        "limit" to mapOf("type" to "integer", "description" to "Maximum number of notes to return (default 10)"),
+                    ),
+                ),
             ),
             mapOf(
                 "name" to "delete_memory_note",
@@ -162,11 +162,11 @@ class MemoryTool(private val database: AppDatabase) {
                 "inputSchema" to mapOf(
                     "type" to "object",
                     "properties" to mapOf(
-                        "id" to mapOf("type" to "integer", "description" to "The ID of the note to delete")
+                        "id" to mapOf("type" to "integer", "description" to "The ID of the note to delete"),
                     ),
-                    "required" to listOf("id")
-                )
-            )
+                    "required" to listOf("id"),
+                ),
+            ),
         )
     }
 

@@ -4,21 +4,17 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -34,7 +30,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -45,8 +40,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -65,7 +58,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -81,11 +73,11 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -110,18 +102,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.local.ChatMessageEntity
-import com.aistudio.mcpchat.data.model.McpServer
-import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.ui.theme.AmberWarning
 import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.EmeraldTertiary
-import com.aistudio.mcpchat.ui.theme.IndigoContainerDark
 import com.aistudio.mcpchat.ui.theme.IndigoPrimary
 import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
 import com.aistudio.mcpchat.ui.theme.RoseError
@@ -134,11 +122,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun ChatScreen(
-    viewModel: ChatViewModel,
-    onNavigateToServers: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun ChatScreen(viewModel: ChatViewModel, onNavigateToServers: () -> Unit, modifier: Modifier = Modifier) {
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
     val currentSessionId by viewModel.currentSessionId.collectAsStateWithLifecycle()
     val messages by viewModel.messages.collectAsStateWithLifecycle()
@@ -182,7 +166,7 @@ fun ChatScreen(
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
                 title = {
                     Column {
@@ -190,7 +174,7 @@ fun ChatScreen(
                             Text(
                                 text = "MCP AI Chat",
                                 fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
                             )
                             Spacer(modifier = Modifier.width(Spacing.sm))
                             Surface(
@@ -209,38 +193,38 @@ fun ChatScreen(
                                             }
                                     }
                                     .clickable { showModelMenu = true }
-                                    .testTag("model_picker_chip")
+                                    .testTag("model_picker_chip"),
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs)
+                                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
                                 ) {
                                     Text(
                                         text = if (currentSession?.model?.contains("pro") == true) "3.1 Pro" else "3.5 Flash",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = IndigoPrimaryLight
+                                        color = IndigoPrimaryLight,
                                     )
                                 }
                             }
 
                             DropdownMenu(
                                 expanded = showModelMenu,
-                                onDismissRequest = { showModelMenu = false }
+                                onDismissRequest = { showModelMenu = false },
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("gemini-3.5-flash (Fast & Responsive)") },
                                     onClick = {
                                         viewModel.updateSessionModel("gemini-3.5-flash")
                                         showModelMenu = false
-                                    }
+                                    },
                                 )
                                 DropdownMenuItem(
                                     text = { Text("gemini-3.1-pro-preview (Advanced Reasoning)") },
                                     onClick = {
                                         viewModel.updateSessionModel("gemini-3.1-pro-preview")
                                         showModelMenu = false
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -252,20 +236,20 @@ fun ChatScreen(
                                     role = Role.Button
                                     contentDescription = "View active MCP servers"
                                 }
-                                .clickable { showServersSheet = true }
+                                .clickable { showServersSheet = true },
                         ) {
                             Box(
                                 modifier = Modifier
                                     .size(Spacing.xs)
                                     .clip(CircleShape)
-                                    .background(EmeraldTertiary)
+                                    .background(EmeraldTertiary),
                             )
                             Spacer(modifier = Modifier.width(Spacing.xs))
                             Text(
                                 text = "$enabledServersCount Remote MCP Servers Active",
                                 fontSize = 11.sp,
                                 color = EmeraldTertiary,
-                                fontFamily = FontFamily.Monospace
+                                fontFamily = FontFamily.Monospace,
                             )
                         }
                     }
@@ -275,12 +259,12 @@ fun ChatScreen(
                         onClick = { showServersSheet = true },
                         modifier = Modifier
                             .minimumInteractiveComponentSize()
-                            .testTag("mcp_servers_toggle_button")
+                            .testTag("mcp_servers_toggle_button"),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Hub,
                             contentDescription = "Active MCP Servers",
-                            tint = CyanSecondary
+                            tint = CyanSecondary,
                         )
                     }
 
@@ -288,12 +272,12 @@ fun ChatScreen(
                         onClick = { showSessionsSheet = true },
                         modifier = Modifier
                             .minimumInteractiveComponentSize()
-                            .testTag("chat_history_button")
+                            .testTag("chat_history_button"),
                     ) {
                         Icon(
                             imageVector = Icons.Default.History,
                             contentDescription = "Chat History",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
 
@@ -301,25 +285,25 @@ fun ChatScreen(
                         onClick = { viewModel.createNewChat() },
                         modifier = Modifier
                             .minimumInteractiveComponentSize()
-                            .testTag("new_chat_button")
+                            .testTag("new_chat_button"),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = "New Chat",
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = MaterialTheme.colorScheme.primary,
                         )
                     }
-                }
+                },
             )
         },
         modifier = modifier
             .fillMaxSize()
-            .imePadding()
+            .imePadding(),
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
         ) {
             Box(modifier = Modifier.weight(1f)) {
                 if (messages.isEmpty() && inProgressToolCalls.isEmpty()) {
@@ -328,7 +312,7 @@ fun ChatScreen(
                             inputText = prompt
                             viewModel.sendMessage(prompt)
                         },
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
                     )
                 } else {
                     LazyColumn(
@@ -337,12 +321,12 @@ fun ChatScreen(
                         verticalArrangement = Arrangement.spacedBy(Spacing.md),
                         modifier = Modifier
                             .fillMaxSize()
-                            .testTag("chat_messages_list")
+                            .testTag("chat_messages_list"),
                     ) {
                         items(messages, key = { it.id }) { msg ->
                             ChatMessageItem(
                                 message = msg,
-                                viewModel = viewModel
+                                viewModel = viewModel,
                             )
                         }
 
@@ -351,16 +335,16 @@ fun ChatScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(start = Spacing.md, end = Spacing.xxl)
+                                        .padding(start = Spacing.md, end = Spacing.xxl),
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(bottom = Spacing.sm)
+                                        modifier = Modifier.padding(bottom = Spacing.sm),
                                     ) {
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(Dimens.iconSizeSm),
                                             strokeWidth = Dimens.borderWidthThick,
-                                            color = AmberWarning
+                                            color = AmberWarning,
                                         )
                                         Spacer(modifier = Modifier.width(Spacing.sm))
                                         Text(
@@ -368,7 +352,7 @@ fun ChatScreen(
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = AmberWarning,
-                                            fontFamily = FontFamily.Monospace
+                                            fontFamily = FontFamily.Monospace,
                                         )
                                     }
 
@@ -382,7 +366,7 @@ fun ChatScreen(
                         if (isGenerating && inProgressToolCalls.isEmpty() && messages.lastOrNull()?.role == "user") {
                             item {
                                 TypingIndicator(
-                                    modifier = Modifier.padding(start = Spacing.md, end = Spacing.xxl)
+                                    modifier = Modifier.padding(start = Spacing.md, end = Spacing.xxl),
                                 )
                             }
                         }
@@ -395,7 +379,7 @@ fun ChatScreen(
                     exit = slideOutVertically(targetOffsetY = { it }),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = Spacing.lg, bottom = Spacing.sm)
+                        .padding(end = Spacing.lg, bottom = Spacing.sm),
                 ) {
                     Surface(
                         onClick = {
@@ -407,14 +391,14 @@ fun ChatScreen(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primary,
                         shadowElevation = Dimens.elevationLg,
-                        modifier = Modifier.size(Dimens.touchTargetMin)
+                        modifier = Modifier.size(Dimens.touchTargetMin),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowDown,
                                 contentDescription = "Jump to bottom",
                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(Dimens.iconSizeLg)
+                                modifier = Modifier.size(Dimens.iconSizeLg),
                             )
                         }
                     }
@@ -432,35 +416,35 @@ fun ChatScreen(
                         .semantics {
                             liveRegion = LiveRegionMode.Assertive
                             contentDescription = "Error: ${errorMessage ?: ""}"
-                        }
+                        },
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)
+                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Error,
                             contentDescription = "Error",
                             tint = RoseError,
-                            modifier = Modifier.size(Dimens.iconSizeSm)
+                            modifier = Modifier.size(Dimens.iconSizeSm),
                         )
                         Text(
                             text = errorMessage ?: "",
                             fontSize = 12.sp,
                             color = RoseError,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         )
                         IconButton(
                             onClick = { viewModel.clearError() },
                             modifier = Modifier
-                                .minimumInteractiveComponentSize()
+                                .minimumInteractiveComponentSize(),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Error,
                                 contentDescription = "Dismiss",
                                 tint = RoseError,
-                                modifier = Modifier.size(Dimens.iconSizeSm)
+                                modifier = Modifier.size(Dimens.iconSizeSm),
                             )
                         }
                     }
@@ -469,7 +453,7 @@ fun ChatScreen(
 
             Divider(
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                thickness = Dimens.borderWidth
+                thickness = Dimens.borderWidth,
             )
 
             Surface(
@@ -477,7 +461,7 @@ fun ChatScreen(
                 tonalElevation = Dimens.elevationMd,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding()
+                    .navigationBarsPadding(),
             ) {
                 Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
                     Row(
@@ -485,35 +469,35 @@ fun ChatScreen(
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState())
                             .padding(bottom = Spacing.sm),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     ) {
                         QuickActionChip(
                             label = "Tokyo Weather",
-                            icon = Icons.Default.WbSunny
+                            icon = Icons.Default.WbSunny,
                         ) {
                             viewModel.sendMessage("Get the live weather in Tokyo and describe current conditions.")
                         }
                         QuickActionChip(
                             label = "Kotlin Repos",
-                            icon = Icons.Default.Code
+                            icon = Icons.Default.Code,
                         ) {
                             viewModel.sendMessage("Search GitHub for trending Kotlin Jetpack Compose repositories.")
                         }
                         QuickActionChip(
                             label = "BTC & EUR",
-                            icon = Icons.Default.CurrencyBitcoin
+                            icon = Icons.Default.CurrencyBitcoin,
                         ) {
                             viewModel.sendMessage("Get the live price of Bitcoin and convert 1500 USD to EUR.")
                         }
                         QuickActionChip(
                             label = "World Time",
-                            icon = Icons.Default.Schedule
+                            icon = Icons.Default.Schedule,
                         ) {
                             viewModel.sendMessage("What is the current time in Tokyo, London, and New York?")
                         }
                         QuickActionChip(
                             label = "Math Engine",
-                            icon = Icons.Default.Speed
+                            icon = Icons.Default.Speed,
                         ) {
                             viewModel.sendMessage("Calculate sqrt(1024) + (45 * 12) / 3.5 and convert 150 km to miles.")
                         }
@@ -521,7 +505,7 @@ fun ChatScreen(
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         OutlinedTextField(
                             value = inputText,
@@ -530,7 +514,7 @@ fun ChatScreen(
                                 Text(
                                     text = "Ask anything with remote MCP tools...",
                                     fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             },
                             maxLines = 4,
@@ -539,11 +523,11 @@ fun ChatScreen(
                                 focusedBorderColor = IndigoPrimary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                                 focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                             ),
                             modifier = Modifier
                                 .weight(1f)
-                                .testTag("chat_input_field")
+                                .testTag("chat_input_field"),
                         )
 
                         Spacer(modifier = Modifier.width(Spacing.sm))
@@ -565,13 +549,13 @@ fun ChatScreen(
                                 .semantics {
                                     contentDescription = if (isGenerating) "Sending message" else "Send"
                                 }
-                                .testTag("send_message_button")
+                                .testTag("send_message_button"),
                         ) {
                             if (isGenerating) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(Dimens.iconSizeLg),
                                     strokeWidth = Dimens.borderWidthThick,
-                                    color = MaterialTheme.colorScheme.onPrimary
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                 )
                             } else {
                                 Icon(
@@ -582,7 +566,7 @@ fun ChatScreen(
                                     } else {
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                     },
-                                    modifier = Modifier.size(Dimens.iconSizeLg)
+                                    modifier = Modifier.size(Dimens.iconSizeLg),
                                 )
                             }
                         }
@@ -597,28 +581,28 @@ fun ChatScreen(
         ModalBottomSheet(
             onDismissRequest = { showServersSheet = false },
             sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surface,
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(Spacing.sheetPadding)
+                    .padding(Spacing.sheetPadding),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column {
                         Text(
                             text = "Active MCP Servers",
                             fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                         Text(
                             text = "Toggle servers enabled for AI tool discovery",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
 
@@ -626,7 +610,7 @@ fun ChatScreen(
                         onClick = {
                             showServersSheet = false
                             onNavigateToServers()
-                        }
+                        },
                     ) {
                         Text("Manage Hub")
                     }
@@ -636,38 +620,38 @@ fun ChatScreen(
 
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     items(servers) { server ->
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                             shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)
+                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
                                             text = server.name,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontSize = 14.sp
+                                            fontSize = 14.sp,
                                         )
                                         if (server.isPreset) {
                                             Spacer(modifier = Modifier.width(Spacing.sm))
                                             Surface(
                                                 color = CyanSecondary.copy(alpha = 0.15f),
-                                                shape = RoundedCornerShape(Dimens.cornerRadiusSm)
+                                                shape = RoundedCornerShape(Dimens.cornerRadiusSm),
                                             ) {
                                                 Text(
                                                     text = "PRESET",
                                                     fontSize = 9.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = CyanSecondary,
-                                                    modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs)
+                                                    modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs),
                                                 )
                                             }
                                         }
@@ -676,7 +660,7 @@ fun ChatScreen(
                                         text = "${server.toolsCount} tools • ${server.endpointUrl}",
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontFamily = FontFamily.Monospace
+                                        fontFamily = FontFamily.Monospace,
                                     )
                                 }
 
@@ -687,8 +671,8 @@ fun ChatScreen(
                                     },
                                     colors = SwitchDefaults.colors(
                                         checkedThumbColor = IndigoPrimary,
-                                        checkedTrackColor = IndigoPrimary.copy(alpha = 0.3f)
-                                    )
+                                        checkedTrackColor = IndigoPrimary.copy(alpha = 0.3f),
+                                    ),
                                 )
                             }
                         }
@@ -704,28 +688,28 @@ fun ChatScreen(
         ModalBottomSheet(
             onDismissRequest = { showSessionsSheet = false },
             sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surface,
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(Spacing.sheetPadding)
+                    .padding(Spacing.sheetPadding),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
                         text = "Conversations",
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                     FilledTonalButton(
                         onClick = {
                             viewModel.createNewChat()
                             showSessionsSheet = false
-                        }
+                        },
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeSm))
                         Spacer(modifier = Modifier.width(Spacing.xs))
@@ -737,7 +721,7 @@ fun ChatScreen(
 
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     items(sessions) { session ->
                         val isSelected = session.id == currentSessionId
@@ -754,36 +738,36 @@ fun ChatScreen(
                                 .clickable {
                                     viewModel.selectSession(session.id)
                                     showSessionsSheet = false
-                                }
+                                },
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier.padding(Spacing.md)
+                                modifier = Modifier.padding(Spacing.md),
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = session.title,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        fontSize = 14.sp
+                                        fontSize = 14.sp,
                                     )
                                     Text(
                                         text = SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.getDefault()).format(Date(session.updatedAt)),
                                         fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
 
                                 IconButton(
                                     onClick = { viewModel.deleteSession(session.id) },
                                     modifier = Modifier
-                                        .minimumInteractiveComponentSize()
+                                        .minimumInteractiveComponentSize(),
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
                                         contentDescription = "Delete ${session.title}",
                                         tint = RoseError.copy(alpha = 0.7f),
-                                        modifier = Modifier.size(Dimens.iconSizeSm)
+                                        modifier = Modifier.size(Dimens.iconSizeSm),
                                     )
                                 }
                             }
@@ -798,11 +782,7 @@ fun ChatScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ChatMessageItem(
-    message: ChatMessageEntity,
-    viewModel: ChatViewModel,
-    modifier: Modifier = Modifier
-) {
+fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifier: Modifier = Modifier) {
     val isUser = message.role == "user"
     val context = LocalContext.current
     var isExpanded by remember { mutableStateOf(false) }
@@ -822,13 +802,13 @@ fun ChatMessageItem(
             .fillMaxWidth()
             .semantics {
                 liveRegion = LiveRegionMode.Polite
-            }
+            },
     ) {
         if (!isUser && toolCalls.isNotEmpty()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth(0.95f)
-                    .padding(bottom = Spacing.sm)
+                    .padding(bottom = Spacing.sm),
             ) {
                 Text(
                     text = "MCP Invocations (${toolCalls.size}):",
@@ -836,7 +816,7 @@ fun ChatMessageItem(
                     fontWeight = FontWeight.Bold,
                     color = CyanSecondary,
                     fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(bottom = Spacing.xxs)
+                    modifier = Modifier.padding(bottom = Spacing.xxs),
                 )
                 for (call in toolCalls) {
                     ToolCallCard(toolCall = call)
@@ -846,7 +826,7 @@ fun ChatMessageItem(
 
         Row(
             horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             if (!isUser) {
                 Surface(
@@ -855,14 +835,14 @@ fun ChatMessageItem(
                     border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.4f)),
                     modifier = Modifier
                         .size(Spacing.xxl)
-                        .padding(top = Spacing.xxs)
+                        .padding(top = Spacing.xxs),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.AutoAwesome,
                             contentDescription = "AI",
                             tint = IndigoPrimaryLight,
-                            modifier = Modifier.size(Dimens.iconSizeSm)
+                            modifier = Modifier.size(Dimens.iconSizeSm),
                         )
                     }
                 }
@@ -876,11 +856,11 @@ fun ChatMessageItem(
                     topStart = Dimens.cornerRadiusXl,
                     topEnd = Dimens.cornerRadiusXl,
                     bottomStart = if (isUser) Dimens.cornerRadiusXl else Dimens.cornerRadiusSm,
-                    bottomEnd = if (isUser) Dimens.cornerRadiusSm else Dimens.cornerRadiusXl
+                    bottomEnd = if (isUser) Dimens.cornerRadiusSm else Dimens.cornerRadiusXl,
                 ),
                 border = if (isUser) null else BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
                 modifier = Modifier
-                    .fillMaxWidth(Dimens.chatBubbleMaxWidth)
+                    .fillMaxWidth(Dimens.CHAT_BUBBLE_MAX_WIDTH)
                     .combinedClickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(),
@@ -890,8 +870,8 @@ fun ChatMessageItem(
                             val clip = ClipData.newPlainText("Message", message.content)
                             clipboard.setPrimaryClip(clip)
                             Toast.makeText(context, "Message copied", Toast.LENGTH_SHORT).show()
-                        }
-                    )
+                        },
+                    ),
             ) {
                 Column(modifier = Modifier.padding(horizontal = Spacing.cardPadding, vertical = Spacing.sm)) {
                     if (isUser) {
@@ -899,7 +879,7 @@ fun ChatMessageItem(
                             text = message.content,
                             color = MaterialTheme.colorScheme.onPrimary,
                             fontSize = 14.sp,
-                            lineHeight = 20.sp
+                            lineHeight = 20.sp,
                         )
                     } else {
                         val displayText = if (shouldTruncate && !isExpanded) {
@@ -916,7 +896,7 @@ fun ChatMessageItem(
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = CyanSecondary,
-                                modifier = Modifier.clickable { isExpanded = !isExpanded }
+                                modifier = Modifier.clickable { isExpanded = !isExpanded },
                             )
                         }
                     }
@@ -926,13 +906,13 @@ fun ChatMessageItem(
                             horizontalArrangement = Arrangement.End,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = Spacing.xs)
+                                .padding(top = Spacing.xs),
                         ) {
                             Text(
                                 text = "${message.latencyMs}ms",
                                 fontSize = 10.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                fontFamily = FontFamily.Monospace
+                                fontFamily = FontFamily.Monospace,
                             )
                         }
                     }
@@ -943,19 +923,16 @@ fun ChatMessageItem(
 }
 
 @Composable
-fun EmptyChatView(
-    onPromptSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun EmptyChatView(onPromptSelected: (String) -> Unit, modifier: Modifier = Modifier) {
     val infiniteTransition = rememberInfiniteTransition(label = "logo_pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
         targetValue = 1.08f,
         animationSpec = infiniteRepeatable(
             animation = tween(1800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
+            repeatMode = RepeatMode.Reverse,
         ),
-        label = "pulseScale"
+        label = "pulseScale",
     )
 
     Column(
@@ -963,13 +940,13 @@ fun EmptyChatView(
         verticalArrangement = Arrangement.Center,
         modifier = modifier
             .fillMaxWidth()
-            .padding(Spacing.xl)
+            .padding(Spacing.xl),
     ) {
         Surface(
             color = IndigoPrimary.copy(alpha = 0.12f),
             shape = RoundedCornerShape(Dimens.cornerRadiusXl),
             border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.3f)),
-            modifier = Modifier.size(Spacing.xxxl)
+            modifier = Modifier.size(Spacing.xxxl),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
@@ -981,7 +958,7 @@ fun EmptyChatView(
                         .graphicsLayer {
                             scaleX = pulseScale
                             scaleY = pulseScale
-                        }
+                        },
                 )
             }
         }
@@ -992,7 +969,7 @@ fun EmptyChatView(
             text = "Welcome to MCP AI Chat",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
 
         Spacer(modifier = Modifier.height(Spacing.xs))
@@ -1002,29 +979,29 @@ fun EmptyChatView(
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier.padding(horizontal = Spacing.lg)
+            modifier = Modifier.padding(horizontal = Spacing.lg),
         )
 
         Spacer(modifier = Modifier.height(Spacing.md))
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             FeatureHighlightItem(
                 icon = Icons.Default.AutoAwesome,
                 label = "Chat with AI",
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             FeatureHighlightItem(
                 icon = Icons.Default.Hub,
                 label = "MCP Tool Calling",
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             FeatureHighlightItem(
                 icon = Icons.Default.Speed,
                 label = "Inspector",
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
         }
 
@@ -1036,7 +1013,7 @@ fun EmptyChatView(
             fontWeight = FontWeight.Bold,
             color = CyanSecondary,
             fontFamily = FontFamily.Monospace,
-            modifier = Modifier.align(Alignment.Start)
+            modifier = Modifier.align(Alignment.Start),
         )
 
         Spacer(modifier = Modifier.height(Spacing.sm))
@@ -1046,57 +1023,53 @@ fun EmptyChatView(
                 icon = Icons.Default.WbSunny,
                 title = "Live Weather Telemetry",
                 prompt = "Check current temperature, humidity, and forecast for London and Tokyo using MCP weather tools.",
-                onPromptSelected = onPromptSelected
+                onPromptSelected = onPromptSelected,
             )
             PromptSuggestionCard(
                 icon = Icons.Default.Code,
                 title = "GitHub Code Explorer",
                 prompt = "Search GitHub for the top starred Kotlin Multiplatform and Compose MCP repositories.",
-                onPromptSelected = onPromptSelected
+                onPromptSelected = onPromptSelected,
             )
             PromptSuggestionCard(
                 icon = Icons.Default.CurrencyBitcoin,
                 title = "Crypto & Forex Markets",
                 prompt = "Get current Bitcoin and Solana prices, and convert 5000 EUR to USD.",
-                onPromptSelected = onPromptSelected
+                onPromptSelected = onPromptSelected,
             )
             PromptSuggestionCard(
                 icon = Icons.Default.Schedule,
                 title = "World Time & Timezones",
                 prompt = "What is the exact current time in Sydney, Tokyo, and San Francisco?",
-                onPromptSelected = onPromptSelected
+                onPromptSelected = onPromptSelected,
             )
         }
     }
 }
 
 @Composable
-private fun FeatureHighlightItem(
-    icon: ImageVector,
-    label: String,
-    modifier: Modifier = Modifier
-) {
+private fun FeatureHighlightItem(icon: ImageVector, label: String, modifier: Modifier = Modifier) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-        modifier = modifier
+        modifier = modifier,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(vertical = Spacing.sm)
+            modifier = Modifier.padding(vertical = Spacing.sm),
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = IndigoPrimaryLight,
-                modifier = Modifier.size(Dimens.iconSizeLg)
+                modifier = Modifier.size(Dimens.iconSizeLg),
             )
             Spacer(modifier = Modifier.height(Spacing.xs))
             Text(
                 text = label,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -1104,13 +1077,7 @@ private fun FeatureHighlightItem(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PromptSuggestionCard(
-    icon: ImageVector,
-    title: String,
-    prompt: String,
-    onPromptSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun PromptSuggestionCard(icon: ImageVector, title: String, prompt: String, onPromptSelected: (String) -> Unit, modifier: Modifier = Modifier) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
@@ -1124,24 +1091,24 @@ fun PromptSuggestionCard(
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(),
-                onClick = { onPromptSelected(prompt) }
-            )
+                onClick = { onPromptSelected(prompt) },
+            ),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(Spacing.md)
+            modifier = Modifier.padding(Spacing.md),
         ) {
             Surface(
                 color = IndigoPrimary.copy(alpha = 0.15f),
                 shape = RoundedCornerShape(Dimens.cornerRadiusMd),
-                modifier = Modifier.size(Dimens.iconSizeXl)
+                modifier = Modifier.size(Dimens.iconSizeXl),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
                         tint = IndigoPrimaryLight,
-                        modifier = Modifier.size(Dimens.iconSizeMd)
+                        modifier = Modifier.size(Dimens.iconSizeMd),
                     )
                 }
             }
@@ -1153,13 +1120,13 @@ fun PromptSuggestionCard(
                     text = title,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = prompt,
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2
+                    maxLines = 2,
                 )
             }
         }
@@ -1168,11 +1135,7 @@ fun PromptSuggestionCard(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun QuickActionChip(
-    label: String,
-    icon: ImageVector? = null,
-    onClick: () -> Unit
-) {
+fun QuickActionChip(label: String, icon: ImageVector? = null, onClick: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(Dimens.cornerRadiusXl),
@@ -1185,19 +1148,19 @@ fun QuickActionChip(
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(),
-                onClick = { onClick() }
-            )
+                onClick = { onClick() },
+            ),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs)
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
         ) {
             if (icon != null) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = IndigoPrimaryLight,
-                    modifier = Modifier.size(Dimens.iconSizeSm)
+                    modifier = Modifier.size(Dimens.iconSizeSm),
                 )
                 Spacer(modifier = Modifier.width(Spacing.xs))
             }
@@ -1205,7 +1168,7 @@ fun QuickActionChip(
                 text = label,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -1219,9 +1182,9 @@ fun TypingIndicator(modifier: Modifier = Modifier) {
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
+            repeatMode = RepeatMode.Reverse,
         ),
-        label = "typingAlpha"
+        label = "typingAlpha",
     )
 
     Row(
@@ -1229,22 +1192,22 @@ fun TypingIndicator(modifier: Modifier = Modifier) {
         modifier = modifier
             .background(
                 MaterialTheme.colorScheme.surfaceVariant,
-                RoundedCornerShape(Dimens.cornerRadiusXl, Dimens.cornerRadiusXl, Dimens.cornerRadiusXl, Dimens.cornerRadiusSm)
+                RoundedCornerShape(Dimens.cornerRadiusXl, Dimens.cornerRadiusXl, Dimens.cornerRadiusXl, Dimens.cornerRadiusSm),
             )
-            .padding(horizontal = Spacing.cardPadding, vertical = Spacing.sm)
+            .padding(horizontal = Spacing.cardPadding, vertical = Spacing.sm),
     ) {
         Surface(
             color = IndigoPrimary.copy(alpha = 0.2f),
             shape = CircleShape,
             border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.4f)),
-            modifier = Modifier.size(Spacing.xxl)
+            modifier = Modifier.size(Spacing.xxl),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.AutoAwesome,
                     contentDescription = "AI is typing",
                     tint = IndigoPrimaryLight,
-                    modifier = Modifier.size(Dimens.iconSizeSm)
+                    modifier = Modifier.size(Dimens.iconSizeSm),
                 )
             }
         }
@@ -1255,7 +1218,7 @@ fun TypingIndicator(modifier: Modifier = Modifier) {
                     modifier = Modifier
                         .size(Spacing.sm)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha))
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)),
                 )
             }
         }
@@ -1263,9 +1226,8 @@ fun TypingIndicator(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun sessionSurfaceColor(isSelected: Boolean): Color =
-    if (isSelected) {
-        IndigoPrimary.copy(alpha = 0.15f)
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    }
+private fun sessionSurfaceColor(isSelected: Boolean): Color = if (isSelected) {
+    IndigoPrimary.copy(alpha = 0.15f)
+} else {
+    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+}

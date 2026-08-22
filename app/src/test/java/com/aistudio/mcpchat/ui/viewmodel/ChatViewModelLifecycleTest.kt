@@ -15,7 +15,6 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -75,7 +74,7 @@ class ChatViewModelLifecycleTest {
     fun `savedStateHandle restores session from prepopulated state`() = runTest {
         val sessions = listOf(
             ChatSessionEntity(id = "s1", title = "Session 1"),
-            ChatSessionEntity(id = "s2", title = "Session 2")
+            ChatSessionEntity(id = "s2", title = "Session 2"),
         )
         sessionsFlow.value = sessions
 
@@ -96,7 +95,7 @@ class ChatViewModelLifecycleTest {
     fun `configuration change preserves session selection`() = runTest {
         val sessions = listOf(
             ChatSessionEntity(id = "s1", title = "Session 1"),
-            ChatSessionEntity(id = "s2", title = "Session 2")
+            ChatSessionEntity(id = "s2", title = "Session 2"),
         )
         sessionsFlow.value = sessions
 
@@ -132,7 +131,7 @@ class ChatViewModelLifecycleTest {
     fun `auto selects first session when sessions exist but no currentSessionId`() = runTest {
         sessionsFlow.value = listOf(
             ChatSessionEntity(id = "first", title = "First Session"),
-            ChatSessionEntity(id = "second", title = "Second Session")
+            ChatSessionEntity(id = "second", title = "Second Session"),
         )
 
         val savedStateHandle = SavedStateHandle()
@@ -146,7 +145,7 @@ class ChatViewModelLifecycleTest {
     fun `switching sessions clears inProgressToolCalls`() = runTest {
         val sessions = listOf(
             ChatSessionEntity(id = "s1", title = "Session 1"),
-            ChatSessionEntity(id = "s2", title = "Session 2")
+            ChatSessionEntity(id = "s2", title = "Session 2"),
         )
         sessionsFlow.value = sessions
 
@@ -164,15 +163,15 @@ class ChatViewModelLifecycleTest {
     fun `message flow updates when session changes`() = runTest {
         val sessions = listOf(
             ChatSessionEntity(id = "s1", title = "Session 1"),
-            ChatSessionEntity(id = "s2", title = "Session 2")
+            ChatSessionEntity(id = "s2", title = "Session 2"),
         )
         sessionsFlow.value = sessions
 
         val s1Messages = listOf(
-            ChatMessageEntity(id = "m1", sessionId = "s1", role = "user", content = "Hello from s1")
+            ChatMessageEntity(id = "m1", sessionId = "s1", role = "user", content = "Hello from s1"),
         )
         val s2Messages = listOf(
-            ChatMessageEntity(id = "m2", sessionId = "s2", role = "user", content = "Hello from s2")
+            ChatMessageEntity(id = "m2", sessionId = "s2", role = "user", content = "Hello from s2"),
         )
 
         var currentMessages = MutableStateFlow(s1Messages)
@@ -202,7 +201,7 @@ class ChatViewModelLifecycleTest {
         sessionsFlow.value = listOf(
             ChatSessionEntity(id = "s1", title = "Session 1"),
             ChatSessionEntity(id = "s2", title = "Session 2"),
-            ChatSessionEntity(id = "s3", title = "Session 3")
+            ChatSessionEntity(id = "s3", title = "Session 3"),
         )
 
         coEvery { chatRepository.deleteSession(any()) } coAnswers {
@@ -249,13 +248,17 @@ class ChatViewModelLifecycleTest {
     fun `uiState combines all flows correctly`() = runTest {
         sessionsFlow.value = listOf(ChatSessionEntity(id = "s1", title = "Session 1"))
         serversFlow.value = listOf(
-            McpServer(id = "srv1", name = "Server 1", description = "desc", endpointUrl = "http://test.com")
+            McpServer(id = "srv1", name = "Server 1", description = "desc", endpointUrl = "http://test.com"),
         )
         toolsFlow.value = listOf(
             McpTool(
-                id = "t1", serverId = "srv1", serverName = "Server 1",
-                name = "tool1", description = "A tool", inputSchemaJson = "{}"
-            )
+                id = "t1",
+                serverId = "srv1",
+                serverName = "Server 1",
+                name = "tool1",
+                description = "A tool",
+                inputSchemaJson = "{}",
+            ),
         )
 
         val savedStateHandle = SavedStateHandle()

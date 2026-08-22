@@ -9,7 +9,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,7 +26,7 @@ class AppDatabaseTest {
     fun createDb() {
         database = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(),
-            AppDatabase::class.java
+            AppDatabase::class.java,
         ).allowMainThreadQueries().build()
         serverDao = database.mcpServerDao()
         toolDao = database.mcpToolDao()
@@ -40,63 +39,46 @@ class AppDatabaseTest {
         database.close()
     }
 
-    private fun createServer(
-        id: String = "server_1",
-        name: String = "Test Server",
-        endpointUrl: String = "https://test.example.com/mcp"
-    ) = McpServerEntity(
-        id = id,
-        name = name,
-        description = "A test server",
-        endpointUrl = endpointUrl,
-        isEnabled = true
-    )
+    private fun createServer(id: String = "server_1", name: String = "Test Server", endpointUrl: String = "https://test.example.com/mcp") =
+        McpServerEntity(
+            id = id,
+            name = name,
+            description = "A test server",
+            endpointUrl = endpointUrl,
+            isEnabled = true,
+        )
 
-    private fun createTool(
-        id: String = "tool_1",
-        serverId: String = "server_1",
-        name: String = "test_tool"
-    ) = McpToolEntity(
+    private fun createTool(id: String = "tool_1", serverId: String = "server_1", name: String = "test_tool") = McpToolEntity(
         id = id,
         serverId = serverId,
         serverName = "Test Server",
         name = name,
         description = "A test tool",
         inputSchemaJson = "{}",
-        isEnabled = true
+        isEnabled = true,
     )
 
-    private fun createSession(
-        id: String = "session_1",
-        title: String = "Test Session"
-    ) = ChatSessionEntity(
+    private fun createSession(id: String = "session_1", title: String = "Test Session") = ChatSessionEntity(
         id = id,
-        title = title
+        title = title,
     )
 
-    private fun createMessage(
-        id: String = "msg_1",
-        sessionId: String = "session_1",
-        role: String = "user",
-        content: String = "Hello"
-    ) = ChatMessageEntity(
-        id = id,
-        sessionId = sessionId,
-        role = role,
-        content = content
-    )
+    private fun createMessage(id: String = "msg_1", sessionId: String = "session_1", role: String = "user", content: String = "Hello") =
+        ChatMessageEntity(
+            id = id,
+            sessionId = sessionId,
+            role = role,
+            content = content,
+        )
 
-    private fun createLog(
-        serverId: String = "server_1",
-        toolName: String = "test_tool"
-    ) = McpLogEntity(
+    private fun createLog(serverId: String = "server_1", toolName: String = "test_tool") = McpLogEntity(
         serverId = serverId,
         serverName = "Test Server",
         toolName = toolName,
         requestPayload = "{}",
         responsePayload = "{}",
         isSuccess = true,
-        latencyMs = 100
+        latencyMs = 100,
     )
 
     // ---- McpServerDao Tests ----
@@ -180,11 +162,13 @@ class AppDatabaseTest {
 
     @Test
     fun toolDao_getToolsForServer() = runTest {
-        toolDao.insertTools(listOf(
-            createTool(id = "t1", serverId = "s1"),
-            createTool(id = "t2", serverId = "s2"),
-            createTool(id = "t3", serverId = "s1")
-        ))
+        toolDao.insertTools(
+            listOf(
+                createTool(id = "t1", serverId = "s1"),
+                createTool(id = "t2", serverId = "s2"),
+                createTool(id = "t3", serverId = "s1"),
+            ),
+        )
 
         val tools = toolDao.getToolsForServer("s1").first()
         assertEquals(2, tools.size)
@@ -192,10 +176,12 @@ class AppDatabaseTest {
 
     @Test
     fun toolDao_getEnabledTools() = runTest {
-        toolDao.insertTools(listOf(
-            createTool(id = "t1"),
-            createTool(id = "t2").copy(isEnabled = false)
-        ))
+        toolDao.insertTools(
+            listOf(
+                createTool(id = "t1"),
+                createTool(id = "t2").copy(isEnabled = false),
+            ),
+        )
 
         val enabled = toolDao.getAllEnabledTools()
         assertEquals(1, enabled.size)
@@ -213,10 +199,12 @@ class AppDatabaseTest {
 
     @Test
     fun toolDao_deleteToolsForServer() = runTest {
-        toolDao.insertTools(listOf(
-            createTool(id = "t1", serverId = "s1"),
-            createTool(id = "t2", serverId = "s2")
-        ))
+        toolDao.insertTools(
+            listOf(
+                createTool(id = "t1", serverId = "s1"),
+                createTool(id = "t2", serverId = "s2"),
+            ),
+        )
         toolDao.deleteToolsForServer("s1")
 
         val remaining = toolDao.getAllTools().first()
@@ -333,10 +321,12 @@ class AppDatabaseTest {
     @Test
     fun cascadeDelete_serverAndTools() = runTest {
         serverDao.insertServer(createServer(id = "s1"))
-        toolDao.insertTools(listOf(
-            createTool(id = "t1", serverId = "s1"),
-            createTool(id = "t2", serverId = "s1")
-        ))
+        toolDao.insertTools(
+            listOf(
+                createTool(id = "t1", serverId = "s1"),
+                createTool(id = "t2", serverId = "s1"),
+            ),
+        )
 
         serverDao.deleteServerById("s1")
 

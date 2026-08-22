@@ -4,10 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import com.aistudio.mcpchat.ui.screens.KEY_HAS_SEEN_ONBOARDING
 import com.aistudio.mcpchat.ui.screens.ONBOARDING_PREFS
 import com.aistudio.mcpchat.ui.screens.OnboardingScreen
@@ -112,11 +109,6 @@ class MainActivityLifecycleTest {
         assertEquals("MCP Servers", Screen.Servers.title)
         assertEquals("Inspector", Screen.Inspector.title)
     }
-
-
-
-
-
 
     @Test
     fun `onboarding screen shows feature highlights`() {

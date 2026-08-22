@@ -19,15 +19,12 @@ class McpHttpClientTest {
         client = McpHttpClient()
     }
 
-    private fun createServer(
-        endpointUrl: String = "http://localhost:8080/mcp",
-        authHeader: String = ""
-    ) = McpServer(
+    private fun createServer(endpointUrl: String = "http://localhost:8080/mcp", authHeader: String = "") = McpServer(
         id = "test_server",
         name = "Test Server",
         description = "A test server",
         endpointUrl = endpointUrl,
-        authHeader = authHeader
+        authHeader = authHeader,
     )
 
     @Test
@@ -89,7 +86,7 @@ class McpHttpClientTest {
     fun `discoverTools with auth header does not crash`() = runTest {
         val server = createServer(
             endpointUrl = "http://localhost:1/mcp",
-            authHeader = "Bearer token123"
+            authHeader = "Bearer token123",
         )
         val tools = client.discoverTools(server)
         assertTrue(tools.isEmpty())

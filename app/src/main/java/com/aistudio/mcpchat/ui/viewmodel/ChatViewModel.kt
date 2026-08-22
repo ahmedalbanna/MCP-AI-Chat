@@ -5,8 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aistudio.mcpchat.data.local.ChatMessageEntity
 import com.aistudio.mcpchat.data.local.ChatSessionEntity
-import com.aistudio.mcpchat.data.model.DEFAULT_MODEL
 import com.aistudio.mcpchat.data.model.ChatException
+import com.aistudio.mcpchat.data.model.DEFAULT_MODEL
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.McpToolCall
@@ -34,7 +34,7 @@ data class ChatUiState(
     val tools: List<McpTool> = emptyList(),
     val isGenerating: Boolean = false,
     val inProgressToolCalls: List<McpToolCall> = emptyList(),
-    val error: UiError? = null
+    val error: UiError? = null,
 )
 
 sealed class UiError(val message: String) {
@@ -47,7 +47,7 @@ sealed class UiError(val message: String) {
 class ChatViewModel @Inject constructor(
     private val mcpRepository: McpRepository,
     val chatRepository: ChatRepository,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
     private val _currentSessionId = savedStateHandle.getStateFlow<String?>(KEY_SESSION_ID, null)
@@ -90,7 +90,7 @@ class ChatViewModel @Inject constructor(
         tools,
         _isGenerating,
         _inProgressToolCalls,
-        _uiError
+        _uiError,
     ) { results ->
         @Suppress("UNCHECKED_CAST")
         val sessionId = results[0] as? String
@@ -111,7 +111,7 @@ class ChatViewModel @Inject constructor(
             tools = toolList,
             isGenerating = generating,
             inProgressToolCalls = toolCalls,
-            error = error
+            error = error,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ChatUiState())
 
@@ -145,7 +145,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val session = chatRepository.createNewSession(
                 title = "New AI Chat",
-                model = model
+                model = model,
             )
             updateCurrentSessionId(session.id)
             _inProgressToolCalls.value = emptyList()
@@ -197,7 +197,7 @@ class ChatViewModel @Inject constructor(
                     userPrompt = prompt.trim(),
                     onToolCallUpdate = { toolCalls ->
                         _inProgressToolCalls.value = toolCalls
-                    }
+                    },
                 )
             } catch (e: ChatException) {
                 val error = when (e) {

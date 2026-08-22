@@ -45,6 +45,11 @@ UI Layer (Compose)           ViewModel Layer                Data Layer
    ```
    Or open in Android Studio and run on device/emulator.
 
+> **Note:** MCP server endpoints must use `https://` (plain `http` is only
+> accepted for localhost development servers) so auth headers are never sent
+> in cleartext. The local Room database is excluded from Android cloud
+> backups because it stores server credentials and audit logs.
+
 ## Environment Variables
 
 | Variable | Required | Description |
@@ -76,7 +81,7 @@ app/src/main/java/com/aistudio/mcpchat/
 ├── data/
 │   ├── local/          # Room entities, DAOs, database
 │   ├── model/          # Domain models, sealed classes
-│   ├── network/        # MCP client, Gemini API, Firebase
+│   ├── network/        # MCP client, Gemini API, resilience
 │   └── repository/     # Data orchestration
 ├── di/                 # Hilt modules
 ├── ui/

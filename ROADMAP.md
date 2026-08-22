@@ -232,32 +232,36 @@ A phased plan to transform the current prototype into a production-ready, mainta
 
 Findings from the Aug 2026 code review, ordered by severity:
 
-### 9.1 Security [ ]
-- Remove hardcoded ERPNext gateway IP + bearer token from `McpRepository`; rotate the leaked credential [ ]
-- Require https for user-added servers (loopback exception) [ ]
-- Exclude database (auth headers, request/response logs, chat history) from cloud backup & device transfer [ ]
+### 9.1 Security [x]
+- Remove hardcoded ERPNext gateway IP + bearer token from `McpRepository`; rotate the leaked credential [x] *(code removed — **rotate the token at the server**, it remains valid until revoked)*
+- Require https for user-added servers (loopback exception) [x]
+- Exclude database (auth headers, request/response logs, chat history) from cloud backup & device transfer [x]
 
-### 9.2 Correctness [ ]
-- Persist function responses so multi-turn history satisfies Gemini's functionCall→functionResponse pairing [ ]
-- Map sanitized Gemini function names back to original tool names before execution (tools with `-`/`.` in names silently fail today) [ ]
-- Emit a visible message when the tool-call hop limit is reached instead of saving an empty reply [ ]
-- Stop deleting cached tools on transient ping failures [ ]
-- Replace fire-and-forget unscoped `CoroutineScope` seeding in `McpRepository.init` (also removes network I/O at DB construction) [ ]
-- Fix `MemoryTool.listNotes` infinite collect [ ]
+### 9.2 Correctness [x]
+- Persist function responses so multi-turn history satisfies Gemini's functionCall→functionResponse pairing [x]
+- Map sanitized Gemini function names back to original tool names before execution (tools with `-`/`.` in names silently failed) [x]
+- Emit a visible message when the tool-call hop limit is reached instead of saving an empty reply [x]
+- Stop deleting cached tools on transient ping failures [x]
+- Remove fire-and-forget unscoped `CoroutineScope` seeding in `McpRepository.init` (also removed network I/O at DB construction) [x]
+- Fix `MemoryTool.listNotes` infinite collect [x]
+- Guard ChatViewModel auto-select against blank session ids from transient empty emissions [x]
 
-### 9.3 Resilience wiring [ ]
-- Wire `RetryManager` (idempotent calls only: initialize, tools/list — never tools/call) and `CircuitBreaker` into `McpHttpClient` [ ]
-- Monotonic JSON-RPC ids (replace random id collisions) [ ]
-- Key MCP sessions by endpoint+auth so distinct credentials don't share session state [ ]
+### 9.3 Resilience wiring [x]
+- Wire `RetryManager` (idempotent calls only: initialize, tools/list — never tools/call) and `CircuitBreaker` into `McpHttpClient` [x]
+- Monotonic JSON-RPC ids (replace random id collisions) [x]
+- Key MCP sessions by endpoint+auth so distinct credentials don't share session state [x]
 
-### 9.4 Error typing [ ]
-- Introduce typed chat exceptions; map them in `ChatViewModel` instead of substring matching [ ]
-- Single source of truth for default model name (`gemini-3.5-flash` duplicated in 4 files) [ ]
+### 9.4 Error typing [x]
+- Introduce typed `ChatException`s; map them in `ChatViewModel` instead of substring matching [x]
+- Single source of truth for default model name (`data/model/ChatDefaults.kt`) [x]
+- Inspector: honor schema-declared parameter defaults and coerce inputs per declared schema types [x]
 
-### 9.5 Build hygiene [ ]
-- Remove unused dependencies (Retrofit, Moshi, Coil, Firebase stack, logging-interceptor) and google-services plugin [ ]
-- Configure `room.schemaLocation` KSP arg so schemas actually export [ ]
-- Remove `fallbackToDestructiveMigration()` now that migration 1→2 exists [ ]
+### 9.5 Build hygiene [x]
+- Remove unused dependencies (Retrofit, Moshi, Coil, Firebase stack, logging-interceptor) and google-services plugin [x]
+- Configure `room.schemaLocation` KSP arg so schemas actually export (`app/schemas/`) [x]
+- Remove `fallbackToDestructiveMigration()` now that migration 1→2 exists [x]
+- Make detekt + spotless/ktlint gates actually pass (config aligned with conventions: line length 150, Composable exemptions, `.editorconfig`; naming cleanups; dead params removed) [x]
+- Repair never-compiling test sourceset; full unit suite green (283 tests) verified on JDK21/AGP9/Gradle9.7 [x]
 
 ### 9.6 Still open (future)
 - EncryptedSharedPreferences for API key / auth headers (needs a crypto module decision)

@@ -1,7 +1,5 @@
 package com.aistudio.mcpchat.data.model
 
-import org.json.JSONObject
-
 data class McpServer(
     val id: String,
     val name: String,
@@ -14,14 +12,14 @@ data class McpServer(
     val latencyMs: Long = 0,
     val protocolVersion: String = "2024-11-05",
     val toolsCount: Int = 0,
-    val lastSyncTime: Long = 0
+    val lastSyncTime: Long = 0,
 )
 
 enum class ServerStatus {
     CONNECTED,
     DISCONNECTED,
     CONNECTING,
-    ERROR
+    ERROR,
 }
 
 data class McpTool(
@@ -31,7 +29,7 @@ data class McpTool(
     val name: String,
     val description: String,
     val inputSchemaJson: String = "{}",
-    val isEnabled: Boolean = true
+    val isEnabled: Boolean = true,
 )
 
 data class McpToolCall(
@@ -46,27 +44,27 @@ data class McpToolCall(
     val status: ToolExecutionStatus = ToolExecutionStatus.PENDING,
     val thoughtSignature: String? = null,
     val errorMessage: String? = null,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
 )
 
 enum class ToolExecutionStatus {
     PENDING,
     EXECUTING,
     SUCCESS,
-    ERROR
+    ERROR,
 }
 
 data class McpResource(
     val uri: String,
     val name: String,
     val description: String? = null,
-    val mimeType: String? = null
+    val mimeType: String? = null,
 )
 
 data class McpPrompt(
     val name: String,
     val description: String? = null,
-    val arguments: List<String> = emptyList()
+    val arguments: List<String> = emptyList(),
 )
 
 data class McpLogItem(
@@ -79,5 +77,5 @@ data class McpLogItem(
     val isSuccess: Boolean,
     val latencyMs: Long,
     val timestamp: Long = System.currentTimeMillis(),
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
 )

@@ -38,14 +38,14 @@ class GeminiApiService {
         modelName: String = DEFAULT_MODEL,
         history: List<GeminiMessage>,
         tools: List<McpTool>,
-        systemInstruction: String = ""
+        systemInstruction: String = "",
     ): GeminiResponse = withContext(Dispatchers.IO) {
         val apiKey = getApiKey()
         if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
             Log.w(TAG, "Gemini API key is not configured or is placeholder.")
             return@withContext GeminiResponse(
                 text = null,
-                error = "API_KEY_MISSING"
+                error = "API_KEY_MISSING",
             )
         }
 
@@ -72,7 +72,7 @@ class GeminiApiService {
             Log.e(TAG, "Exception during Gemini generateContent", e)
             GeminiResponse(
                 text = null,
-                error = e.message ?: "Unknown error calling Gemini API"
+                error = e.message ?: "Unknown error calling Gemini API",
             )
         }
     }
@@ -89,27 +89,32 @@ class GeminiApiService {
         return GeminiResponse(text = null, rawJson = responseBody, error = errorMsg)
     }
 
-    private fun buildRequestBody(
-        history: List<GeminiMessage>,
-        tools: List<McpTool>,
-        systemInstruction: String
-    ): JSONObject {
+    private fun buildRequestBody(history: List<GeminiMessage>, tools: List<McpTool>, systemInstruction: String): JSONObject {
         val requestJson = JSONObject()
         requestJson.put("contents", buildContents(history))
 
         if (systemInstruction.isNotBlank()) {
-            requestJson.put("systemInstruction", JSONObject().apply {
-                put("parts", JSONArray().apply {
-                    put(JSONObject().put("text", systemInstruction))
-                })
-            })
+            requestJson.put(
+                "systemInstruction",
+                JSONObject().apply {
+                    put(
+                        "parts",
+                        JSONArray().apply {
+                            put(JSONObject().put("text", systemInstruction))
+                        },
+                    )
+                },
+            )
         }
 
         val functionDeclarations = buildFunctionDeclarations(tools)
         if (functionDeclarations.length() > 0) {
-            requestJson.put("tools", JSONArray().apply {
-                put(JSONObject().put("functionDeclarations", functionDeclarations))
-            })
+            requestJson.put(
+                "tools",
+                JSONArray().apply {
+                    put(JSONObject().put("functionDeclarations", functionDeclarations))
+                },
+            )
         }
         return requestJson
     }
@@ -118,19 +123,24 @@ class GeminiApiService {
         val contentsArray = JSONArray()
         for (msg in history) {
             val contentObj = JSONObject()
-            contentObj.put("role", when (msg.role) {
-                "assistant" -> "model"
-                "tool" -> "function"
-                else -> msg.role
-            })
+            contentObj.put(
+                "role",
+                when (msg.role) {
+                    "assistant" -> "model"
+                    "tool" -> "function"
+                    else -> msg.role
+                },
+            )
 
             val partsArray = JSONArray()
             for (part in msg.parts) {
-                partsArray.put(when (part) {
-                    is GeminiPart.Text -> JSONObject().put("text", part.text)
-                    is GeminiPart.FunctionCall -> functionCallPart(part)
-                    is GeminiPart.FunctionResponse -> functionResponsePart(part)
-                })
+                partsArray.put(
+                    when (part) {
+                        is GeminiPart.Text -> JSONObject().put("text", part.text)
+                        is GeminiPart.FunctionCall -> functionCallPart(part)
+                        is GeminiPart.FunctionResponse -> functionResponsePart(part)
+                    },
+                )
             }
             contentObj.put("parts", partsArray)
             contentsArray.put(contentObj)
@@ -140,10 +150,13 @@ class GeminiApiService {
 
     private fun functionCallPart(part: GeminiPart.FunctionCall): JSONObject {
         return JSONObject().apply {
-            put("functionCall", JSONObject().apply {
-                put("name", part.name)
-                put("args", JSONObject(part.args))
-            })
+            put(
+                "functionCall",
+                JSONObject().apply {
+                    put("name", part.name)
+                    put("args", JSONObject(part.args))
+                },
+            )
             if (part.thoughtSignature != null) {
                 put("thoughtSignature", part.thoughtSignature)
             }
@@ -152,10 +165,13 @@ class GeminiApiService {
 
     private fun functionResponsePart(part: GeminiPart.FunctionResponse): JSONObject {
         return JSONObject().apply {
-            put("functionResponse", JSONObject().apply {
-                put("name", part.name)
-                put("response", JSONObject(part.response))
-            })
+            put(
+                "functionResponse",
+                JSONObject().apply {
+                    put("name", part.name)
+                    put("response", JSONObject(part.response))
+                },
+            )
             if (part.thoughtSignature != null) {
                 put("thoughtSignature", part.thoughtSignature)
             }
@@ -172,11 +188,13 @@ class GeminiApiService {
                     JSONObject().put("type", "OBJECT")
                 }
 
-                funcDeclarations.put(JSONObject().apply {
-                    put("name", sanitizeFunctionName(tool.name))
-                    put("description", tool.description.take(1024))
-                    put("parameters", sanitizeSchemaForGemini(schemaObj))
-                })
+                funcDeclarations.put(
+                    JSONObject().apply {
+                        put("name", sanitizeFunctionName(tool.name))
+                        put("description", tool.description.take(1024))
+                        put("parameters", sanitizeSchemaForGemini(schemaObj))
+                    },
+                )
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to parse schema for tool ${tool.name}: ${e.message}")
             }
@@ -204,15 +222,11 @@ class GeminiApiService {
         return GeminiResponse(
             text = if (textBuilder.isNotEmpty()) textBuilder.toString() else null,
             functionCalls = functionCalls,
-            rawJson = responseBody
+            rawJson = responseBody,
         )
     }
 
-    private fun collectParts(
-        parts: JSONArray,
-        textBuilder: StringBuilder,
-        functionCalls: MutableList<GeminiPart.FunctionCall>
-    ) {
+    private fun collectParts(parts: JSONArray, textBuilder: StringBuilder, functionCalls: MutableList<GeminiPart.FunctionCall>) {
         for (i in 0 until parts.length()) {
             val partObj = parts.getJSONObject(i)
             if (partObj.has("text")) {
@@ -262,9 +276,11 @@ class GeminiApiService {
         // (e.g. "$schema", "additionalProperties", "exclusiveMaximum") is
         // rejected with a 400 and must be stripped before sending.
         private val allowedSchemaKeys =
-            setOf("type", "format", "description", "nullable", "enum", "properties",
+            setOf(
+                "type", "format", "description", "nullable", "enum", "properties",
                 "required", "items", "minimum", "maximum", "minLength", "maxLength",
-                "minItems", "maxItems", "example")
+                "minItems", "maxItems", "example",
+            )
         private const val MAX_FUNCTION_NAME_LENGTH = 63
 
         fun sanitizeFunctionNameStatic(name: String): String {

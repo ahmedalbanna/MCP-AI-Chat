@@ -16,7 +16,7 @@ data class McpServerEntity(
     val latencyMs: Long = 0,
     val protocolVersion: String = "2024-11-05",
     val toolsCount: Int = 0,
-    val lastSyncTime: Long = 0
+    val lastSyncTime: Long = 0,
 )
 
 @Entity(tableName = "mcp_tools")
@@ -27,7 +27,7 @@ data class McpToolEntity(
     val name: String,
     val description: String,
     val inputSchemaJson: String,
-    val isEnabled: Boolean = true
+    val isEnabled: Boolean = true,
 )
 
 @Entity(tableName = "chat_sessions")
@@ -39,19 +39,23 @@ data class ChatSessionEntity(
     val enabledServerIdsJson: String = "[]",
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
-    val isPinned: Boolean = false
+    val isPinned: Boolean = false,
 )
 
 @Entity(tableName = "chat_messages")
 data class ChatMessageEntity(
     @PrimaryKey val id: String,
     val sessionId: String,
-    val role: String, // "user", "assistant", "system"
+
+    // One of "user", "assistant", "system"
+    val role: String,
     val content: String,
-    val toolCallsJson: String? = null, // JSON serialized List<McpToolCall>
+
+    // JSON-serialized List<McpToolCall>
+    val toolCallsJson: String? = null,
     val latencyMs: Long = 0,
     val timestamp: Long = System.currentTimeMillis(),
-    val isError: Boolean = false
+    val isError: Boolean = false,
 )
 
 @Entity(tableName = "mcp_logs")
@@ -65,7 +69,7 @@ data class McpLogEntity(
     val isSuccess: Boolean,
     val latencyMs: Long,
     val timestamp: Long = System.currentTimeMillis(),
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
 )
 
 @Entity(tableName = "memory_notes")
@@ -74,5 +78,5 @@ data class MemoryNoteEntity(
     val content: String,
     val tags: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
 )

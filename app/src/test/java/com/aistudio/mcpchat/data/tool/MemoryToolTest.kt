@@ -22,7 +22,7 @@ class MemoryToolTest {
     fun createDb() {
         database = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(),
-            com.aistudio.mcpchat.data.local.AppDatabase::class.java
+            com.aistudio.mcpchat.data.local.AppDatabase::class.java,
         ).allowMainThreadQueries().build()
         memoryTool = MemoryTool(database)
     }
@@ -34,10 +34,13 @@ class MemoryToolTest {
 
     @Test
     fun `handleRequest save_memory_note saves note and returns success`() = runTest {
-        val result = memoryTool.handleRequest("save_memory_note", mapOf(
-            "content" to "Remember this",
-            "tags" to "important"
-        ))
+        val result = memoryTool.handleRequest(
+            "save_memory_note",
+            mapOf(
+                "content" to "Remember this",
+                "tags" to "important",
+            ),
+        )
         val json = JSONObject(result)
         assertEquals("saved", json.getString("status"))
         assertTrue(json.getLong("id") > 0)

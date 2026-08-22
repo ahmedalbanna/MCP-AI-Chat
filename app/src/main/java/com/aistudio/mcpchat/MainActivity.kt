@@ -94,7 +94,7 @@ fun MainApp() {
     val items = listOf(
         Screen.Chat,
         Screen.Servers,
-        Screen.Inspector
+        Screen.Inspector,
     )
 
     Scaffold(
@@ -102,7 +102,7 @@ fun MainApp() {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 8.dp,
-                modifier = Modifier.testTag("bottom_navigation_bar")
+                modifier = Modifier.testTag("bottom_navigation_bar"),
             ) {
                 items.forEach { screen ->
                     val isSelected = currentRoute == screen.route
@@ -116,12 +116,12 @@ fun MainApp() {
                                             contentColor = MaterialTheme.colorScheme.onError,
                                             modifier = Modifier.semantics {
                                                 contentDescription = "AI is generating a response"
-                                            }
+                                            },
                                         ) {
                                             Text("!", fontSize = 10.sp)
                                         }
                                     }
-                                }
+                                },
                             ) {
                                 Icon(screen.icon, contentDescription = screen.title)
                             }
@@ -133,7 +133,7 @@ fun MainApp() {
                             selectedTextColor = IndigoPrimary,
                             indicatorColor = IndigoPrimary,
                             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         ),
                         modifier = Modifier.testTag("nav_tab_${screen.route}"),
                         onClick = {
@@ -146,19 +146,19 @@ fun MainApp() {
                                     restoreState = true
                                 }
                             }
-                        }
+                        },
                     )
                 }
             }
         },
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
     ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = Screen.Chat.route,
             enterTransition = { fadeIn() + slideInVertically(initialOffsetY = { it / 40 }) },
             exitTransition = { fadeOut() + slideOutVertically(targetOffsetY = { it / 40 }) },
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
         ) {
             composable(Screen.Chat.route) {
                 ChatScreen(
@@ -171,7 +171,7 @@ fun MainApp() {
                             launchSingleTop = true
                             restoreState = true
                         }
-                    }
+                    },
                 )
             }
             composable(Screen.Servers.route) {
@@ -186,13 +186,13 @@ fun MainApp() {
     AnimatedVisibility(
         visible = showOnboarding,
         enter = fadeIn(),
-        exit = fadeOut()
+        exit = fadeOut(),
     ) {
         OnboardingScreen(
             onDismiss = {
                 markOnboardingSeen(context)
                 showOnboarding = false
-            }
+            },
         )
     }
 }

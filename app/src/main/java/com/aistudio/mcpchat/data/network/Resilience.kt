@@ -9,16 +9,13 @@ import kotlin.random.Random
 class RetryManager(
     private val maxRetries: Int = 3,
     private val initialDelayMs: Long = 500,
-    private val maxDelayMs: Long = 5000
+    private val maxDelayMs: Long = 5000,
 ) {
     private companion object {
         private const val TAG = "RetryManager"
     }
 
-    suspend fun <T> executeWithRetry(
-        tag: String,
-        action: suspend () -> T
-    ): T {
+    suspend fun <T> executeWithRetry(tag: String, action: suspend () -> T): T {
         var lastException: Exception? = null
         repeat(maxRetries) { attempt ->
             try {
@@ -42,7 +39,7 @@ class RetryManager(
 
 class CircuitBreaker(
     private val failureThreshold: Int = 3,
-    private val resetTimeoutMs: Long = 60000
+    private val resetTimeoutMs: Long = 60000,
 ) {
     private companion object {
         private const val TAG = "CircuitBreaker"

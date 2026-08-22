@@ -4,8 +4,8 @@ import android.util.Log
 import com.aistudio.mcpchat.data.local.AppDatabase
 import com.aistudio.mcpchat.data.local.ChatMessageEntity
 import com.aistudio.mcpchat.data.local.ChatSessionEntity
-import com.aistudio.mcpchat.data.model.DEFAULT_MODEL
 import com.aistudio.mcpchat.data.model.ChatException
+import com.aistudio.mcpchat.data.model.DEFAULT_MODEL
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
 import com.aistudio.mcpchat.data.model.McpServer
@@ -24,7 +24,7 @@ import java.util.UUID
 class ChatRepository(
     private val database: AppDatabase,
     private val mcpRepository: McpRepository,
-    private val geminiService: GeminiApiService = GeminiApiService()
+    private val geminiService: GeminiApiService = GeminiApiService(),
 ) {
     private val chatDao = database.chatDao()
     private val systemPromptBuilder = SystemPromptBuilder()
@@ -45,22 +45,19 @@ class ChatRepository(
         return chatDao.getMessagesForSession(sessionId)
     }
 
-    suspend fun createNewSession(
-        title: String = "New Chat",
-        model: String = DEFAULT_MODEL,
-        systemPrompt: String = ""
-    ): ChatSessionEntity = withContext(Dispatchers.IO) {
-        val session = ChatSessionEntity(
-            id = UUID.randomUUID().toString(),
-            title = title,
-            model = model,
-            systemPrompt = systemPrompt,
-            createdAt = System.currentTimeMillis(),
-            updatedAt = System.currentTimeMillis()
-        )
-        chatDao.insertSession(session)
-        session
-    }
+    suspend fun createNewSession(title: String = "New Chat", model: String = DEFAULT_MODEL, systemPrompt: String = ""): ChatSessionEntity =
+        withContext(Dispatchers.IO) {
+            val session = ChatSessionEntity(
+                id = UUID.randomUUID().toString(),
+                title = title,
+                model = model,
+                systemPrompt = systemPrompt,
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis(),
+            )
+            chatDao.insertSession(session)
+            session
+        }
 
     suspend fun updateSessionTitle(sessionId: String, title: String) = withContext(Dispatchers.IO) {
         val session = chatDao.getSessionById(sessionId)
@@ -84,10 +81,10 @@ class ChatRepository(
     suspend fun sendMessage(
         sessionId: String,
         userPrompt: String,
-        onToolCallUpdate: ((List<McpToolCall>) -> Unit)? = null
+        onToolCallUpdate: ((List<McpToolCall>) -> Unit)? = null,
     ): Result<ChatMessageEntity> = withContext(Dispatchers.IO) {
         val session = chatDao.getSessionById(sessionId) ?: createNewSession(
-            title = userPrompt.take(28) + if (userPrompt.length > 28) "..." else ""
+            title = userPrompt.take(28) + if (userPrompt.length > 28) "..." else "",
         )
         persistUserTurn(sessionId, session, userPrompt)
 
@@ -130,7 +127,7 @@ class ChatRepository(
                 modelName = session.model,
                 history = history,
                 tools = activeTools,
-                systemInstruction = systemInstruction
+                systemInstruction = systemInstruction,
             )
 
             if (geminiResponse.error != null) {
@@ -150,7 +147,7 @@ class ChatRepository(
                     sanitizedToOriginalName,
                     serverMap,
                     accumulatedToolCalls,
-                    onToolCallUpdate
+                    onToolCallUpdate,
                 )
 
                 // Append assistant's function call message to history
@@ -170,22 +167,25 @@ class ChatRepository(
 
         val totalLatency = System.currentTimeMillis() - startTime
         return@withContext persistAssistantTurn(
-            sessionId, session, finalResponseText,
-            accumulatedToolCalls, isError, failureException, totalLatency
+            sessionId,
+            session,
+            finalResponseText,
+            accumulatedToolCalls,
+            isError,
+            failureException,
+            totalLatency,
         )
     }
 
-    private suspend fun persistUserTurn(
-        sessionId: String,
-        session: ChatSessionEntity,
-        userPrompt: String
-    ) {
+    private suspend fun persistUserTurn(sessionId: String, session: ChatSessionEntity, userPrompt: String) {
         // If first user message, use it as the session title
         if (chatDao.getMessagesList(sessionId).isEmpty()) {
-            chatDao.updateSession(session.copy(
-                title = userPrompt.take(30) + if (userPrompt.length > 30) "..." else "",
-                updatedAt = System.currentTimeMillis()
-            ))
+            chatDao.updateSession(
+                session.copy(
+                    title = userPrompt.take(30) + if (userPrompt.length > 30) "..." else "",
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
         }
 
         val userMessage = ChatMessageEntity(
@@ -193,7 +193,7 @@ class ChatRepository(
             sessionId = sessionId,
             role = "user",
             content = userPrompt,
-            timestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis(),
         )
         chatDao.insertMessage(userMessage)
     }
@@ -205,7 +205,7 @@ class ChatRepository(
         accumulatedToolCalls: List<McpToolCall>,
         isError: Boolean,
         failureException: ChatException?,
-        totalLatency: Long
+        totalLatency: Long,
     ): Result<ChatMessageEntity> {
         var responseText = finalResponseText
         var error = isError
@@ -225,7 +225,7 @@ class ChatRepository(
             toolCallsJson = if (accumulatedToolCalls.isNotEmpty()) serializeToolCalls(accumulatedToolCalls) else null,
             latencyMs = totalLatency,
             timestamp = System.currentTimeMillis(),
-            isError = error
+            isError = error,
         )
 
         chatDao.insertMessage(assistantMessage)
@@ -241,7 +241,7 @@ class ChatRepository(
     private data class ErrorOutcome(
         val message: String,
         val isError: Boolean,
-        val exception: ChatException?
+        val exception: ChatException?,
     )
 
     private fun handleGeminiError(error: String, userPrompt: String): ErrorOutcome {
@@ -290,7 +290,7 @@ class ChatRepository(
                     GeminiPart.FunctionResponse(
                         name = c.toolName,
                         response = parseResultToMap(output),
-                        thoughtSignature = c.thoughtSignature
+                        thoughtSignature = c.thoughtSignature,
                     )
                 }
             }
@@ -315,7 +315,7 @@ class ChatRepository(
         sanitizedToOriginalName: Map<String, String>,
         serverMap: Map<String, McpServer>,
         accumulatedToolCalls: MutableList<McpToolCall>,
-        onToolCallUpdate: ((List<McpToolCall>) -> Unit)?
+        onToolCallUpdate: ((List<McpToolCall>) -> Unit)?,
     ): List<GeminiPart> {
         val functionResponsesParts = mutableListOf<GeminiPart>()
 
@@ -334,7 +334,7 @@ class ChatRepository(
                 toolName = originalToolName ?: fc.name,
                 inputArguments = fc.args,
                 status = ToolExecutionStatus.EXECUTING,
-                thoughtSignature = fc.thoughtSignature
+                thoughtSignature = fc.thoughtSignature,
             )
 
             accumulatedToolCalls.add(toolCall)
@@ -345,7 +345,7 @@ class ChatRepository(
                 name = "Remote Server",
                 description = "Discovered tool",
                 endpointUrl = "",
-                isPreset = false
+                isPreset = false,
             )
 
             // Execute over remote MCP HTTP / transport using the original
@@ -353,7 +353,7 @@ class ChatRepository(
             val (execResult, logItem) = mcpRepository.executeTool(
                 targetServer,
                 originalToolName ?: fc.name,
-                fc.args
+                fc.args,
             )
 
             replaceToolCall(
@@ -364,8 +364,8 @@ class ChatRepository(
                     isSuccess = logItem.isSuccess,
                     status = if (logItem.isSuccess) ToolExecutionStatus.SUCCESS else ToolExecutionStatus.ERROR,
                     executionTimeMs = logItem.latencyMs,
-                    errorMessage = logItem.errorMessage
-                )
+                    errorMessage = logItem.errorMessage,
+                ),
             )
             onToolCallUpdate?.invoke(accumulatedToolCalls)
 
@@ -374,18 +374,14 @@ class ChatRepository(
                 GeminiPart.FunctionResponse(
                     name = fc.name,
                     response = parseResultToMap(execResult),
-                    thoughtSignature = fc.thoughtSignature
-                )
+                    thoughtSignature = fc.thoughtSignature,
+                ),
             )
         }
         return functionResponsesParts
     }
 
-    private fun replaceToolCall(
-        accumulatedToolCalls: MutableList<McpToolCall>,
-        callId: String,
-        updated: McpToolCall
-    ) {
+    private fun replaceToolCall(accumulatedToolCalls: MutableList<McpToolCall>, callId: String, updated: McpToolCall) {
         val index = accumulatedToolCalls.indexOfFirst { it.callId == callId }
         if (index >= 0) {
             accumulatedToolCalls[index] = updated
@@ -460,8 +456,8 @@ class ChatRepository(
                         },
                         thoughtSignature = obj.optString("thoughtSignature", null).takeIf { it != "null" },
                         errorMessage = obj.optString("errorMessage").takeIf { it.isNotBlank() },
-                        timestamp = obj.optLong("timestamp", System.currentTimeMillis())
-                    )
+                        timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                    ),
                 )
             }
         } catch (e: Exception) {

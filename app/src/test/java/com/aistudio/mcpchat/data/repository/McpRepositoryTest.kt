@@ -6,9 +6,9 @@ import com.aistudio.mcpchat.data.local.McpServerDao
 import com.aistudio.mcpchat.data.local.McpServerEntity
 import com.aistudio.mcpchat.data.local.McpToolDao
 import com.aistudio.mcpchat.data.local.McpToolEntity
+import com.aistudio.mcpchat.data.model.McpLogItem
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
-import com.aistudio.mcpchat.data.model.McpLogItem
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.network.McpHttpClient
 import io.mockk.coEvery
@@ -17,7 +17,6 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -135,8 +134,11 @@ class McpRepositoryTest {
     @Test
     fun `toggleServer updates server enabled state`() = runTest {
         val entity = McpServerEntity(
-            id = "s1", name = "Server", description = "desc",
-            endpointUrl = "http://test.com", isEnabled = true
+            id = "s1",
+            name = "Server",
+            description = "desc",
+            endpointUrl = "http://test.com",
+            isEnabled = true,
         )
         coEvery { serverDao.getServerById("s1") } returns entity
 
@@ -180,8 +182,10 @@ class McpRepositoryTest {
     @Test
     fun `pingServer tests connection and updates server`() = runTest {
         val server = McpServer(
-            id = "s1", name = "Server", description = "desc",
-            endpointUrl = "http://test.com"
+            id = "s1",
+            name = "Server",
+            description = "desc",
+            endpointUrl = "http://test.com",
         )
         coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42)
         every { toolDao.getToolsForServer("s1") } returns flowOf(emptyList())
@@ -199,13 +203,21 @@ class McpRepositoryTest {
     fun `pingServer with ERROR status preserves cached tools`() = runTest {
         // Transient failures must not wipe the discovered tool catalog.
         val server = McpServer(
-            id = "s1", name = "Server", description = "desc",
-            endpointUrl = "http://test.com"
+            id = "s1",
+            name = "Server",
+            description = "desc",
+            endpointUrl = "http://test.com",
         )
-        val tools = listOf(McpToolEntity(
-            id = "t1", serverId = "s1", serverName = "Server",
-            name = "tool1", description = "desc", inputSchemaJson = "{}"
-        ))
+        val tools = listOf(
+            McpToolEntity(
+                id = "t1",
+                serverId = "s1",
+                serverName = "Server",
+                name = "tool1",
+                description = "desc",
+                inputSchemaJson = "{}",
+            ),
+        )
         coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.ERROR, 100)
         every { toolDao.getToolsForServer("s1") } returns flowOf(tools)
 
@@ -219,14 +231,20 @@ class McpRepositoryTest {
     @Test
     fun `syncServerTools discovers and stores tools`() = runTest {
         val server = McpServer(
-            id = "s1", name = "Server", description = "desc",
-            endpointUrl = "http://test.com"
+            id = "s1",
+            name = "Server",
+            description = "desc",
+            endpointUrl = "http://test.com",
         )
         val tools = listOf(
             McpTool(
-                id = "t1", serverId = "s1", serverName = "Server",
-                name = "tool1", description = "A tool", isEnabled = true
-            )
+                id = "t1",
+                serverId = "s1",
+                serverName = "Server",
+                name = "tool1",
+                description = "A tool",
+                isEnabled = true,
+            ),
         )
         coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 50)
         coEvery { httpClient.discoverTools(any()) } returns tools
@@ -245,13 +263,20 @@ class McpRepositoryTest {
     @Test
     fun `executeTool calls httpClient and logs result`() = runTest {
         val server = McpServer(
-            id = "s1", name = "Server", description = "desc",
-            endpointUrl = "http://test.com"
+            id = "s1",
+            name = "Server",
+            description = "desc",
+            endpointUrl = "http://test.com",
         )
         val logItem = McpLogItem(
-            id = 1, serverId = "s1", serverName = "Server", toolName = "tool1",
-            requestPayload = "{}", responsePayload = "{}",
-            isSuccess = true, latencyMs = 100
+            id = 1,
+            serverId = "s1",
+            serverName = "Server",
+            toolName = "tool1",
+            requestPayload = "{}",
+            responsePayload = "{}",
+            isSuccess = true,
+            latencyMs = 100,
         )
         coEvery { httpClient.executeToolCall(any(), any(), any()) } returns Pair("""{"result":"ok}""", logItem)
 
@@ -276,7 +301,7 @@ class McpRepositoryTest {
     fun `getEnabledServers returns only enabled servers`() = runTest {
         val entities = listOf(
             McpServerEntity(id = "s1", name = "Enabled", description = "desc", endpointUrl = "http://a.com", isEnabled = true),
-            McpServerEntity(id = "s2", name = "Disabled", description = "desc", endpointUrl = "http://b.com", isEnabled = false)
+            McpServerEntity(id = "s2", name = "Disabled", description = "desc", endpointUrl = "http://b.com", isEnabled = false),
         )
         coEvery { serverDao.getEnabledServersList() } returns entities.filter { it.isEnabled }
 
@@ -291,7 +316,7 @@ class McpRepositoryTest {
     @Test
     fun `getEnabledTools returns only enabled tools`() = runTest {
         val entities = listOf(
-            McpToolEntity(id = "t1", serverId = "s1", serverName = "S", name = "tool1", description = "d", inputSchemaJson = "{}", isEnabled = true)
+            McpToolEntity(id = "t1", serverId = "s1", serverName = "S", name = "tool1", description = "d", inputSchemaJson = "{}", isEnabled = true),
         )
         coEvery { toolDao.getAllEnabledTools() } returns entities
 

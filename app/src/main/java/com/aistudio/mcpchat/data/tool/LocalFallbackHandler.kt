@@ -53,11 +53,19 @@ class LocalFallbackHandler {
         val hour = calendar.get(Calendar.HOUR_OF_DAY)
         val minute = calendar.get(Calendar.MINUTE)
         val amPm = if (hour < 12) "AM" else "PM"
-        val displayHour = if (hour > 12) hour - 12 else if (hour == 0) 12 else hour
+        val displayHour = if (hour > 12) {
+            hour - 12
+        } else if (hour == 0) {
+            12
+        } else {
+            hour
+        }
 
         val dayNames = arrayOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
-        val monthNames = arrayOf("January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December")
+        val monthNames = arrayOf(
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December",
+        )
 
         val dayName = dayNames[calendar.get(Calendar.DAY_OF_WEEK) - 1]
         val monthName = monthNames[calendar.get(Calendar.MONTH)]
@@ -82,16 +90,16 @@ class LocalFallbackHandler {
 
     private fun getMcpResponse(message: String): String {
         return when {
-            message.contains("connect") || message.contains("add") -> 
+            message.contains("connect") || message.contains("add") ->
                 "To connect to an MCP server, go to the **MCP Servers** tab and tap **+**. " +
-                "Enter the server's endpoint URL and optional authentication header."
-            message.contains("tool") && message.contains("list") -> 
+                    "Enter the server's endpoint URL and optional authentication header."
+            message.contains("tool") && message.contains("list") ->
                 "I can discover tools from connected servers. Go to the **Inspector** tab to see all available tools."
-            message.contains("server") && (message.contains("status") || message.contains("list")) -> 
+            message.contains("server") && (message.contains("status") || message.contains("list")) ->
                 "Check the **MCP Servers** tab to see all your servers and their connection status."
-            else -> 
+            else ->
                 "MCP (Model Context Protocol) allows me to connect to remote servers and use their tools. " +
-                "Check the **MCP Servers** tab to manage your connections."
+                    "Check the **MCP Servers** tab to manage your connections."
         }
     }
 

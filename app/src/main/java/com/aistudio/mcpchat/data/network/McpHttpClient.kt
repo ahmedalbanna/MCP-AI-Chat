@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 class McpHttpClient(
     private val retryManager: RetryManager = RetryManager(),
-    private val circuitBreaker: CircuitBreaker = CircuitBreaker()
+    private val circuitBreaker: CircuitBreaker = CircuitBreaker(),
 ) {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
@@ -51,8 +51,7 @@ class McpHttpClient(
 
     // Sessions must be scoped to endpoint AND credentials so two servers that
     // share a URL but not an auth header never exchange session ids.
-    private fun sessionKey(server: McpServer): String =
-        "${server.endpointUrl}|${server.authHeader}"
+    private fun sessionKey(server: McpServer): String = "${server.endpointUrl}|${server.authHeader}"
 
     private fun nextRpcId(): Long = rpcIdCounter.incrementAndGet()
 
@@ -96,26 +95,34 @@ class McpHttpClient(
             .build()
     }
 
-    private suspend fun postWithSession(server: McpServer, payload: JSONObject): Pair<Int, String> =
-        withContext(Dispatchers.IO) {
-            client.newCall(buildSessionPostRequest(server, payload)).execute().use { response ->
-                Pair(response.code, response.body?.string() ?: "")
-            }
+    private suspend fun postWithSession(server: McpServer, payload: JSONObject): Pair<Int, String> = withContext(Dispatchers.IO) {
+        client.newCall(buildSessionPostRequest(server, payload)).execute().use { response ->
+            Pair(response.code, response.body?.string() ?: "")
         }
+    }
 
     private suspend fun performHandshake(server: McpServer): Boolean = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         try {
-            val initPayload = buildJsonRpcRequest("initialize", JSONObject().apply {
-                put("protocolVersion", server.protocolVersion)
-                put("capabilities", JSONObject().apply {
-                    put("tools", JSONObject().apply { put("listChanged", true) })
-                })
-                put("clientInfo", JSONObject().apply {
-                    put("name", "Android-MCP-Client")
-                    put("version", "1.0.0")
-                })
-            })
+            val initPayload = buildJsonRpcRequest(
+                "initialize",
+                JSONObject().apply {
+                    put("protocolVersion", server.protocolVersion)
+                    put(
+                        "capabilities",
+                        JSONObject().apply {
+                            put("tools", JSONObject().apply { put("listChanged", true) })
+                        },
+                    )
+                    put(
+                        "clientInfo",
+                        JSONObject().apply {
+                            put("name", "Android-MCP-Client")
+                            put("version", "1.0.0")
+                        },
+                    )
+                },
+            )
 
             val response = retryManager.executeWithRetry("initialize ${server.name}") {
                 client.newCall(buildPostRequest(server, initPayload)).execute()
@@ -166,44 +173,41 @@ class McpHttpClient(
         return code == -32600 || message.contains("session", ignoreCase = true)
     }
 
-    private suspend fun callWithSessionRetry(
-        server: McpServer,
-        requestJson: JSONObject,
-        retriable: Boolean
-    ): JSONObject? = withContext(Dispatchers.IO) {
-        ensureSession(server)
+    private suspend fun callWithSessionRetry(server: McpServer, requestJson: JSONObject, retriable: Boolean): JSONObject? =
+        withContext(Dispatchers.IO) {
+            ensureSession(server)
 
-        val send: suspend () -> Pair<Int, String> = {
-            try {
-                if (retriable) {
-                    // Idempotent calls only (initialize, tools/list) — never
-                    // tools/call, which may have side effects.
-                    retryManager.executeWithRetry("POST ${server.name}") {
+            val send: suspend () -> Pair<Int, String> = {
+                try {
+                    if (retriable) {
+                        // Idempotent calls only (initialize, tools/list) — never
+                        // tools/call, which may have side effects.
+                        retryManager.executeWithRetry("POST ${server.name}") {
+                            postWithSession(server, requestJson)
+                        }
+                    } else {
                         postWithSession(server, requestJson)
                     }
-                } else {
-                    postWithSession(server, requestJson)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Request failed for ${server.name}: ${e.message}")
+                    Pair(-1, "")
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Request failed for ${server.name}: ${e.message}")
-                Pair(-1, "")
             }
-        }
 
-        var (code, body) = send()
-        var json = if (code in 200..299) extractJsonRpcBody(body) else null
+            var (code, body) = send()
+            var json = if (code in 200..299) extractJsonRpcBody(body) else null
 
-        if (isSessionError(json)) {
-            Log.w(TAG, "Session expired for ${server.name}, re-initializing")
-            sessions.remove(sessionKey(server))
-            if (performHandshake(server)) {
-                val retry = send()
-                json = if (retry.first in 200..299) extractJsonRpcBody(retry.second) else null
+            if (isSessionError(json)) {
+                Log.w(TAG, "Session expired for ${server.name}, re-initializing")
+                sessions.remove(sessionKey(server))
+                if (performHandshake(server)) {
+                    val retry = send()
+                    json = if (retry.first in 200..299) extractJsonRpcBody(retry.second) else null
+                }
             }
-        }
 
-        json
-    }
+            json
+        }
 
     private fun isCircuitOpen(server: McpServer): Boolean {
         if (!circuitBreaker.canExecute(server.id)) {
@@ -257,8 +261,8 @@ class McpHttpClient(
                         name = name,
                         description = desc,
                         inputSchemaJson = inputSchema,
-                        isEnabled = true
-                    )
+                        isEnabled = true,
+                    ),
                 )
             }
             tools
@@ -272,15 +276,14 @@ class McpHttpClient(
     private data class ToolCallResult(
         val text: String,
         val isSuccess: Boolean,
-        val errorMessage: String?
+        val errorMessage: String?,
     )
 
-    private fun errorResult(message: String): ToolCallResult =
-        ToolCallResult(
-            text = JSONObject().put("error", message).toString(),
-            isSuccess = false,
-            errorMessage = message
-        )
+    private fun errorResult(message: String): ToolCallResult = ToolCallResult(
+        text = JSONObject().put("error", message).toString(),
+        isSuccess = false,
+        errorMessage = message,
+    )
 
     private fun parseToolResponse(json: JSONObject?): ToolCallResult {
         return when {
@@ -317,46 +320,46 @@ class McpHttpClient(
         return resultObj?.toString() ?: "{}"
     }
 
-    suspend fun executeToolCall(
-        server: McpServer,
-        toolName: String,
-        arguments: Map<String, Any?>
-    ): Pair<String, McpLogItem> = withContext(Dispatchers.IO) {
-        val startTime = System.currentTimeMillis()
-        val requestJson = buildJsonRpcRequest("tools/call", JSONObject().apply {
-            put("name", toolName)
-            put("arguments", JSONObject(arguments))
-        })
+    suspend fun executeToolCall(server: McpServer, toolName: String, arguments: Map<String, Any?>): Pair<String, McpLogItem> =
+        withContext(Dispatchers.IO) {
+            val startTime = System.currentTimeMillis()
+            val requestJson = buildJsonRpcRequest(
+                "tools/call",
+                JSONObject().apply {
+                    put("name", toolName)
+                    put("arguments", JSONObject(arguments))
+                },
+            )
 
-        val result = when {
-            isCircuitOpen(server) -> errorResult("Server ${server.name} is temporarily unavailable")
-            else -> try {
-                parseToolResponse(callWithSessionRetry(server, requestJson, retriable = false))
-            } catch (e: Exception) {
-                errorResult(e.message ?: "Failed to connect to remote MCP server")
+            val result = when {
+                isCircuitOpen(server) -> errorResult("Server ${server.name} is temporarily unavailable")
+                else -> try {
+                    parseToolResponse(callWithSessionRetry(server, requestJson, retriable = false))
+                } catch (e: Exception) {
+                    errorResult(e.message ?: "Failed to connect to remote MCP server")
+                }
             }
+
+            if (result.isSuccess) {
+                circuitBreaker.recordSuccess(server.id)
+            } else {
+                circuitBreaker.recordFailure(server.id)
+            }
+
+            val latency = System.currentTimeMillis() - startTime
+            val logItem = McpLogItem(
+                serverId = server.id,
+                serverName = server.name,
+                toolName = toolName,
+                requestPayload = requestJson.toString(2),
+                responsePayload = result.text,
+                isSuccess = result.isSuccess,
+                latencyMs = latency,
+                errorMessage = result.errorMessage,
+            )
+
+            Pair(result.text, logItem)
         }
-
-        if (result.isSuccess) {
-            circuitBreaker.recordSuccess(server.id)
-        } else {
-            circuitBreaker.recordFailure(server.id)
-        }
-
-        val latency = System.currentTimeMillis() - startTime
-        val logItem = McpLogItem(
-            serverId = server.id,
-            serverName = server.name,
-            toolName = toolName,
-            requestPayload = requestJson.toString(2),
-            responsePayload = result.text,
-            isSuccess = result.isSuccess,
-            latencyMs = latency,
-            errorMessage = result.errorMessage
-        )
-
-        Pair(result.text, logItem)
-    }
 
     companion object {
         private const val TAG = "McpHttpClient"

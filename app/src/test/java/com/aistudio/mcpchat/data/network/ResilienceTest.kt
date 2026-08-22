@@ -7,12 +7,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-
 class ResilienceTest {
 
     /** Specific exception satisfying detekt's TooGenericExceptionThrown. */
     private class SimulatedNetworkException(message: String) : Exception(message)
-
 
     private lateinit var retryManager: RetryManager
 

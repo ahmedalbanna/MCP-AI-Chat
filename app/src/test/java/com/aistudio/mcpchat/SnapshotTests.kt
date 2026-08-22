@@ -3,7 +3,6 @@ package com.aistudio.mcpchat
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import com.aistudio.mcpchat.data.model.McpToolCall
-import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.model.ToolExecutionStatus
 import com.aistudio.mcpchat.ui.screens.ServerStatusBadge
@@ -14,8 +13,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.GraphicsMode
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -70,7 +69,7 @@ class SnapshotTests {
             outputResult = "{\"temp\": 22, \"condition\": \"sunny\"}",
             isSuccess = true,
             executionTimeMs = 150,
-            status = ToolExecutionStatus.SUCCESS
+            status = ToolExecutionStatus.SUCCESS,
         )
         composeTestRule.setContent {
             MyApplicationTheme {
@@ -88,7 +87,7 @@ class SnapshotTests {
             serverName = "Test Server",
             toolName = "fetch_data",
             inputArguments = mapOf("query" to "SELECT * FROM users"),
-            status = ToolExecutionStatus.EXECUTING
+            status = ToolExecutionStatus.EXECUTING,
         )
         composeTestRule.setContent {
             MyApplicationTheme {
@@ -110,7 +109,7 @@ class SnapshotTests {
             isSuccess = false,
             executionTimeMs = 500,
             status = ToolExecutionStatus.ERROR,
-            errorMessage = "Payment processing failed"
+            errorMessage = "Payment processing failed",
         )
         composeTestRule.setContent {
             MyApplicationTheme {

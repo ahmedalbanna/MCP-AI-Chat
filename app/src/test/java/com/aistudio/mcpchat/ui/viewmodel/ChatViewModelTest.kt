@@ -5,8 +5,6 @@ import com.aistudio.mcpchat.data.local.ChatMessageEntity
 import com.aistudio.mcpchat.data.local.ChatSessionEntity
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
-import com.aistudio.mcpchat.data.model.McpToolCall
-import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.repository.ChatRepository
 import com.aistudio.mcpchat.data.repository.McpRepository
 import io.mockk.coEvery
@@ -16,8 +14,6 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -28,7 +24,6 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -136,7 +131,7 @@ class ChatViewModelTest {
     fun `deleteSession calls chatRepository and updates sessionId`() = runTest {
         sessionsFlow.value = listOf(
             ChatSessionEntity(id = "s1", title = "Session 1"),
-            ChatSessionEntity(id = "s2", title = "Session 2")
+            ChatSessionEntity(id = "s2", title = "Session 2"),
         )
         coEvery { chatRepository.deleteSession(any()) } coAnswers {
             sessionsFlow.value = sessionsFlow.value.filter { it.id != firstArg<String>() }
@@ -186,7 +181,7 @@ class ChatViewModelTest {
     @Test
     fun `sendMessage sets isGenerating true and calls repository`() = runTest {
         coEvery { chatRepository.sendMessage(any(), any(), any()) } returns Result.success(
-            ChatMessageEntity(id = "msg_1", sessionId = "s1", role = "assistant", content = "Hello!")
+            ChatMessageEntity(id = "msg_1", sessionId = "s1", role = "assistant", content = "Hello!"),
         )
 
         sessionsFlow.value = listOf(ChatSessionEntity(id = "s1", title = "Test"))
@@ -258,7 +253,7 @@ class ChatViewModelTest {
     fun `uiState reflects sessions from repository`() = runTest {
         val sessions = listOf(
             ChatSessionEntity(id = "s1", title = "Session 1"),
-            ChatSessionEntity(id = "s2", title = "Session 2")
+            ChatSessionEntity(id = "s2", title = "Session 2"),
         )
         sessionsFlow.value = sessions
 
@@ -275,7 +270,7 @@ class ChatViewModelTest {
     @Test
     fun `uiState reflects servers from repository`() = runTest {
         val servers = listOf(
-            McpServer(id = "s1", name = "Server 1", description = "desc", endpointUrl = "http://test.com")
+            McpServer(id = "s1", name = "Server 1", description = "desc", endpointUrl = "http://test.com"),
         )
         serversFlow.value = servers
 

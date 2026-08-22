@@ -28,7 +28,6 @@ import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Science
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -39,14 +38,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.IndigoPrimary
 import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
 
@@ -64,40 +60,37 @@ fun markOnboardingSeen(context: Context) {
 }
 
 @Composable
-fun OnboardingScreen(
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     val infiniteTransition = rememberInfiniteTransition(label = "onboarding")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 0.95f,
         targetValue = 1.05f,
         animationSpec = infiniteRepeatable(
             animation = tween(1500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
+            repeatMode = RepeatMode.Reverse,
         ),
-        label = "pulseScale"
+        label = "pulseScale",
     )
     val glowAlpha by infiniteTransition.animateFloat(
         initialValue = 0.3f,
         targetValue = 0.6f,
         animationSpec = infiniteRepeatable(
             animation = tween(1500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
+            repeatMode = RepeatMode.Reverse,
         ),
-        label = "glowAlpha"
+        label = "glowAlpha",
     )
 
     Surface(
         color = MaterialTheme.colorScheme.background,
-        modifier = modifier.fillMaxSize()
+        modifier = modifier.fillMaxSize(),
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp)
+                .padding(32.dp),
         ) {
             Spacer(modifier = Modifier.weight(0.15f))
 
@@ -105,20 +98,20 @@ fun OnboardingScreen(
                 Surface(
                     color = IndigoPrimary.copy(alpha = glowAlpha * 0.15f),
                     shape = CircleShape,
-                    modifier = Modifier.size(120.dp * pulseScale)
+                    modifier = Modifier.size(120.dp * pulseScale),
                 ) {}
                 Surface(
                     color = IndigoPrimary.copy(alpha = 0.15f),
                     shape = CircleShape,
                     border = BorderStroke(2.dp, IndigoPrimary.copy(alpha = 0.4f)),
-                    modifier = Modifier.size(96.dp)
+                    modifier = Modifier.size(96.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.AutoAwesome,
                             contentDescription = null,
                             tint = IndigoPrimaryLight,
-                            modifier = Modifier.size(48.dp)
+                            modifier = Modifier.size(48.dp),
                         )
                     }
                 }
@@ -130,7 +123,7 @@ fun OnboardingScreen(
                 text = "Welcome to",
                 fontSize = 16.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -139,7 +132,7 @@ fun OnboardingScreen(
                 text = "MCP AI Chat",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -149,7 +142,7 @@ fun OnboardingScreen(
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                lineHeight = 22.sp
+                lineHeight = 22.sp,
             )
 
             Spacer(modifier = Modifier.height(40.dp))
@@ -157,7 +150,7 @@ fun OnboardingScreen(
             OnboardingFeatureRow(
                 icon = Icons.Default.Chat,
                 title = "Chat with AI",
-                description = "Ask questions and get answers powered by Gemini with MCP tools"
+                description = "Ask questions and get answers powered by Gemini with MCP tools",
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -165,7 +158,7 @@ fun OnboardingScreen(
             OnboardingFeatureRow(
                 icon = Icons.Default.Hub,
                 title = "MCP Tool Calling",
-                description = "Connect remote servers and invoke tools via JSON-RPC"
+                description = "Connect remote servers and invoke tools via JSON-RPC",
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -173,7 +166,7 @@ fun OnboardingScreen(
             OnboardingFeatureRow(
                 icon = Icons.Default.Science,
                 title = "Inspector & Logs",
-                description = "Test tools directly and view audit logs of every invocation"
+                description = "Test tools directly and view audit logs of every invocation",
             )
 
             Spacer(modifier = Modifier.weight(0.2f))
@@ -184,7 +177,7 @@ fun OnboardingScreen(
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(56.dp),
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
@@ -197,27 +190,23 @@ fun OnboardingScreen(
 }
 
 @Composable
-private fun OnboardingFeatureRow(
-    icon: ImageVector,
-    title: String,
-    description: String
-) {
+private fun OnboardingFeatureRow(icon: ImageVector, title: String, description: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Surface(
             color = IndigoPrimary.copy(alpha = 0.12f),
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, IndigoPrimary.copy(alpha = 0.3f)),
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier.size(48.dp),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = IndigoPrimaryLight,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(24.dp),
                 )
             }
         }
@@ -229,13 +218,13 @@ private fun OnboardingFeatureRow(
                 text = title,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = description,
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 16.sp
+                lineHeight = 16.sp,
             )
         }
     }

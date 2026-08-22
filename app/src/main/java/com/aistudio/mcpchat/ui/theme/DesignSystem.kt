@@ -22,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,7 +35,7 @@ private fun DesignSystemPreview() {
         modifier = Modifier
             .padding(Spacing.lg)
             .fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Spacing.xl)
+        verticalArrangement = Arrangement.spacedBy(Spacing.xl),
     ) {
         Text("Design System", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
 
@@ -58,7 +57,7 @@ private fun DesignSystemPreview() {
                         modifier = Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(Dimens.cornerRadiusMd))
-                            .background(color)
+                            .background(color),
                     )
                     Spacer(modifier = Modifier.height(Spacing.xs))
                     Text(name, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -85,7 +84,7 @@ private fun DesignSystemPreview() {
                         modifier = Modifier
                             .height(Spacing.sm)
                             .width(size)
-                            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(Spacing.xxs))
+                            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(Spacing.xxs)),
                     )
                     Spacer(modifier = Modifier.width(Spacing.sm))
                     Text(name, fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -109,7 +108,7 @@ private fun DesignSystemPreview() {
                             .size(40.dp)
                             .clip(RoundedCornerShape(radius))
                             .border(Dimens.borderWidth, MaterialTheme.colorScheme.outline, RoundedCornerShape(radius))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
                     )
                     Spacer(modifier = Modifier.height(Spacing.xs))
                     Text(name, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -124,7 +123,7 @@ private fun DesignSystemPreview() {
                 modifier = Modifier
                     .size(Dimens.touchTargetMin)
                     .border(Dimens.borderWidthThick, MaterialTheme.colorScheme.primary, RoundedCornerShape(Dimens.cornerRadiusMd)),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Text("48dp", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
             }
@@ -144,7 +143,7 @@ private fun DesignSystemPreview() {
                     Box(
                         modifier = Modifier
                             .size(size)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape),
                     )
                     Spacer(modifier = Modifier.height(Spacing.xs))
                     Text(name, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

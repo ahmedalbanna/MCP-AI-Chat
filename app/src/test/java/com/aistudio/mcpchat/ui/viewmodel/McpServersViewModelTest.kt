@@ -2,8 +2,6 @@ package com.aistudio.mcpchat.ui.viewmodel
 
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
-import com.aistudio.mcpchat.data.model.McpToolCall
-import com.aistudio.mcpchat.data.model.McpLogItem
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.repository.McpRepository
 import io.mockk.coEvery
@@ -13,7 +11,6 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -90,8 +87,12 @@ class McpServersViewModelTest {
     @Test
     fun `pingServer sets isTesting and shows success feedback`() = runTest {
         val server = McpServer(
-            id = "s1", name = "Test Server", description = "desc",
-            endpointUrl = "http://test.com", status = ServerStatus.CONNECTED, latencyMs = 42
+            id = "s1",
+            name = "Test Server",
+            description = "desc",
+            endpointUrl = "http://test.com",
+            status = ServerStatus.CONNECTED,
+            latencyMs = 42,
         )
         coEvery { repository.pingServer(any()) } returns server
 
@@ -108,8 +109,10 @@ class McpServersViewModelTest {
     @Test
     fun `pingServer shows error feedback on exception`() = runTest {
         val server = McpServer(
-            id = "s1", name = "Test Server", description = "desc",
-            endpointUrl = "http://test.com"
+            id = "s1",
+            name = "Test Server",
+            description = "desc",
+            endpointUrl = "http://test.com",
         )
         coEvery { repository.pingServer(any()) } throws RuntimeException("Connection refused")
 
@@ -126,14 +129,20 @@ class McpServersViewModelTest {
     @Test
     fun `syncTools sets isTesting and shows success feedback`() = runTest {
         val server = McpServer(
-            id = "s1", name = "Test Server", description = "desc",
-            endpointUrl = "http://test.com"
+            id = "s1",
+            name = "Test Server",
+            description = "desc",
+            endpointUrl = "http://test.com",
         )
         val tools = listOf(
             McpTool(
-                id = "t1", serverId = "s1", serverName = "Test Server",
-                name = "tool1", description = "A tool", isEnabled = true
-            )
+                id = "t1",
+                serverId = "s1",
+                serverName = "Test Server",
+                name = "tool1",
+                description = "A tool",
+                isEnabled = true,
+            ),
         )
         coEvery { repository.syncServerTools(any()) } returns tools
 
@@ -149,8 +158,10 @@ class McpServersViewModelTest {
     @Test
     fun `syncTools shows error feedback on exception`() = runTest {
         val server = McpServer(
-            id = "s1", name = "Test Server", description = "desc",
-            endpointUrl = "http://test.com"
+            id = "s1",
+            name = "Test Server",
+            description = "desc",
+            endpointUrl = "http://test.com",
         )
         coEvery { repository.syncServerTools(any()) } throws RuntimeException("Timeout")
 
@@ -165,8 +176,11 @@ class McpServersViewModelTest {
     @Test
     fun `addCustomServer calls repository and shows feedback`() = runTest {
         val server = McpServer(
-            id = "custom_1", name = "My Server", description = "Custom",
-            endpointUrl = "http://custom.com/mcp", isPreset = false
+            id = "custom_1",
+            name = "My Server",
+            description = "Custom",
+            endpointUrl = "http://custom.com/mcp",
+            isPreset = false,
         )
         coEvery { repository.addCustomServer(any(), any(), any(), any()) } returns server
 
@@ -216,7 +230,7 @@ class McpServersViewModelTest {
     fun `uiState reflects servers from repository`() = runTest {
         val servers = listOf(
             McpServer(id = "s1", name = "Server 1", description = "desc", endpointUrl = "http://s1.com"),
-            McpServer(id = "s2", name = "Server 2", description = "desc", endpointUrl = "http://s2.com")
+            McpServer(id = "s2", name = "Server 2", description = "desc", endpointUrl = "http://s2.com"),
         )
         serversFlow.value = servers
 

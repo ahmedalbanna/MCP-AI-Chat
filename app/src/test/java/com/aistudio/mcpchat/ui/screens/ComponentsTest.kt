@@ -3,9 +3,9 @@ package com.aistudio.mcpchat.ui.screens
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.model.ToolExecutionStatus
-import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.ui.theme.MyApplicationTheme
 import org.junit.Rule
 import org.junit.Test
@@ -81,7 +81,7 @@ class ComponentsTest {
             outputResult = "{\"temp\": 22}",
             isSuccess = true,
             executionTimeMs = 150,
-            status = ToolExecutionStatus.SUCCESS
+            status = ToolExecutionStatus.SUCCESS,
         )
         composeTestRule.setContent {
             MyApplicationTheme {
@@ -99,7 +99,7 @@ class ComponentsTest {
             serverName = "Test Server",
             toolName = "fetch_data",
             inputArguments = emptyMap(),
-            status = ToolExecutionStatus.EXECUTING
+            status = ToolExecutionStatus.EXECUTING,
         )
         composeTestRule.setContent {
             MyApplicationTheme {

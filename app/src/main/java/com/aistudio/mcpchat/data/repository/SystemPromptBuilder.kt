@@ -8,16 +8,16 @@ class SystemPromptBuilder {
         val builder = StringBuilder()
         builder.append(
             "You are an advanced AI assistant augmented with Model Context Protocol (MCP) " +
-                "capabilities connecting to remote tools and servers.\n"
+                "capabilities connecting to remote tools and servers.\n",
         )
         builder.append(
             "You have access to live remote MCP tools. When the user asks for real-time information, " +
                 "calculations, weather, financial markets, web search, GitHub data, or world time, invoke " +
-                "the appropriate tools using function calling.\n"
+                "the appropriate tools using function calling.\n",
         )
         builder.append(
             "Provide concise, well-formatted markdown responses. Synthesize tool results seamlessly into " +
-                "natural, helpful answers with proper formatting, bullet points, and tables when helpful.\n"
+                "natural, helpful answers with proper formatting, bullet points, and tables when helpful.\n",
         )
 
         if (tools.isNotEmpty()) {

@@ -1,7 +1,6 @@
 package com.aistudio.mcpchat.data.repository
 
 import com.aistudio.mcpchat.data.model.McpTool
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -50,7 +49,7 @@ class SystemPromptBuilderTest {
                 name = "get_balance",
                 description = "Get account balance",
                 inputSchemaJson = "{}",
-                isEnabled = true
+                isEnabled = true,
             ),
             McpTool(
                 id = "erpnext_2",
@@ -59,8 +58,8 @@ class SystemPromptBuilderTest {
                 name = "create_invoice",
                 description = "Create a sales invoice",
                 inputSchemaJson = "{}",
-                isEnabled = true
-            )
+                isEnabled = true,
+            ),
         )
 
         val result = builder.buildSystemPrompt("", tools)
@@ -89,8 +88,8 @@ class SystemPromptBuilderTest {
                 name = "test_fn",
                 description = "A test function",
                 inputSchemaJson = "{}",
-                isEnabled = true
-            )
+                isEnabled = true,
+            ),
         )
 
         val result = builder.buildSystemPrompt("Be concise", tools)

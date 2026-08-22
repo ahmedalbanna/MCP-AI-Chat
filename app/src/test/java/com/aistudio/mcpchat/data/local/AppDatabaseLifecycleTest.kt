@@ -65,7 +65,7 @@ class AppDatabaseLifecycleTest {
             id = "test_server",
             name = "Test Server",
             description = "A test server",
-            endpointUrl = "http://localhost:3000"
+            endpointUrl = "http://localhost:3000",
         )
         database.mcpServerDao().insertServer(server)
 
@@ -85,7 +85,7 @@ class AppDatabaseLifecycleTest {
     fun `entity field defaults are applied correctly for ChatSessionEntity`() = runTest {
         val session = ChatSessionEntity(
             id = "test_session",
-            title = "Test Session"
+            title = "Test Session",
         )
         database.chatDao().insertSession(session)
 
@@ -105,7 +105,7 @@ class AppDatabaseLifecycleTest {
             id = "test_msg",
             sessionId = "test_session",
             role = "user",
-            content = "Hello"
+            content = "Hello",
         )
         database.chatDao().insertMessage(message)
 
@@ -126,7 +126,7 @@ class AppDatabaseLifecycleTest {
             requestPayload = "{}",
             responsePayload = "{}",
             isSuccess = true,
-            latencyMs = 100
+            latencyMs = 100,
         )
         database.mcpLogDao().insertLog(log)
 
@@ -141,7 +141,7 @@ class AppDatabaseLifecycleTest {
     @Test
     fun `entity field defaults are applied correctly for MemoryNoteEntity`() = runTest {
         val note = MemoryNoteEntity(
-            content = "Test note"
+            content = "Test note",
         )
         val id = database.memoryNoteDao().insertNote(note)
 
@@ -160,7 +160,7 @@ class AppDatabaseLifecycleTest {
             serverName = "Server 1",
             name = "get_weather",
             description = "Get weather",
-            inputSchemaJson = "{}"
+            inputSchemaJson = "{}",
         )
         database.mcpToolDao().insertTools(listOf(tool))
 
@@ -175,7 +175,7 @@ class AppDatabaseLifecycleTest {
             id = "persistent_server",
             name = "Persistent Server",
             description = "Should persist",
-            endpointUrl = "http://test.com"
+            endpointUrl = "http://test.com",
         )
 
         // Persistence only applies to file-backed databases; the shared setUp
@@ -235,8 +235,10 @@ class AppDatabaseLifecycleTest {
     @Test
     fun `Flow emits on data update`() = runTest {
         val server = McpServerEntity(
-            id = "srv1", name = "Server 1", description = "desc",
-            endpointUrl = "http://test.com"
+            id = "srv1",
+            name = "Server 1",
+            description = "desc",
+            endpointUrl = "http://test.com",
         )
         database.mcpServerDao().insertServer(server)
 
@@ -319,14 +321,24 @@ class AppDatabaseLifecycleTest {
     @Test
     fun `mcp_logs ordered by timestamp descending`() = runTest {
         val log1 = McpLogEntity(
-            serverId = "srv1", serverName = "S1", toolName = "t1",
-            requestPayload = "{}", responsePayload = "{}",
-            isSuccess = true, latencyMs = 10, timestamp = 1000
+            serverId = "srv1",
+            serverName = "S1",
+            toolName = "t1",
+            requestPayload = "{}",
+            responsePayload = "{}",
+            isSuccess = true,
+            latencyMs = 10,
+            timestamp = 1000,
         )
         val log2 = McpLogEntity(
-            serverId = "srv1", serverName = "S1", toolName = "t2",
-            requestPayload = "{}", responsePayload = "{}",
-            isSuccess = true, latencyMs = 20, timestamp = 2000
+            serverId = "srv1",
+            serverName = "S1",
+            toolName = "t2",
+            requestPayload = "{}",
+            responsePayload = "{}",
+            isSuccess = true,
+            latencyMs = 20,
+            timestamp = 2000,
         )
 
         database.mcpLogDao().insertLog(log1)
@@ -343,12 +355,18 @@ class AppDatabaseLifecycleTest {
         database.chatDao().insertSession(session)
 
         val msg1 = ChatMessageEntity(
-            id = "m1", sessionId = "s1", role = "user", content = "Hello",
-            timestamp = 1000
+            id = "m1",
+            sessionId = "s1",
+            role = "user",
+            content = "Hello",
+            timestamp = 1000,
         )
         val msg2 = ChatMessageEntity(
-            id = "m2", sessionId = "s1", role = "assistant", content = "Hi",
-            timestamp = 2000
+            id = "m2",
+            sessionId = "s1",
+            role = "assistant",
+            content = "Hi",
+            timestamp = 2000,
         )
 
         database.chatDao().insertMessage(msg1)
@@ -363,13 +381,22 @@ class AppDatabaseLifecycleTest {
     @Test
     fun `session ordering by pinned and updatedAt`() = runTest {
         val session1 = ChatSessionEntity(
-            id = "s1", title = "Unpinned", isPinned = false, updatedAt = 1000
+            id = "s1",
+            title = "Unpinned",
+            isPinned = false,
+            updatedAt = 1000,
         )
         val session2 = ChatSessionEntity(
-            id = "s2", title = "Pinned", isPinned = true, updatedAt = 2000
+            id = "s2",
+            title = "Pinned",
+            isPinned = true,
+            updatedAt = 2000,
         )
         val session3 = ChatSessionEntity(
-            id = "s3", title = "Another Pinned", isPinned = true, updatedAt = 3000
+            id = "s3",
+            title = "Another Pinned",
+            isPinned = true,
+            updatedAt = 3000,
         )
 
         database.chatDao().insertSession(session1)

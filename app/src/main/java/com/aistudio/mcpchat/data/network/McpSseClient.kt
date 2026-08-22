@@ -83,19 +83,23 @@ class McpSseClient : Closeable {
         val factory = EventSources.createFactory(client)
         val listener = object : EventSourceListener() {
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
-                trySend(SseEvent(
-                    eventType = type ?: "message",
-                    data = data,
-                    id = id
-                ))
+                trySend(
+                    SseEvent(
+                        eventType = type ?: "message",
+                        data = data,
+                        id = id,
+                    ),
+                )
             }
 
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
                 Log.e(TAG, "SSE connection failed: ${t?.message ?: response?.message}")
-                trySend(SseEvent(
-                    eventType = "error",
-                    data = t?.message ?: "Connection lost"
-                ))
+                trySend(
+                    SseEvent(
+                        eventType = "error",
+                        data = t?.message ?: "Connection lost",
+                    ),
+                )
                 close()
             }
 
@@ -112,11 +116,7 @@ class McpSseClient : Closeable {
         }
     }
 
-    suspend fun sendJsonRpcRequest(
-        server: McpServer,
-        method: String,
-        params: JSONObject = JSONObject()
-    ): JSONObject? = withContext(Dispatchers.IO) {
+    suspend fun sendJsonRpcRequest(server: McpServer, method: String, params: JSONObject = JSONObject()): JSONObject? = withContext(Dispatchers.IO) {
         try {
             val requestJson = JSONObject().apply {
                 put("jsonrpc", "2.0")
@@ -166,5 +166,5 @@ class McpSseClient : Closeable {
 data class SseEvent(
     val eventType: String,
     val data: String,
-    val id: String? = null
+    val id: String? = null,
 )

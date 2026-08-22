@@ -7,7 +7,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -31,7 +30,7 @@ class GeminiApiServiceTest {
         val response = service.generateContent(
             modelName = "gemini-3.5-flash",
             history = listOf(GeminiMessage(role = "user", parts = listOf(GeminiPart.Text("Hello")))),
-            tools = emptyList()
+            tools = emptyList(),
         )
 
         if (response.error == "API_KEY_MISSING") {
@@ -45,7 +44,7 @@ class GeminiApiServiceTest {
         val response = service.generateContent(
             modelName = "gemini-3.5-flash",
             history = emptyList(),
-            tools = emptyList()
+            tools = emptyList(),
         )
         assertNotNull(response)
     }
@@ -54,16 +53,19 @@ class GeminiApiServiceTest {
     fun `generateContent with tools does not crash`() = runTest {
         val tools = listOf(
             McpTool(
-                id = "t1", serverId = "s1", serverName = "Server",
-                name = "get_weather", description = "Get weather info",
-                inputSchemaJson = """{"type":"object","properties":{"city":{"type":"string"}}}"""
-            )
+                id = "t1",
+                serverId = "s1",
+                serverName = "Server",
+                name = "get_weather",
+                description = "Get weather info",
+                inputSchemaJson = """{"type":"object","properties":{"city":{"type":"string"}}}""",
+            ),
         )
         val response = service.generateContent(
             modelName = "gemini-3.5-flash",
             history = listOf(GeminiMessage(role = "user", parts = listOf(GeminiPart.Text("Weather in Tokyo")))),
             tools = tools,
-            systemInstruction = "You are a helpful assistant."
+            systemInstruction = "You are a helpful assistant.",
         )
         assertNotNull(response)
     }
@@ -74,7 +76,7 @@ class GeminiApiServiceTest {
             modelName = "gemini-3.5-flash",
             history = listOf(GeminiMessage(role = "user", parts = listOf(GeminiPart.Text("Hi")))),
             tools = emptyList(),
-            systemInstruction = "Always be polite."
+            systemInstruction = "Always be polite.",
         )
         assertNotNull(response)
     }
@@ -83,17 +85,23 @@ class GeminiApiServiceTest {
     fun `generateContent with function call history does not crash`() = runTest {
         val history = listOf(
             GeminiMessage(role = "user", parts = listOf(GeminiPart.Text("Weather?"))),
-            GeminiMessage(role = "model", parts = listOf(
-                GeminiPart.FunctionCall("get_weather", mapOf("city" to "Tokyo"))
-            )),
-            GeminiMessage(role = "tool", parts = listOf(
-                GeminiPart.FunctionResponse("get_weather", mapOf("temp" to 22))
-            ))
+            GeminiMessage(
+                role = "model",
+                parts = listOf(
+                    GeminiPart.FunctionCall("get_weather", mapOf("city" to "Tokyo")),
+                ),
+            ),
+            GeminiMessage(
+                role = "tool",
+                parts = listOf(
+                    GeminiPart.FunctionResponse("get_weather", mapOf("temp" to 22)),
+                ),
+            ),
         )
         val response = service.generateContent(
             modelName = "gemini-3.5-flash",
             history = history,
-            tools = emptyList()
+            tools = emptyList(),
         )
         assertNotNull(response)
     }
@@ -103,7 +111,7 @@ class GeminiApiServiceTest {
         val response = service.generateContent(
             modelName = "gemini-3.5-flash",
             history = listOf(GeminiMessage(role = "user", parts = listOf(GeminiPart.Text("Test")))),
-            tools = emptyList()
+            tools = emptyList(),
         )
         assertNotNull(response.rawJson)
     }
@@ -113,7 +121,7 @@ class GeminiApiServiceTest {
         val response = service.generateContent(
             modelName = "models/gemini-2.0-flash",
             history = listOf(GeminiMessage(role = "user", parts = listOf(GeminiPart.Text("Hi")))),
-            tools = emptyList()
+            tools = emptyList(),
         )
         assertNotNull(response)
     }

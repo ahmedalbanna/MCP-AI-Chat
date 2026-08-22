@@ -144,7 +144,8 @@ spotless {
     targetExclude("**/build/**")
     ktlint().editorConfigOverride(
       mapOf(
-        "max_line_length" to "150"
+        "max_line_length" to "150",
+        "ktlint_function_naming_ignore_when_annotated_with" to "Composable"
       )
     )
   }
