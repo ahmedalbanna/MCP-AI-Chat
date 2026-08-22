@@ -16,3 +16,6 @@
 local.properties
 .env
 debug.keystore
+
+# Release signing key
+my-upload-key.jks

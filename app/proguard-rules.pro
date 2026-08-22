@@ -48,3 +48,8 @@
 # Gemini / Firebase
 -keep class com.google.firebase.ai.** { *; }
 -keep class com.google.ai.** { *; }
+
+# Tink (via Firebase) references compile-only error-prone annotations
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn javax.annotation.**
+-dontwarn org.checkerframework.**
