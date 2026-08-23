@@ -8,6 +8,7 @@ import com.aistudio.mcpchat.data.model.ChatException
 import com.aistudio.mcpchat.data.model.DEFAULT_MODEL
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
+import com.aistudio.mcpchat.data.model.McpLogItem
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.McpToolCall
@@ -349,21 +350,32 @@ class ChatRepository(
             accumulatedToolCalls.add(toolCall)
             onToolCallUpdate?.invoke(accumulatedToolCalls)
 
-            val targetServer = server ?: McpServer(
-                id = "dynamic",
-                name = "Remote Server",
-                description = "Discovered tool",
-                endpointUrl = "",
-                isPreset = false,
-            )
-
-            // Execute over remote MCP HTTP / transport using the original
-            // (unsanitized) tool name.
-            val (execResult, logItem) = mcpRepository.executeTool(
-                targetServer,
-                originalToolName ?: fc.name,
-                fc.args,
-            )
+            // Guard unknown tool (provider hallucinated a name or server was disabled
+            // after tool discovery) — fail fast without calling MCP over an empty endpoint.
+            val resolvedToolName = originalToolName ?: fc.name
+            val (execResult, logItem) = if (server == null) {
+                val errorJson = JSONObject().put("error", "Unknown tool '$resolvedToolName' — no enabled MCP server provides this tool").toString()
+                val syntheticLog = McpLogItem(
+                    serverId = "unknown",
+                    serverName = "Unknown",
+                    toolName = resolvedToolName,
+                    requestPayload = JSONObject().apply {
+                        put("name", resolvedToolName)
+                        put("arguments", JSONObject(fc.args))
+                    }.toString(2),
+                    responsePayload = errorJson,
+                    isSuccess = false,
+                    latencyMs = 0,
+                    errorMessage = "Unknown tool",
+                )
+                errorJson to syntheticLog
+            } else {
+                mcpRepository.executeTool(
+                    server,
+                    resolvedToolName,
+                    fc.args,
+                )
+            }
 
             replaceToolCall(
                 accumulatedToolCalls,

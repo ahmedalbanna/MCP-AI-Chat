@@ -122,10 +122,16 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             chatRepository.allSessionsFlow.collect { list ->
                 val current = _currentSessionId.value
-                if (current.isNullOrBlank() || current == "") {
+                if (current.isNullOrBlank()) {
                     when {
                         list.isNotEmpty() -> {
-                            list.first().id.takeIf { it.isNotBlank() }?.let(::updateCurrentSessionId)
+                            val nextId = list.firstNotNullOfOrNull { it.id.takeIf(String::isNotBlank) }
+                            if (nextId != null) {
+                                updateCurrentSessionId(nextId)
+                            } else {
+                                // All ids blank (DB corruption) — recover by creating a fresh session
+                                createNewChat()
+                            }
                         }
                         else -> createNewChat()
                     }

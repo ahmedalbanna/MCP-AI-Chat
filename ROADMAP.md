@@ -211,10 +211,10 @@ Ordered by severity. Checkboxes are **work to do** (all `[ ]` at start of phase)
 - [x] Narrow `data_extraction_rules.xml:12` / `backup_rules.xml:12` `sharedpref path="."` to explicit `ai_provider_prefs` (2026-09-23) — both XMLs now exclude only `ai_provider_prefs` (EncryptedSharedPreferences); `mcp_chat_onboarding` is non-sensitive and intentionally allowed to back up/restore; `database` exclusions unchanged
 - [x] Replace weak secret grep `ci.yml:44` with `gitleaks detect` (2026-09-23) — `ci.yml:16` now `fetch-depth:0` + `gitleaks/gitleaks-action@v2` respecting `.gitleaks.toml`; old `grep "AIza|sk_"` removed
 
-### 10.2 Correctness [P0]
-- [ ] Fix `McpRepository:103` `syncServerTools`: only `deleteToolsForServer`/`insertTools` when `status==CONNECTED` and `tools` fetch succeeded; on failure keep cached tools and set `status=ERROR` without wiping — matches `9.2` intent
-- [ ] Harden `ChatViewModel:128` auto-select: `list.firstNotNullOfOrNull { it.id.takeIf(String::isNotBlank) }` instead of `list.first().id.takeIf`; prevents stall on a single blank-id row
-- [ ] Guard `ChatRepository:352` dynamic fallback server (`endpointUrl=""`): return `errorResult("Unknown tool …")` without network call so `McpHttpClient` isn't invoked with empty URL
+### 10.2 Correctness [P0] — **completed 2026-09-23**
+- [x] Fix `McpRepository:103` `syncServerTools` (2026-09-23): only `deleteToolsForServer`/`insertTools` when `status==CONNECTED`; on `ERROR` preserve cached tools + `toolsCount` and only update `status`/`latency` — verifies `ROADMAP.md:212` ping-preserve intent; `McpRepositoryTest:212` still green
+- [x] Harden `ChatViewModel:128` auto-select (2026-09-23): `list.firstNotNullOfOrNull { it.id.takeIf(String::isNotBlank) }` + fallback `createNewChat()` on all-blank corruption; `current.isNullOrBlank()` simplified; `ChatViewModelLifecycleTest:130` green
+- [x] Guard `ChatRepository:352` unknown-tool fallback (2026-09-23): `resolvedToolName` + synthetic `McpLogItem` error `Unknown tool …` without `McpHttpClient` call on `endpointUrl=""`; avoids `IllegalArgumentException`/wasted network and preserves audit history; `ChatRepositoryTest` green
 
 ### 10.3 Networking & DI [P1]
 - [ ] Inject `OkHttpClient`: change `McpHttpClient` and `GeminiApiService` to take `OkHttpClient` from `AppModule:33` (single 60s or per-client tuned instance) instead of building private clients `McpHttpClient:26` / `GeminiApiService:22` — enables timeout tuning, interceptors, and `MockWebServer` testing without reaching `localhost:1`

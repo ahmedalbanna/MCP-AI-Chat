@@ -102,19 +102,32 @@ class McpRepository(
 
     suspend fun syncServerTools(server: McpServer): List<McpTool> = withContext(Dispatchers.IO) {
         val (status, latency) = mcpHttpClient.testConnection(server)
-        val tools = mcpHttpClient.discoverTools(server)
-
-        toolDao.deleteToolsForServer(server.id)
-        if (tools.isNotEmpty()) {
-            toolDao.insertTools(tools.map { it.toEntity() })
+        // Only discover tools after a successful handshake; otherwise keep cached tools.
+        val tools = if (status == ServerStatus.CONNECTED) {
+            mcpHttpClient.discoverTools(server)
+        } else {
+            emptyList()
         }
 
-        val updatedServer = server.copy(
-            status = status,
-            latencyMs = latency,
-            toolsCount = tools.size,
-            lastSyncTime = System.currentTimeMillis(),
-        )
+        val updatedServer = if (status == ServerStatus.CONNECTED) {
+            // Successful handshake — replace cached tools (even if zero, the server may legitimately have no tools).
+            toolDao.deleteToolsForServer(server.id)
+            if (tools.isNotEmpty()) {
+                toolDao.insertTools(tools.map { it.toEntity() })
+            }
+            server.copy(
+                status = status,
+                latencyMs = latency,
+                toolsCount = tools.size,
+                lastSyncTime = System.currentTimeMillis(),
+            )
+        } else {
+            // Transient failure — preserve cached tools and count, only update status/latency.
+            server.copy(
+                status = status,
+                latencyMs = latency,
+            )
+        }
         serverDao.updateServer(updatedServer.toEntity())
         tools
     }
