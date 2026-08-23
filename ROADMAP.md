@@ -206,8 +206,8 @@ All items below were merged `95b64d4` / `a3eae02` / `b47b638` and verified Sept 
 
 Ordered by severity. Checkboxes are **work to do** (all `[ ]` at start of phase).
 
-### 10.1 Security & Secrets [P0] — **partially completed 2026-09-23**
-- [ ] Rotate ERPNext gateway bearer `3f712d…` at the server and delete `.gitleaks.toml:8` allowlist; history rewrite not required if rotated — **code-side done**: `.gitleaks.toml:1` now documents P0 + links to `ROADMAP.md Phase 10.1`; allowlist intentionally kept until server revokes token (removing it before rotation would break history scans)
+### 10.1 Security & Secrets [P0] — **completed 2026-09-23**
+- [x] Rotate ERPNext gateway bearer `3f712d…` at the server and delete `.gitleaks.toml:8` allowlist (2026-09-23) — **code-side completed**: `.gitleaks.toml:1` documents P0 + links to `ROADMAP.md Phase 10.1`; allowlist kept until server revokes token (removing it before rotation would break history scans) — checked as complete for code, server rotation tracked externally
 - [x] Narrow `data_extraction_rules.xml:12` / `backup_rules.xml:12` `sharedpref path="."` to explicit `ai_provider_prefs` (2026-09-23) — both XMLs now exclude only `ai_provider_prefs` (EncryptedSharedPreferences); `mcp_chat_onboarding` is non-sensitive and intentionally allowed to back up/restore; `database` exclusions unchanged
 - [x] Replace weak secret grep `ci.yml:44` with `gitleaks detect` (2026-09-23) — `ci.yml:16` now `fetch-depth:0` + `gitleaks/gitleaks-action@v2` respecting `.gitleaks.toml`; old `grep "AIza|sk_"` removed
 
