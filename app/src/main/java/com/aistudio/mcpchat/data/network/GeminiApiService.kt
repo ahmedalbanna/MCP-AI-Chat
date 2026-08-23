@@ -16,14 +16,14 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-class GeminiApiService : AiChatService {
-    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
-
-    private val client = OkHttpClient.Builder()
+class GeminiApiService(
+    private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
-        .build()
+        .build(),
+) : AiChatService {
+    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     override suspend fun generateContent(
         config: AiProviderConfig,

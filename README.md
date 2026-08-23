@@ -81,6 +81,8 @@ STORE_PASSWORD=... KEY_PASSWORD=... \
 > in cleartext. The local Room database is excluded from Android cloud
 > backups because it stores server credentials and audit logs.
 
+> **Note:** Network timeouts are global defaults (MCP: 15s connect / 30s read/write via `AppModule.provideMcpOkHttpClient`; AI providers: 60s via `AppModule.provideOkHttpClient`). Per-server timeout tuning is intentionally deferred — all servers share the same timeouts (see `ROADMAP.md` Phase 10.3, WONTFIX).
+
 ## Environment Variables
 
 | Variable | Required | Description |

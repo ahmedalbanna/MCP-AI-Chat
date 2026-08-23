@@ -15,13 +15,13 @@ import okhttp3.OkHttpClient
  * clients normalize to [GeminiResponse].
  */
 class ProviderChatRouter(
-    geminiClient: OkHttpClient,
+    client: OkHttpClient,
     private val settings: ActiveAiProviderSource,
 ) : AiChatService {
 
-    private val openAiCompatible = OpenAiCompatibleClient(geminiClient)
-    private val anthropic = AnthropicClient(geminiClient)
-    private val google = GeminiApiService()
+    private val openAiCompatible = OpenAiCompatibleClient(client)
+    private val anthropic = AnthropicClient(client)
+    private val google = GeminiApiService(client)
 
     override suspend fun generateContent(
         config: AiProviderConfig,

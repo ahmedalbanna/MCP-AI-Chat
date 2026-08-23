@@ -20,14 +20,13 @@ import java.util.concurrent.atomic.AtomicLong
 class McpHttpClient(
     private val retryManager: RetryManager = RetryManager(),
     private val circuitBreaker: CircuitBreaker = CircuitBreaker(),
-) {
-    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
-
-    private val client = OkHttpClient.Builder()
+    private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
+        .build(),
+) {
+    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     private val sessions = ConcurrentHashMap<String, String>()
     private val rpcIdCounter = AtomicLong(0)

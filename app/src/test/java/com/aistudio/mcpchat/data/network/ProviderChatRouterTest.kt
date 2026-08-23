@@ -16,9 +16,9 @@ class ProviderChatRouterTest {
 
     @Test
     fun `non-gemini session model falls back to provider default on google`() {
-        assertEquals("gpt-4o-mini", router.resolveModel(AiProviderConfig.google(), "gpt-4o-mini"))
+        assertEquals("gemini-3.5-flash", router.resolveModel(AiProviderConfig.google(), "gpt-4o-mini"))
         assertEquals(
-            "claude-sonnet-4-5",
+            "gemini-3.5-flash",
             router.resolveModel(AiProviderConfig.google(), "claude-sonnet-4-5"),
         )
     }

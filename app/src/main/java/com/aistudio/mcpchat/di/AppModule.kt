@@ -15,6 +15,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.util.concurrent.TimeUnit
+import javax.inject.Named
 import javax.inject.Singleton
 import okhttp3.OkHttpClient
 
@@ -31,6 +32,8 @@ object AppModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
+        // AI providers (Gemini, OpenAI-compatible, Anthropic) — 60s global default.
+        // Per-server tuning is deferred (ROADMAP Phase 10.3, WONTFIX); see README.md.
         return OkHttpClient.Builder()
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
@@ -40,8 +43,20 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideMcpHttpClient(): McpHttpClient {
-        return McpHttpClient()
+    @Named("mcp")
+    fun provideMcpOkHttpClient(): OkHttpClient {
+        // MCP uses shorter timeouts: fast fail on unreachable dev servers.
+        return OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideMcpHttpClient(@Named("mcp") client: OkHttpClient): McpHttpClient {
+        return McpHttpClient(client = client)
     }
 
     @Provides

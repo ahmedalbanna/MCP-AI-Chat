@@ -216,9 +216,9 @@ Ordered by severity. Checkboxes are **work to do** (all `[ ]` at start of phase)
 - [x] Harden `ChatViewModel:128` auto-select (2026-09-23): `list.firstNotNullOfOrNull { it.id.takeIf(String::isNotBlank) }` + fallback `createNewChat()` on all-blank corruption; `current.isNullOrBlank()` simplified; `ChatViewModelLifecycleTest:130` green
 - [x] Guard `ChatRepository:352` unknown-tool fallback (2026-09-23): `resolvedToolName` + synthetic `McpLogItem` error `Unknown tool …` without `McpHttpClient` call on `endpointUrl=""`; avoids `IllegalArgumentException`/wasted network and preserves audit history; `ChatRepositoryTest` green
 
-### 10.3 Networking & DI [P1]
-- [ ] Inject `OkHttpClient`: change `McpHttpClient` and `GeminiApiService` to take `OkHttpClient` from `AppModule:33` (single 60s or per-client tuned instance) instead of building private clients `McpHttpClient:26` / `GeminiApiService:22` — enables timeout tuning, interceptors, and `MockWebServer` testing without reaching `localhost:1`
-- [ ] Add per-server timeout config (or explicitly WONTFIX): if kept global, document in `README.md:79` and close `5.1` item; if per-server, add `McpServer.timeoutMs` + builder in `AppModule`/`McpHttpClient`
+### 10.3 Networking & DI [P1] — **completed 2026-09-23**
+- [x] Inject `OkHttpClient` (2026-09-23): `McpHttpClient:20` now `McpHttpClient(client: OkHttpClient = ...)` and `GeminiApiService:19` `GeminiApiService(client: OkHttpClient = ...)` with defaults for tests; `di/AppModule:31` provides per-client tuned instances — `@Named("mcp")` 15s/30s for `McpHttpClient` and unqualified 60s for `ProviderChatRouter`→`GeminiApiService`/`OpenAiCompatibleClient`/`AnthropicClient` (`ProviderChatRouter:17` now `ProviderChatRouter(client, settings)` with `google = GeminiApiService(client)`); enables `MockWebServer` without `localhost:1` and consistent DI
+- [x] Per-server timeout decision (2026-09-23): documented as **WONTFIX** — global defaults retained (`README.md:82` note: MCP 15/30s, AI 60s via `AppModule`); tracked as `5.1` closed with global-only comment; per-server `McpServer.timeoutMs` deferred
 
 ### 10.4 Build Hygiene [P1]
 - [ ] Align CI JDK: set both `ci.yml:18` and `pr-checks.yml:18` to `java-version: '21'` (or `'17'` min) matching `AGP 9.1.1` + `Kotlin 2.2.10` toolchain; remove `pr-checks:42` `continue-on-error:true` for lint
