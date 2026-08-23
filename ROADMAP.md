@@ -189,7 +189,7 @@ All items below were merged `95b64d4` / `a3eae02` / `b47b638` and verified Sept 
 
 ### 9.5 Build hygiene [x]
 - Remove unused deps + `google-services` plugin [x]
-- `ksp room.schemaLocation` configured [x] (actual path `src/test/assets`, not `app/schemas/` as previously documented)
+- `ksp room.schemaLocation` configured [x] (`app/src/test/assets` via `app/build.gradle.kts:96` `arg("room.schemaLocation", "$projectDir/src/test/assets")`)
 - Remove `fallbackToDestructiveMigration()` [x]
 - `detekt`+`spotless` gates pass (150 chars, `@Composable` exemptions, `.editorconfig`) [x]
 - Repair test sourceset; unit suite green (verified `ResilienceTest`, `McpHttpClientTest`) [x]
@@ -220,11 +220,11 @@ Ordered by severity. Checkboxes are **work to do** (all `[ ]` at start of phase)
 - [x] Inject `OkHttpClient` (2026-09-23): `McpHttpClient:20` now `McpHttpClient(client: OkHttpClient = ...)` and `GeminiApiService:19` `GeminiApiService(client: OkHttpClient = ...)` with defaults for tests; `di/AppModule:31` provides per-client tuned instances — `@Named("mcp")` 15s/30s for `McpHttpClient` and unqualified 60s for `ProviderChatRouter`→`GeminiApiService`/`OpenAiCompatibleClient`/`AnthropicClient` (`ProviderChatRouter:17` now `ProviderChatRouter(client, settings)` with `google = GeminiApiService(client)`); enables `MockWebServer` without `localhost:1` and consistent DI
 - [x] Per-server timeout decision (2026-09-23): documented as **WONTFIX** — global defaults retained (`README.md:82` note: MCP 15/30s, AI 60s via `AppModule`); tracked as `5.1` closed with global-only comment; per-server `McpServer.timeoutMs` deferred
 
-### 10.4 Build Hygiene [P1]
-- [ ] Align CI JDK: set both `ci.yml:18` and `pr-checks.yml:18` to `java-version: '21'` (or `'17'` min) matching `AGP 9.1.1` + `Kotlin 2.2.10` toolchain; remove `pr-checks:42` `continue-on-error:true` for lint
-- [ ] Trim `app/proguard-rules.pro:12` — delete `Moshi`/`Retrofit`/`Firebase`/`Tink` blocks; keep OkHttp/Room/Coroutines/Compose/Hilt + `org.json` if needed; test `assembleRelease`
-- [ ] Clean `gradle.properties`: remove `googleServices.missing.passthrough` and `android.newDsl=false` (pre-AGP8 legacy)
-- [ ] Fix docs path: `ROADMAP.md 9.5` says `app/schemas/` but `app/build.gradle.kts:96` is `src/test/assets`; pick one and align README/ROADMAP
+### 10.4 Build Hygiene [P1] — **completed 2026-09-23**
+- [x] Align CI JDK (2026-09-23): both `ci.yml:18` and `pr-checks.yml:15` set to `java-version: '21'` matching `AGP 9.1.1` + `Kotlin 2.2.10`; removed `pr-checks:42` `continue-on-error:true` for lint
+- [x] Trim `app/proguard-rules.pro:12` (2026-09-23): removed `Moshi`/`Retrofit`/`Firebase`/`Tink` blocks; kept OkHttp/Room/Coroutines/Compose/Hilt; verified `assembleRelease` keeps necessary rules
+- [x] Clean `gradle.properties` (2026-09-23): removed `googleServices.missing.passthrough` and `android.newDsl=false` (pre-AGP8 legacy)
+- [x] Fix docs path (2026-09-23): aligned `ROADMAP.md 9.5` to `app/src/test/assets` via `app/build.gradle.kts:96`; no `app/schemas/` reference remains
 
 ### 10.5 CI Quality Gates [P1]
 - [ ] Add migration gate to `ci.yml`: `./gradlew testDebugUnitTest --tests "*DatabaseMigrationTest*"` (already exports `1.json`/`2.json`)
