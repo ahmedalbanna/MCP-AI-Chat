@@ -226,10 +226,10 @@ Ordered by severity. Checkboxes are **work to do** (all `[ ]` at start of phase)
 - [x] Clean `gradle.properties` (2026-09-23): removed `googleServices.missing.passthrough` and `android.newDsl=false` (pre-AGP8 legacy)
 - [x] Fix docs path (2026-09-23): aligned `ROADMAP.md 9.5` to `app/src/test/assets` via `app/build.gradle.kts:96`; no `app/schemas/` reference remains
 
-### 10.5 CI Quality Gates [P1]
-- [ ] Add migration gate to `ci.yml`: `./gradlew testDebugUnitTest --tests "*DatabaseMigrationTest*"` (already exports `1.json`/`2.json`)
-- [ ] Add `detekt`/`spotlessCheck` to `pr-checks.yml` (currently only `assembleDebug` + `testDebugUnitTest`)
-- [ ] Add nightly/snapshot job (or unify): `lintDebug`, screenshot diff, coverage (e.g., 60% for new code) once goldens exist
+### 10.5 CI Quality Gates [P1] — **completed 2026-09-23**
+- [x] Add migration gate to `ci.yml` (2026-09-23): `ci.yml:42` now `testDebugUnitTest --tests "*DatabaseMigrationTest*"` after unit tests (schemas `1.json`/`2.json` via `app/src/test/assets` already exported)
+- [x] Add `detekt`/`spotlessCheck` to `pr-checks.yml` (2026-09-23): `pr-checks.yml:35` now runs `detekt` + `spotlessCheck` before `assembleDebug`; `lintDebug` still gates without `continue-on-error`
+- [x] Add nightly/snapshot job (2026-09-23): new `.github/workflows/nightly.yml` (schedule `0 2 * * *` + `workflow_dispatch`) runs `detekt`/`spotlessCheck`/`testDebugUnitTest -PscreenshotTests=true`/`DatabaseMigrationTest`/`lintDebug`/`gitleaks`; uploads reports, retention 14d; coverage threshold 60% placeholder until Kover/JaCoCo configured (see file comment)
 
 ### 10.6 Features & Dead Code [P2]
 - [ ] Decide SSE: delete stale `McpSseClient` reference in roadmap/docs if HTTP+SSE-framed is sufficient, or re-introduce a real SSE `OkHttp` `EventSource` behind a `Transport` interface with DI binding + health monitoring `8.1`

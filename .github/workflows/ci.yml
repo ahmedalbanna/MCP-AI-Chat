@@ -39,6 +39,9 @@ jobs:
     - name: Run Unit Tests
       run: ./gradlew testDebugUnitTest -PscreenshotTests=true
 
+    - name: Validate Room migrations
+      run: ./gradlew testDebugUnitTest --tests "*DatabaseMigrationTest*"
+
     - name: Check Lint
       run: ./gradlew lintDebug
 
