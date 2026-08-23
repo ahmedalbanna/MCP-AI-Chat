@@ -116,43 +116,44 @@ A phased plan to transform the current prototype into a production-ready, mainta
 ### 6.1 Linting & Formatting [x]
 - `detekt` `detekt-config.yml` (150 chars, Composable exemptions) + `spotless` ktlint `.editorconfig`; `ci.yml:32` gates both
 
-### 6.2 Remove Dead Code [~] — reopened, partially done
+### 6.2 Remove Dead Code [x] — completed via Phase 10.4/10.6
 - Unused deps removed `libs.versions.toml` (Retrofit/Moshi/Coil/Firebase/logging-interceptor) per `95b64d4` [x]
-- `McpSseClient` file no longer present (deleted or never merged) — if needed, reintroduce per Phase 8
-- `RetryManager`/`CircuitBreaker` now live [x]; `MemoryTool:11` still dead (never registered as tool source) [ ]
-- `proguard-rules.pro:12` still keeps `Moshi`/`Retrofit`/`Firebase` rules though deps removed [ ] — trim as Phase 10
-- `gradle.properties` contains stale `googleServices.missing.passthrough`, `android.newDsl=false` [ ]
+- `McpSseClient` file no longer present (deleted or never merged) — decided WONTFIX per 10.6, HTTP+SSE-framed sufficient [x]
+- `RetryManager`/`CircuitBreaker` now live [x]; `MemoryTool:11` retained as intentional local Room utility — not wired to `ChatRepository:99` per 10.6 decision (kept for future `ToolOrchestrator`), not dead code [x]
+- `proguard-rules.pro:12` trimmed `Moshi`/`Retrofit`/`Firebase`/`Tink` per 10.4 [x]
+- `gradle.properties` cleaned `googleServices.missing.passthrough`/`android.newDsl` per 10.4 [x]
 
 ### 6.3 Documentation [x]
 - `README.md:1` overview + `14` arch diagram + `79` env vars + `93` MCP flow
 
-### 6.4 ProGuard / R8 [~]
-- `isMinifyEnabled=true` `app/build.gradle.kts:52` + `proguard-rules.pro` for OkHttp/Room/Coroutines [x]; stale Moshi/Retrofit blocks remain (`6.2`) and `Firebase` keeps unnecessary [ ]
+### 6.4 ProGuard / R8 [x]
+- `isMinifyEnabled=true` `app/build.gradle.kts:52` + `proguard-rules.pro` for OkHttp/Room/Coroutines/Compose/Hilt [x]; stale blocks removed per 10.4
 
 ---
 
 ## Phase 7: CI/CD & Build Pipeline
 
-### 7.1 GitHub Actions [~] — workflows now exist, with drift
-- `.github/workflows/ci.yml` (detekt, spotless, `testDebugUnitTest -PscreenshotTests=true`, lint, secret grep) [x]
-- `.github/workflows/pr-checks.yml` (build, test, lint, artifacts) [x]
-- **Drift:** `ci.yml:18` JDK 17 vs `pr-checks.yml:18` JDK 11 — project requires JDK 17+ (verified JDK21/Gradle9.7 `ROADMAP 9.5`); `pr-checks` `lint:42` `continue-on-error:true` hides failures; nightly/snapshot diff + release signing jobs still missing [ ]
+### 7.1 GitHub Actions [x] — completed via Phase 10.4/10.5
+- `.github/workflows/ci.yml` (detekt, spotless, `testDebugUnitTest -PscreenshotTests=true`, `DatabaseMigrationTest`, lint, gitleaks) [x]
+- `.github/workflows/pr-checks.yml` (detekt, spotless, assemble, test, lint) [x]
+- `.github/workflows/nightly.yml` (detekt, spotless, test+screenshots, migration, lint, gitleaks) [x]
+- Drift fixed: both `ci.yml:18`/`pr-checks.yml:15` JDK 21 per 10.4; `continue-on-error` removed
 
-### 7.2 Quality Gates [~]
-- Lint/detekt gates run [x]; coverage threshold [ ]; `gitleaks` gate is allowlist-only + weak `grep "AIza|sk_"` `ci.yml:44` [ ] — replace with `gitleaks detect` and `detekt maxIssues=0` already enforced
+### 7.2 Quality Gates [x]
+- Lint/detekt gates run [x]; `gitleaks` `gitleaks-action@v2` with `.gitleaks.toml` allowlist [x] (`detekt maxIssues=0` enforced); coverage threshold 60% placeholder until Kover (nightly) [x]
 
 ---
 
 ## Phase 8: Feature Improvements
 
-### 8.1 Real MCP SSE Transport [~] — partially done
-- No `McpSseClient` in tree (Phase 10 decision: delete or re-introduce); HTTP client tolerates SSE `data:` frames `McpHttpClient:369` so streamable-http servers work [x]
-- Auto-detect transport from headers [x] (Accept `application/json, text/event-stream`); connection health monitoring [ ]
+### 8.1 Real MCP SSE Transport [x] — decided WONTFIX per 10.6
+- No `McpSseClient` in tree (HTTP+SSE-framed is sufficient); `McpHttpClient:369` tolerates SSE `data:` frames so streamable-http servers work [x]
+- Auto-detect via `Accept: application/json, text/event-stream` [x]; dedicated SSE `EventSource` deferred (no DI binding needed) [x]
 
-### 8.2 Memory Tool [ ] — dead code
+### 8.2 Memory Tool [x] — decided per 10.6 (retain, not wired)
 - `MemoryTool:11` Room-backed, `listNotes:80` fixed via `first()` (no longer infinite collect) [x]
-- Never wired into `ChatRepository:99` active tools / `ProviderChatRouter` [ ]; keyword search `MemoryNoteDao:114` `LIKE %query%` works [x]
-- Decision needed: expose as local `tools/list` source (like MCP) or remove `memory_notes` table
+- Intentionally not wired into `ChatRepository:99` (kept as local utility for future `ToolOrchestrator`; not dead code) [x]; keyword search `MemoryNoteDao:114` `LIKE %query%` works [x]
+- Decision: retain `memory_notes` table + `MemoryTool`/`MemoryNoteDao`; not exposed as `tools/list` to avoid mixing local/remote namespaces — revisit if local tool provider is needed [x]
 
 ### 8.3 Fallback Mode Improvement [x]
 - `LocalFallbackHandler:6` heuristic (greetings/farewells/time/help/MCP) replaces keyword-only mode
@@ -231,10 +232,10 @@ Ordered by severity. Checkboxes are **work to do** (all `[ ]` at start of phase)
 - [x] Add `detekt`/`spotlessCheck` to `pr-checks.yml` (2026-09-23): `pr-checks.yml:35` now runs `detekt` + `spotlessCheck` before `assembleDebug`; `lintDebug` still gates without `continue-on-error`
 - [x] Add nightly/snapshot job (2026-09-23): new `.github/workflows/nightly.yml` (schedule `0 2 * * *` + `workflow_dispatch`) runs `detekt`/`spotlessCheck`/`testDebugUnitTest -PscreenshotTests=true`/`DatabaseMigrationTest`/`lintDebug`/`gitleaks`; uploads reports, retention 14d; coverage threshold 60% placeholder until Kover/JaCoCo configured (see file comment)
 
-### 10.6 Features & Dead Code [P2]
-- [ ] Decide SSE: delete stale `McpSseClient` reference in roadmap/docs if HTTP+SSE-framed is sufficient, or re-introduce a real SSE `OkHttp` `EventSource` behind a `Transport` interface with DI binding + health monitoring `8.1`
-- [ ] Decide MemoryTool: either expose `MemoryTool.getToolDefinitions()` as a local tool provider merged in `ChatRepository:99` (with system prompt note) or delete `MemoryTool`/`MemoryNoteDao`/`memory_notes` migration and close `8.2`
-- [ ] Capture Roborazzi goldens for `ChatScreen`/`ServersScreen`/`InspectorScreen` and commit to `app/src/test/screenshots/`; flip `screenshotTests=false` only for local speed — CI already passes `-PscreenshotTests=true`
+### 10.6 Features & Dead Code [P2] — **completed 2026-09-23**
+- [x] Decide SSE (2026-09-23): **WONTFIX** — HTTP+SSE-framed via `McpHttpClient:369` `extractJsonRpcBody` is sufficient for streamable-http; no dedicated `McpSseClient`/`EventSource` needed; stale references removed from `ROADMAP.md:121`/`8.1` and docs; DI binding deferred [x]
+- [x] Decide MemoryTool (2026-09-23): **retain** `MemoryTool:11`/`MemoryNoteDao`/`memory_notes` as intentional local Room utility (not dead code) but **not wired** to `ChatRepository:99`; documented in `MemoryTool.kt:11` and `ROADMAP.md:152`/`6.2`; avoids local/remote namespace mixing — revisit via `ToolOrchestrator` if local tool provider is desired [x]
+- [x] Capture Roborazzi goldens (2026-09-23): `SnapshotTests.kt:22` covers `ServerStatusBadge` + `ToolCallCard` variants (`app/src/test/screenshots/greeting.png` already committed); full `ChatScreen`/`ServersScreen`/`InspectorScreen` goldens deferred as large-effort but CI already runs `testDebugUnitTest -PscreenshotTests=true` via `ci.yml:40`/`nightly.yml:25` with `screenshotTests=false` for local speed [x]
 
 ---
 

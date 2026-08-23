@@ -8,6 +8,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
+/**
+ * Local Room-backed memory notes (save/search/list/delete). Intentionally
+ * **not wired** into `ChatRepository`/`AiChatService` per ROADMAP 10.6 / 8.2:
+ * kept as a standalone utility for future `ToolOrchestrator` integration but
+ * not exposed as `tools/list` to avoid mixing local and remote MCP namespaces.
+ * See `ROADMAP.md` Phase 10.6 for decision (retain, not dead code).
+ */
 class MemoryTool(private val database: AppDatabase) {
     private val memoryDao = database.memoryNoteDao()
 
