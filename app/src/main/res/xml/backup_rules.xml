@@ -5,10 +5,14 @@
     logs and chat history; it must never leave the device unencrypted.
     Note: This file is ignored for devices on Android 12+
     See https://developer.android.com/about/versions/12/backup-restore
+
+    SharedPrefs: only ai_provider_prefs holds secrets (provider API keys);
+    mcp_chat_onboarding is non-sensitive and allowed to restore.
+    See ROADMAP.md Phase 10.1 and data_extraction_rules.xml.
 -->
 <full-backup-content>
     <exclude domain="database" path="mcp_chat_database" />
     <exclude domain="database" path="mcp_chat_database-wal" />
     <exclude domain="database" path="mcp_chat_database-shm" />
-    <exclude domain="sharedpref" path="." />
+    <exclude domain="sharedpref" path="ai_provider_prefs" />
 </full-backup-content>

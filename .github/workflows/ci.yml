@@ -12,6 +12,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -40,13 +42,7 @@ jobs:
     - name: Check Lint
       run: ./gradlew lintDebug
 
-    - name: Check for Hardcoded Secrets
-      run: |
-        if grep -r "AIza" app/src/main/ --include="*.kt" --include="*.xml"; then
-          echo "ERROR: Potential API key found in source code"
-          exit 1
-        fi
-        if grep -r "sk_" app/src/main/ --include="*.kt" --include="*.xml"; then
-          echo "ERROR: Potential secret key found in source code"
-          exit 1
-        fi
+    - name: Check for Hardcoded Secrets (gitleaks)
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

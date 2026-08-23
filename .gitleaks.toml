@@ -1,10 +1,14 @@
 # Gitleaks configuration.
 #
-# The bearer token below leaked into git history in Aug 2026 and is pending
-# server-side rotation. It is allowlisted here so history scans stay green;
-# REMOVE this entry once the token has been revoked at the ERPNext gateway.
+# P0 — The bearer token below leaked into git history in Aug 2026 and is
+# pending server-side rotation at the ERPNext gateway. It is allowlisted here
+# so `gitleaks detect` (CI) stays green on history scans.
+#
+# ROADMAP.md Phase 10.1: rotate the token at the gateway, then DELETE this
+# entire [allowlist] block. Do not add new allowlists for new leaks — fix the
+# source instead. See https://github.com/gitleaks/gitleaks#configuration
 [allowlist]
-  description = "Known-leaked credential pending rotation"
+  description = "P0 10.1: Known-leaked ERPNext bearer pending rotation — remove after revocation"
   regexes = [
     '''3f712dd3b3fec4f17651eec9cd5fde87dccd3d92281cdbfdadaa0019eb429e2e''',
   ]

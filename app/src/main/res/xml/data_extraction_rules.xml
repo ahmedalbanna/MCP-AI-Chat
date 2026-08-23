@@ -3,18 +3,24 @@
     Backup rules for devices on Android 12+ (API 31).
     The database stores MCP server auth headers, full request/response audit
     logs and chat history; it must never leave the device unencrypted.
+
+    SharedPrefs: only ai_provider_prefs (EncryptedSharedPreferences holding
+    provider API keys via MasterKey/AES256_GCM) is excluded. mcp_chat_onboarding
+    (single boolean has_seen_onboarding) is non-sensitive and intentionally
+    allowed to back up/restore so onboarding does not reappear after restore.
+    See ROADMAP.md Phase 10.1.
 -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="database" path="mcp_chat_database" />
         <exclude domain="database" path="mcp_chat_database-wal" />
         <exclude domain="database" path="mcp_chat_database-shm" />
-        <exclude domain="sharedpref" path="." />
+        <exclude domain="sharedpref" path="ai_provider_prefs" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="database" path="mcp_chat_database" />
         <exclude domain="database" path="mcp_chat_database-wal" />
         <exclude domain="database" path="mcp_chat_database-shm" />
-        <exclude domain="sharedpref" path="." />
+        <exclude domain="sharedpref" path="ai_provider_prefs" />
     </device-transfer>
 </data-extraction-rules>
