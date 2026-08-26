@@ -42,7 +42,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.CurrencyBitcoin
 import androidx.compose.material.icons.filled.Delete
@@ -53,6 +55,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
@@ -190,13 +193,8 @@ fun ChatScreen(
                                 modifier = Modifier
                                     .semantics {
                                         role = Role.Button
-                                        contentDescription = "Select model"
-                                        stateDescription =
-                                            if (currentSession?.model?.contains("pro") == true) {
-                                                "Gemini 3.1 Pro selected"
-                                            } else {
-                                                "Gemini 3.5 Flash selected"
-                                            }
+                                        contentDescription = "Select AI provider and model"
+                                        stateDescription = "${activeProviderConfig?.name ?: "No provider"}: ${currentSession?.model ?: ""}"
                                     }
                                     .clickable { showProviderSheet = true }
                                     .testTag("model_picker_chip"),
@@ -206,16 +204,23 @@ fun ChatScreen(
                                     modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
                                 ) {
                                     Text(
-                                        text = buildString {
-                                            append(activeProviderConfig?.name ?: "AI Provider")
-                                            append(": ")
-                                            append(currentSession?.model?.substringAfterLast('/') ?: "")
+                                        text = if (activeProviderConfig != null) {
+                                            "${activeProviderConfig.name}: ${currentSession?.model ?: activeProviderConfig.model}"
+                                        } else {
+                                            "Select provider"
                                         },
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = IndigoPrimaryLight,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = null,
+                                        tint = IndigoPrimaryLight,
+                                        modifier = Modifier.size(Dimens.iconSizeSm),
                                     )
                                 }
                             }
@@ -433,8 +438,8 @@ fun ChatScreen(
                                 .minimumInteractiveComponentSize(),
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Error,
-                                contentDescription = "Dismiss",
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Dismiss error",
                                 tint = RoseError,
                                 modifier = Modifier.size(Dimens.iconSizeSm),
                             )
@@ -526,28 +531,37 @@ fun ChatScreen(
 
                         IconButton(
                             onClick = {
-                                if (inputText.isNotBlank() && !isGenerating) {
+                                if (isGenerating) {
+                                    viewModel.cancelGeneration()
+                                } else if (inputText.isNotBlank()) {
                                     val prompt = inputText.trim()
                                     inputText = ""
                                     keyboardController?.hide()
                                     viewModel.sendMessage(prompt)
                                 }
                             },
-                            enabled = inputText.isNotBlank() && !isGenerating,
+                            enabled = isGenerating || inputText.isNotBlank(),
                             modifier = Modifier
                                 .size(Dimens.touchTargetMin)
                                 .clip(CircleShape)
-                                .background(if (inputText.isNotBlank() && !isGenerating) IndigoPrimary else MaterialTheme.colorScheme.surfaceVariant)
+                                .background(
+                                    when {
+                                        isGenerating -> RoseError
+                                        inputText.isNotBlank() -> IndigoPrimary
+                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                    },
+                                )
                                 .semantics {
-                                    contentDescription = if (isGenerating) "Sending message" else "Send"
+                                    contentDescription = if (isGenerating) "Stop generating" else "Send message"
                                 }
                                 .testTag("send_message_button"),
                         ) {
                             if (isGenerating) {
-                                CircularProgressIndicator(
+                                Icon(
+                                    imageVector = Icons.Default.Stop,
+                                    contentDescription = "Stop",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
                                     modifier = Modifier.size(Dimens.iconSizeLg),
-                                    strokeWidth = Dimens.borderWidthThick,
-                                    color = MaterialTheme.colorScheme.onPrimary,
                                 )
                             } else {
                                 Icon(
@@ -721,6 +735,8 @@ fun ChatScreen(
 
     if (showSessionsSheet) {
         val sheetState = rememberModalBottomSheetState()
+        var sessionToDelete by remember { mutableStateOf<com.aistudio.mcpchat.data.local.ChatSessionEntity?>(null) }
+        val sessionDateFormatter = remember { SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.getDefault()) }
         ModalBottomSheet(
             onDismissRequest = { showSessionsSheet = false },
             sheetState = sheetState,
@@ -788,14 +804,14 @@ fun ChatScreen(
                                         fontSize = 14.sp,
                                     )
                                     Text(
-                                        text = SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.getDefault()).format(Date(session.updatedAt)),
+                                        text = sessionDateFormatter.format(Date(session.updatedAt)),
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
 
                                 IconButton(
-                                    onClick = { viewModel.deleteSession(session.id) },
+                                    onClick = { sessionToDelete = session },
                                     modifier = Modifier
                                         .minimumInteractiveComponentSize(),
                                 ) {
@@ -811,6 +827,25 @@ fun ChatScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(Spacing.xl))
+            }
+            sessionToDelete?.let { toDelete ->
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { sessionToDelete = null },
+                    title = { androidx.compose.material3.Text("Delete conversation?") },
+                    text = { androidx.compose.material3.Text("Delete \"${toDelete.title}\"? This cannot be undone.") },
+                    confirmButton = {
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                viewModel.deleteSession(toDelete.id)
+                                sessionToDelete = null
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = RoseError),
+                        ) { androidx.compose.material3.Text("Delete") }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = { sessionToDelete = null }) { androidx.compose.material3.Text("Cancel") }
+                    },
+                )
             }
         }
     }

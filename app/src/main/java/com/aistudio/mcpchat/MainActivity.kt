@@ -201,7 +201,16 @@ fun MainApp() {
                 ServersScreen(viewModel = serversViewModel)
             }
             composable(Screen.Inspector.route) {
-                InspectorScreen(viewModel = inspectorViewModel)
+                InspectorScreen(
+                    viewModel = inspectorViewModel,
+                    onNavigateToServers = {
+                        navController.navigate(Screen.Servers.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(viewModel = themeViewModel)

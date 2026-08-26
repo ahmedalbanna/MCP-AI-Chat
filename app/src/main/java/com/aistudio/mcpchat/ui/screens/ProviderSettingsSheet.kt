@@ -24,7 +24,15 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -161,6 +169,7 @@ private fun ProviderRow(config: AiProviderConfig, isActive: Boolean, onSelect: (
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun DraftEditor(draft: ProviderDraft, onChange: ((ProviderDraft) -> ProviderDraft) -> Unit, onSave: () -> Unit, onCancel: () -> Unit) {
     val isGoogle = draft.typeLabel == AiProviderType.GOOGLE.name
@@ -182,31 +191,61 @@ private fun DraftEditor(draft: ProviderDraft, onChange: ((ProviderDraft) -> Prov
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            OutlinedTextField(
-                value = draft.typeLabel,
-                onValueChange = { typeLabel: String ->
-                    onChange { current: ProviderDraft -> current.copy(typeLabel = typeLabel.uppercase()) }
-                },
-                label = { Text("Protocol (GOOGLE / OPENAI_COMPATIBLE / ANTHROPIC)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+            var typeMenuExpanded by remember { mutableStateOf(false) }
+            val protocolOptions = listOf(
+                AiProviderType.GOOGLE.name,
+                AiProviderType.ANTHROPIC.name,
+                AiProviderType.OPENAI_COMPATIBLE.name,
             )
+            ExposedDropdownMenuBox(
+                expanded = typeMenuExpanded,
+                onExpandedChange = { typeMenuExpanded = !typeMenuExpanded },
+            ) {
+                OutlinedTextField(
+                    value = draft.typeLabel,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Protocol") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeMenuExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                )
+                ExposedDropdownMenu(
+                    expanded = typeMenuExpanded,
+                    onDismissRequest = { typeMenuExpanded = false },
+                ) {
+                    protocolOptions.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option) },
+                            onClick = {
+                                onChange { current: ProviderDraft -> current.copy(typeLabel = option) }
+                                typeMenuExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
 
             OutlinedTextField(
                 value = draft.baseUrl,
                 onValueChange = { url: String ->
-                    onChange { current: ProviderDraft -> current.copy(baseUrl = url.trim()) }
+                    onChange { current: ProviderDraft -> current.copy(baseUrl = url) }
                 },
                 label = { Text("Endpoint base URL") },
                 placeholder = { Text("https://api.openai.com/v1") },
                 singleLine = true,
+                isError = draft.baseUrl.isNotBlank() && !draft.baseUrl.startsWith("http"),
+                supportingText = if (draft.baseUrl.isNotBlank() && !draft.baseUrl.startsWith("http")) {
+                    { Text("Must start with http:// or https://", color = MaterialTheme.colorScheme.error) }
+                } else null,
                 modifier = Modifier.fillMaxWidth(),
             )
 
             OutlinedTextField(
                 value = draft.apiKey,
                 onValueChange = { key: String ->
-                    onChange { current: ProviderDraft -> current.copy(apiKey = key.trim()) }
+                    onChange { current: ProviderDraft -> current.copy(apiKey = key) }
                 },
                 label = { Text(if (isGoogle) "API key" else "API key (blank ok for local runtimes)") },
                 visualTransformation = PasswordVisualTransformation(),
@@ -220,7 +259,7 @@ private fun DraftEditor(draft: ProviderDraft, onChange: ((ProviderDraft) -> Prov
             OutlinedTextField(
                 value = draft.model,
                 onValueChange = { model: String ->
-                    onChange { current: ProviderDraft -> current.copy(model = model.trim()) }
+                    onChange { current: ProviderDraft -> current.copy(model = model) }
                 },
                 label = { Text("Model") },
                 placeholder = { Text("gpt-4o-mini / claude-sonnet-4-5 / gemini-3.5-flash") },
@@ -228,9 +267,12 @@ private fun DraftEditor(draft: ProviderDraft, onChange: ((ProviderDraft) -> Prov
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            val isDraftValid = draft.name.isNotBlank() &&
+                draft.baseUrl.isNotBlank() && draft.baseUrl.startsWith("http") &&
+                draft.model.isNotBlank()
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.align(Alignment.End)) {
                 TextButton(onClick = onCancel) { Text("Cancel") }
-                Button(onClick = onSave) { Text("Save") }
+                Button(onClick = onSave, enabled = isDraftValid) { Text("Save") }
             }
         }
     }

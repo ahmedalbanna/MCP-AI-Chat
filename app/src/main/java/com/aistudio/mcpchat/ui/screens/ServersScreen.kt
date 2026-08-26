@@ -1,6 +1,5 @@
 package com.aistudio.mcpchat.ui.screens
 
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
@@ -45,6 +44,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -65,7 +66,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -95,12 +95,12 @@ fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier)
     val isTesting by viewModel.isTesting.collectAsStateWithLifecycle()
     val feedback by viewModel.feedbackMessage.collectAsStateWithLifecycle()
 
-    val context = LocalContext.current
     var showAddServerSheet by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var serverToDelete by remember { mutableStateOf<McpServer?>(null) }
     var isRefreshing by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val filteredServers = if (searchQuery.isBlank()) {
         servers
@@ -114,7 +114,7 @@ fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier)
 
     LaunchedEffect(feedback) {
         feedback?.let {
-            Toast.makeText(context, it.text, Toast.LENGTH_SHORT).show()
+            snackbarHostState.showSnackbar(it.text)
             viewModel.clearFeedback()
         }
     }
@@ -153,6 +153,7 @@ fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier)
                 Icon(Icons.Default.Add, contentDescription = "Add Remote MCP Server")
             }
         },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         modifier = modifier.fillMaxSize(),
     ) { padding ->
         PullToRefreshBox(
@@ -160,9 +161,11 @@ fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier)
             onRefresh = {
                 coroutineScope.launch {
                     isRefreshing = true
-                    servers.forEach { server ->
-                        viewModel.syncTools(server)
+                    // Parallel sync – launch all together then await
+                    val jobs = servers.map { server ->
+                        launch { viewModel.syncTools(server) }
                     }
+                    jobs.forEach { it.join() }
                     delay(500)
                     isRefreshing = false
                 }
@@ -214,7 +217,7 @@ fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier)
                     }
                 }
 
-                if (servers.size > 2) {
+                if (servers.size > 1) {
                     item {
                         OutlinedTextField(
                             value = searchQuery,
@@ -279,6 +282,11 @@ fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier)
                                     fontSize = 13.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
+                                Spacer(modifier = Modifier.height(Spacing.md))
+                                Button(
+                                    onClick = { showAddServerSheet = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                                ) { Text("Add Server") }
                             }
                         }
                     }
@@ -696,12 +704,17 @@ fun AddServerSheetContent(onDismiss: () -> Unit, onAdd: (name: String, descripti
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            val urlError = endpointUrl.isNotBlank() && !endpointUrl.startsWith("http")
             OutlinedTextField(
                 value = endpointUrl,
                 onValueChange = { endpointUrl = it },
                 label = { Text("Endpoint URL") },
                 placeholder = { Text("https://mcp.my-domain.com/v1") },
                 singleLine = true,
+                isError = urlError,
+                supportingText = if (urlError) {
+                    { Text("Must start with http:// or https://", color = RoseError) }
+                } else null,
                 modifier = Modifier.fillMaxWidth(),
             )
 

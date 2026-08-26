@@ -233,6 +233,11 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun cancelGeneration() {
+        _isGenerating.value = false
+        _inProgressToolCalls.value = emptyList()
+    }
+
     fun clearError() {
         _errorMessage.value = null
         _uiError.value = null

@@ -90,7 +90,11 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier) {
+fun InspectorScreen(
+    viewModel: McpInspectorViewModel,
+    modifier: Modifier = Modifier,
+    onNavigateToServers: (() -> Unit)? = null,
+) {
     val servers by viewModel.servers.collectAsStateWithLifecycle()
     val tools by viewModel.tools.collectAsStateWithLifecycle()
     val logs by viewModel.logs.collectAsStateWithLifecycle()
@@ -224,6 +228,10 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = IndigoPrimary,
+                                        modifier = Modifier
+                                            .clickable { onNavigateToServers?.invoke() }
+                                            .semantics { role = Role.Button }
+                                            .padding(Spacing.xs),
                                     )
                                 }
                             }
@@ -290,13 +298,30 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                     )
 
                                     if (logs.isNotEmpty()) {
+                                        var showClearConfirm by remember { mutableStateOf(false) }
                                         TextButton(
-                                            onClick = { viewModel.clearLogs() },
+                                            onClick = { showClearConfirm = true },
                                             colors = ButtonDefaults.textButtonColors(contentColor = RoseError),
                                         ) {
                                             Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeMd))
                                             Spacer(modifier = Modifier.width(Spacing.xs))
                                             Text("Clear Logs", fontSize = 12.sp)
+                                        }
+                                        if (showClearConfirm) {
+                                            androidx.compose.material3.AlertDialog(
+                                                onDismissRequest = { showClearConfirm = false },
+                                                title = { Text("Clear audit logs?") },
+                                                text = { Text("This will delete all ${logs.size} log entries.") },
+                                                confirmButton = {
+                                                    TextButton(
+                                                        onClick = { viewModel.clearLogs(); showClearConfirm = false },
+                                                        colors = ButtonDefaults.textButtonColors(contentColor = RoseError),
+                                                    ) { Text("Clear") }
+                                                },
+                                                dismissButton = {
+                                                    TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
+                                                },
+                                            )
                                         }
                                     }
                                 }
@@ -416,6 +441,13 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
 @Composable
 fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelected: (McpTool) -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
+    var pickerQuery by remember { mutableStateOf("") }
+    val filteredTools = remember(tools, pickerQuery) {
+        if (pickerQuery.isBlank()) tools else tools.filter {
+            it.name.contains(pickerQuery, ignoreCase = true) ||
+                it.serverName.contains(pickerQuery, ignoreCase = true)
+        }
+    }
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -477,9 +509,20 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
 
                 DropdownMenu(
                     expanded = expanded,
-                    onDismissRequest = { expanded = false },
+                    onDismissRequest = { expanded = false; pickerQuery = "" },
                 ) {
-                    for (t in tools) {
+                    if (tools.size > 5) {
+                        OutlinedTextField(
+                            value = pickerQuery,
+                            onValueChange = { pickerQuery = it },
+                            placeholder = { Text("Filter tools...", fontSize = 12.sp) },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                        )
+                    }
+                    for (t in filteredTools) {
                         DropdownMenuItem(
                             text = {
                                 Column {
@@ -490,7 +533,15 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
                             onClick = {
                                 onToolSelected(t)
                                 expanded = false
+                                pickerQuery = ""
                             },
+                        )
+                    }
+                    if (filteredTools.isEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text("No matches", fontSize = 12.sp) },
+                            onClick = {},
+                            enabled = false,
                         )
                     }
                 }
@@ -541,9 +592,15 @@ fun ParametersCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
+                val requiredKeys = remember(tool.inputSchemaJson) {
+                    try {
+                        val arr = JSONObject(tool.inputSchemaJson).optJSONArray("required")
+                        (0 until (arr?.length() ?: 0)).map { i -> arr!!.getString(i) }.toSet()
+                    } catch (_: Exception) { emptySet() }
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     for ((key, value) in parameterInputs) {
-                        val isError = value.isBlank() && tool.inputSchemaJson.contains("\"$key\"")
+                        val isError = value.isBlank() && requiredKeys.contains(key)
                         val helperText = when {
                             key == "days" && value.toIntOrNull() == null && value.isNotBlank() -> "Must be a number"
                             key == "amount" && value.toDoubleOrNull() == null && value.isNotBlank() -> "Must be a number"
