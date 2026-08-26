@@ -4,13 +4,12 @@ import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
-import okhttp3.OkHttpClient
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -57,8 +56,11 @@ class OpenAiCompatibleClientTest {
 
     private val tools = listOf(
         com.aistudio.mcpchat.data.model.McpTool(
-            id = "t1", serverId = "s1", serverName = "Srv",
-            name = "get_weather", description = "Get weather",
+            id = "t1",
+            serverId = "s1",
+            serverName = "Srv",
+            name = "get_weather",
+            description = "Get weather",
             inputSchemaJson = """{"type":"object","properties":{"city":{"type":"string"}}}""",
         ),
     )

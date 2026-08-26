@@ -2,6 +2,7 @@ package com.aistudio.mcpchat.di
 
 import android.content.Context
 import com.aistudio.mcpchat.data.local.AppDatabase
+import com.aistudio.mcpchat.data.local.ThemeSettings
 import com.aistudio.mcpchat.data.network.AiChatService
 import com.aistudio.mcpchat.data.network.McpHttpClient
 import com.aistudio.mcpchat.data.network.ProviderChatRouter
@@ -14,10 +15,10 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
-import okhttp3.OkHttpClient
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -67,6 +68,12 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideThemeSettings(@ApplicationContext context: Context): ThemeSettings {
+        return ThemeSettings(context)
+    }
+
+    @Provides
+    @Singleton
     fun provideCryptoManager(): CryptoManager {
         return CryptoManager()
     }
@@ -74,21 +81,14 @@ object AppModule {
     /** Routes chat requests to whichever provider the user configured. */
     @Provides
     @Singleton
-    fun provideAiChatService(
-        okHttpClient: OkHttpClient,
-        settings: AiProviderSettings,
-    ): AiChatService {
+    fun provideAiChatService(okHttpClient: OkHttpClient, settings: AiProviderSettings): AiChatService {
         // AiProviderSettings.getActive() satisfies the read-only source.
         return ProviderChatRouter(okHttpClient, settings)
     }
 
     @Provides
     @Singleton
-    fun provideMcpRepository(
-        database: AppDatabase,
-        httpClient: McpHttpClient,
-        crypto: CryptoManager,
-    ): McpRepository {
+    fun provideMcpRepository(database: AppDatabase, httpClient: McpHttpClient, crypto: CryptoManager): McpRepository {
         return McpRepository(database, httpClient, crypto)
     }
 

@@ -10,9 +10,6 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -91,18 +88,19 @@ private val lightColorScheme = lightColorScheme(
     errorContainer = RoseErrorContainer,
 )
 
-object ThemePrefs {
-    var useAmoledDark by mutableStateOf(false)
-}
-
 @Composable
-fun MyApplicationTheme(darkTheme: Boolean = isSystemInDarkTheme(), dynamicColor: Boolean = false, content: @Composable () -> Unit) {
+fun MyApplicationTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = false,
+    useAmoledDark: Boolean = false,
+    content: @Composable () -> Unit,
+) {
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme && ThemePrefs.useAmoledDark -> amoledDarkColorScheme
+        darkTheme && useAmoledDark -> amoledDarkColorScheme
         darkTheme -> darkColorScheme
         else -> lightColorScheme
     }

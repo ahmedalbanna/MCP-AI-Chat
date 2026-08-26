@@ -6,7 +6,6 @@ import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
 import com.aistudio.mcpchat.data.model.GeminiResponse
 import com.aistudio.mcpchat.data.model.McpTool
-import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -15,6 +14,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 
 /**
  * Anthropic Messages API (`/v1/messages`) with tool use (tool_use /
@@ -152,8 +152,11 @@ class AnthropicClient(private val client: OkHttpClient) {
                         .put("description", tool.description.take(1024))
                         .put(
                             "input_schema",
-                            if (tool.inputSchemaJson.isNotBlank()) JSONObject(tool.inputSchemaJson)
-                            else JSONObject().put("type", "object").put("properties", JSONObject()),
+                            if (tool.inputSchemaJson.isNotBlank()) {
+                                JSONObject(tool.inputSchemaJson)
+                            } else {
+                                JSONObject().put("type", "object").put("properties", JSONObject())
+                            },
                         ),
                 )
             }
@@ -211,8 +214,7 @@ class AnthropicClient(private val client: OkHttpClient) {
         return GeminiResponse(text = null, rawJson = body, error = message)
     }
 
-    private fun sanitizeName(name: String): String =
-        name.replace(Regex("[^a-zA-Z0-9_-]"), "_").take(64)
+    private fun sanitizeName(name: String): String = name.replace(Regex("[^a-zA-Z0-9_-]"), "_").take(64)
 
     companion object {
         const val TAG = "AnthropicClient"

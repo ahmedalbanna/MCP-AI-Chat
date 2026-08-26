@@ -46,7 +46,6 @@ class FullChatLifecycleTest {
     private lateinit var chatRepository: ChatRepository
     private lateinit var memoryTool: MemoryTool
 
-
     // AndroidKeyStore is unavailable on the JVM; inject one stable test key.
     private val testKey: javax.crypto.SecretKey =
         javax.crypto.KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()

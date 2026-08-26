@@ -40,7 +40,6 @@ class ServerLifecycleTest {
     private lateinit var httpClient: McpHttpClient
     private lateinit var repository: McpRepository
 
-
     // AndroidKeyStore is unavailable on the JVM; inject one stable test key.
     private val testKey: javax.crypto.SecretKey =
         javax.crypto.KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()

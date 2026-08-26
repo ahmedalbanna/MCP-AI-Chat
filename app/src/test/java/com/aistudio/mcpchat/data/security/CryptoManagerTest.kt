@@ -1,12 +1,12 @@
 package com.aistudio.mcpchat.data.security
 
-import javax.crypto.KeyGenerator
-import javax.crypto.SecretKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
 
 class CryptoManagerTest {
 

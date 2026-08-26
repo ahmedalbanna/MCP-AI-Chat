@@ -94,13 +94,29 @@ private class InMemoryPrefs : SharedPreferences {
             map[key ?: return this] = value ?: ""
             return this
         }
-        override fun putStringSet(key: String?, values: MutableSet<String>?): SharedPreferences.Editor { return this }
-        override fun putInt(key: String?, value: Int): SharedPreferences.Editor { return this }
-        override fun putLong(key: String?, value: Long): SharedPreferences.Editor { return this }
-        override fun putFloat(key: String?, value: Float): SharedPreferences.Editor { return this }
-        override fun putBoolean(key: String?, value: Boolean): SharedPreferences.Editor { return this }
-        override fun remove(key: String?): SharedPreferences.Editor { map.remove(key); return this }
-        override fun clear(): SharedPreferences.Editor { map.clear(); return this }
+        override fun putStringSet(key: String?, values: MutableSet<String>?): SharedPreferences.Editor {
+            return this
+        }
+        override fun putInt(key: String?, value: Int): SharedPreferences.Editor {
+            return this
+        }
+        override fun putLong(key: String?, value: Long): SharedPreferences.Editor {
+            return this
+        }
+        override fun putFloat(key: String?, value: Float): SharedPreferences.Editor {
+            return this
+        }
+        override fun putBoolean(key: String?, value: Boolean): SharedPreferences.Editor {
+            return this
+        }
+        override fun remove(key: String?): SharedPreferences.Editor {
+            map.remove(key)
+            return this
+        }
+        override fun clear(): SharedPreferences.Editor {
+            map.clear()
+            return this
+        }
         override fun commit() = true
         override fun apply() {}
     }
@@ -111,8 +127,7 @@ private class InMemoryPrefs : SharedPreferences {
     override fun getInt(key: String?, defValue: Int): Int = map[key]?.toInt() ?: defValue
     override fun getLong(key: String?, defValue: Long): Long = map[key]?.toLong() ?: defValue
     override fun getFloat(key: String?, defValue: Float): Float = map[key]?.toFloat() ?: defValue
-    override fun getBoolean(key: String?, defValue: Boolean): Boolean =
-        map[key]?.toBoolean() ?: defValue
+    override fun getBoolean(key: String?, defValue: Boolean): Boolean = map[key]?.toBoolean() ?: defValue
     override fun contains(key: String?): Boolean = map.containsKey(key)
     override fun edit(): SharedPreferences.Editor = editor
     override fun registerOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit

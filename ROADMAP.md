@@ -2,7 +2,7 @@
 
 A phased plan to transform the current prototype into a production-ready, maintainable Android application.
 
-> **Status audit (Sept 2026 code review):** Phase 9 (Aug 2026) remediation is largely verified in `app/src/main:44` sources, `AppDatabase:10` v2, `McpHttpClient:21`, `ChatRepository:27`, `AiProviderSettings:21`, `di/AppModule:21`. Three Phase 9 claims are only partially true (see Phase 10), and new build/CI drift was found. New **Phase 10** tracks the Sept 2026 delta. Statuses below reflect `git log --oneline b47b638..f6b0424` + file reads on 2026-09-23.
+> **Status audit (Sept 2026 code review):** Phase 9 (Aug 2026) remediation is largely verified in `app/src/main:44` sources, `AppDatabase:10` v2, `McpHttpClient:21`, `ChatRepository:27`, `AiProviderSettings:21`, `di/AppModule:21`. Three Phase 9 claims are only partially true (see Phase 10), and new build/CI drift was found. New **Phase 10** tracks the Sept 2026 delta. **Phase 11 (26 Aug 2026)** adds persistent UI customization (theme). Statuses below reflect `git log --oneline b47b638..f6b0424` + file reads on 2026-09-23 and `git log --oneline` + file reads on 2026-08-26 for Phase 11.
 
 ---
 
@@ -37,8 +37,8 @@ A phased plan to transform the current prototype into a production-ready, mainta
 ### 1.9 Error & Empty States [x]
 - Empty composables per screen, error `UiError` + retry, banner via `feedbackMessage`, orientation safe via `SavedStateHandle`
 
-### 1.10 Dark Mode & Theming [x]
-- `isSystemInDarkTheme` respected, status/nav bar via `enableEdgeToEdge()`, AMOLED option pending but not blocking
+### 1.10 Dark Mode & Theming [x] — completed via Phase 11 (2026-08-26)
+- `isSystemInDarkTheme` respected, status/nav bar via `enableEdgeToEdge()` [x]; AMOLED now persistent via `ThemeSettings:12` `useAmoledDark` + toggle `SettingsScreen:136` `amoled_switch` [x]; dynamic color opt-in `Theme.kt:99` `useDynamicColor` [x]
 
 ---
 
@@ -239,6 +239,36 @@ Ordered by severity. Checkboxes are **work to do** (all `[ ]` at start of phase)
 
 ---
 
+## Phase 11: UI Customization & Persistent Theming (Aug 2026)
+
+Implements user-controlled appearance (approved 2026-08-26: System/Light/Dark + AMOLED + Dynamic Color opt-in, no hue picker for MVP). Covers approved best answers: persistent `ThemeSettings` via DataStore, gear-less but discoverable 4th bottom tab `Settings`, `dynamicColor` default `false` (brand `IndigoPrimary 0xFF6366F1` preserved). Verified `assembleDebug` SUCCESS, `spotlessCheck` SUCCESS, `NavigationTest` 4/4, subset `testDebugUnitTest` SUCCESS.
+
+### 11.1 Theme Persistence [P1] — **completed 2026-08-26**
+- [x] Add `androidx.datastore:datastore-preferences:1.1.1` (`gradle/libs.versions.toml:34` `datastorePreferences`, `app/build.gradle.kts:120` `androidx.datastore.preferences`) — **P1** DataStore vs EncryptedSharedPreferences: theme prefs are non-sensitive, file `theme_prefs.preferences_pb`
+- [x] `data/local/ThemeSettings.kt:12` — `ThemeMode {SYSTEM,LIGHT,DARK}` enum, `ThemePreferences(themeMode, useAmoledDark, useDynamicColor)`, `preferencesDataStore(name="theme_prefs")`, `preferencesFlow: Flow<ThemePreferences>`, `setThemeMode/setUseAmoledDark/setUseDynamicColor` via `dataStore.edit` — injectable `DataStore<Preferences>?` ctor param for tests
+- [x] Remove volatile `ThemePrefs` `ui/theme/Theme.kt:94` (`object ThemePrefs {var useAmoledDark by mutableStateOf(false)}` was lost on restart) — replace with `MyApplicationTheme:92` params `(darkTheme:Boolean, dynamicColor:Boolean, useAmoledDark:Boolean)` and `when {dynamicColor && S -> dynamic* ; dark && amoled -> amoledDarkColorScheme ; dark -> darkColorScheme ; else -> lightColorScheme }` [x]
+- [x] Hilt `di/AppModule:69` `provideThemeSettings(@ApplicationContext)` `@Singleton` [x]
+
+### 11.2 Settings UI [P1] — **completed 2026-08-26**
+- [x] `ui/viewmodel/ThemeViewModel.kt:10` — `HiltViewModel` exposing `uiState: StateFlow<ThemePreferences>` via `WhileSubscribed(5_000)`, `setThemeMode/setUseAmoledDark/setUseDynamicColor` launching `viewModelScope` [x]
+- [x] `ui/screens/SettingsScreen.kt:32` — `Scaffold` `TopAppBar` “Appearance”, `ThemeModeChip` `FilterChip` trio `SYSTEM/LIGHT/DARK` (`testTag theme_chip_*`), `SettingSwitchRow` for `amoled_switch` (disabled when `LIGHT`) + `dynamic_color_switch` (enabled only on `SDK>=S` `Build.VERSION_CODES.S:79`), helper copy per mode, preview bubbles `PreviewBubble` using `surfaceVariant` vs `primary` [x]
+- [x] Uses `Spacing` `Dimens` tokens (`cardPadding`, `cornerRadiusLg`, `iconSizeLg`) consistent with `Phase 1.1` design system [x]
+
+### 11.3 Navigation & System Integration [P1] — **completed 2026-08-26**
+- [x] `MainActivity.kt:62` — extend `sealed Screen` with `Settings: “settings”, Settings icon`, `MainActivity:70` hoist `ThemeViewModel`, compute `darkTheme` (`LIGHT=false, DARK=true, SYSTEM->isSystemInDarkTheme()`) and call `MyApplicationTheme(darkTheme, dynamicColor=prefs.useDynamicColor, useAmoledDark=prefs.useAmoledDark)` [x]
+- [x] `MainActivity.kt:96` bottom `NavigationBar` items `Chat/Servers/Inspector/Settings` (4 items, `saveState/restoreState` `143` preserved), `NavHost:186` `composable(Settings.route) { SettingsScreen(themeViewModel) }` [x]
+- [x] Alternatives considered (see plan): gear sheet in `ChatScreen.kt:253` vs top-level gear vs drawer — chosen 4th tab for discoverability, fits Material 3 (3-5 items), keeps `NavigationTest.kt:22` pattern [x]
+
+### 11.4 Build Hygiene & Test Fixes [P1] — **completed 2026-08-26**
+- [x] `data/security/AiProviderSettings.kt:137` — `createEncryptedPrefs` try/catch fallback to `getSharedPreferences("ai_provider_prefs")` when `AndroidKeyStore not found` (Robolectric `sdk=36` `KeyStoreException: AndroidKeyStore not found` `MasterKey.Builder:377`) — fixes `NavigationTest.kt:21` `HiltAndroidTest` 4/4 `bottomNav_*` (previously FAILED) while `AiProviderSettingsTest.kt:31` still uses `InMemoryPrefs` [x]
+- [x] `ui/viewmodel/AiProviderSettingsViewModel.kt:16` — move `// null => creating` to own line to satisfy `spotless` `standard:value-parameter-comment` [x]
+- [x] `spotlessApply` reformatted `AiProviders.kt`, `AnthropicClient.kt`, `OpenAiCompatibleClient.kt`, `ChatRepository.kt`, `AppModule.kt`, `ProviderSettingsSheet.kt`, `Theme.kt`, `DatabaseMigrationTest.kt`, etc. — now `spotlessCheck` SUCCESS (was FAILED) [x]
+- [x] `detekt` — 11 pre-existing weighted issues (`AnthropicClient.kt:65` `CyclomaticComplexMethod`, `CryptoManager.kt:40` `ThrowsCount`, etc.) unchanged; 0 new issues from Phase 11 files (`ThemeSettings`, `ThemeViewModel`, `SettingsScreen`, `MainActivity`) [x]
+- [x] `assembleDebug` SUCCESS 2m30s, `testDebugUnitTest --tests *NavigationTest*` SUCCESS 48s, `testDebugUnitTest --tests *ViewModel*/*Crypto*` SUCCESS 17s [x]
+- [x] Next: consider `SettingsScreen` Roborazzi goldens (light/dark/amoled/dynamic) via `SnapshotTests.kt:22` and coverage via `TestThemeModule` if DataStore file I/O needs `PreferenceDataStoreFactory.create` in-memory for faster JVM tests [ ]
+
+---
+
 ## Priority Order
 
 | Priority | Phase | Effort | Impact |
@@ -249,9 +279,10 @@ Ordered by severity. Checkboxes are **work to do** (all `[ ]` at start of phase)
 | **P1** | 10.3 OkHttp injection + per-server timeout decision | M | High |
 | **P1** | 10.4 CI JDK alignment + ProGuard/docs cleanup | S | High |
 | **P1** | 10.5 Migration/snapshot CI gates | S | High |
+| **P1** | 11.1-11.3 Persistent theme + Settings UI + nav | S | High |
 | **P1** | 1.3 Accessibility audit (TalkBack focus) | M | High |
 | **P2** | 7.1-7.2 CI coverage + nightly | M | Medium |
 | **P2** | 4.4 Snapshot goldens | L | Medium |
 | **P3** | 8.1/8.2 SSE vs Memory decision | M | Low-Med |
 
-> Completion rule: Phase 10 items must be verified by `./gradlew detekt spotlessCheck testDebugUnitTest -PscreenshotTests=true lintDebug` on JDK 21 + a `MockWebServer` handshake→list→call integration test before closing the phase.
+> Completion rule: Phase 10-11 items must be verified by `./gradlew detekt spotlessCheck testDebugUnitTest -PscreenshotTests=true lintDebug` on JDK 21 + a `MockWebServer` handshake→list→call integration test before closing the phase. Phase 11 also requires `assembleDebug` SUCCESS + `NavigationTest` 4/4 with fallback `AiProviderSettings` + `SettingsScreen` preview variants.

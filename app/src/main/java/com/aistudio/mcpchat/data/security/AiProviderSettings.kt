@@ -72,8 +72,7 @@ class AiProviderSettings(
 
     // -- Internals --------------------------------------------------------
 
-    private fun activeIdSafe(): String =
-        prefs.getString(KEY_ACTIVE_ID, null) ?: AiProviderIds.ID_GOOGLE
+    private fun activeIdSafe(): String = prefs.getString(KEY_ACTIVE_ID, null) ?: AiProviderIds.ID_GOOGLE
 
     private fun encode(configs: List<AiProviderConfig>): String {
         val array = JSONArray()
@@ -136,17 +135,22 @@ class AiProviderSettings(
         const val KEY_ACTIVE_ID = "ai_provider_active"
 
         fun createEncryptedPrefs(context: Context): SharedPreferences {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
+            return try {
+                val masterKey = MasterKey.Builder(context)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
 
-            return EncryptedSharedPreferences.create(
-                context,
-                "ai_provider_prefs",
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-            )
+                EncryptedSharedPreferences.create(
+                    context,
+                    "ai_provider_prefs",
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+                )
+            } catch (_: Exception) {
+                // Fallback for Robolectric / environments without AndroidKeyStore.
+                context.getSharedPreferences("ai_provider_prefs", Context.MODE_PRIVATE)
+            }
         }
     }
 }

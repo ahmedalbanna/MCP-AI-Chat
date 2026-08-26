@@ -30,11 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.unit.dp
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.AiProviderType
 import com.aistudio.mcpchat.ui.theme.Spacing
-import com.aistudio.mcpchat.ui.viewmodel.AiProviderSettingsViewModel
 import com.aistudio.mcpchat.ui.viewmodel.ProviderDraft
 
 /**
@@ -128,13 +126,7 @@ fun ProviderSettingsSheetContent(
 }
 
 @Composable
-private fun ProviderRow(
-    config: AiProviderConfig,
-    isActive: Boolean,
-    onSelect: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-) {
+private fun ProviderRow(config: AiProviderConfig, isActive: Boolean, onSelect: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
@@ -170,12 +162,7 @@ private fun ProviderRow(
 }
 
 @Composable
-private fun DraftEditor(
-    draft: ProviderDraft,
-    onChange: ((ProviderDraft) -> ProviderDraft) -> Unit,
-    onSave: () -> Unit,
-    onCancel: () -> Unit,
-) {
+private fun DraftEditor(draft: ProviderDraft, onChange: ((ProviderDraft) -> ProviderDraft) -> Unit, onSave: () -> Unit, onCancel: () -> Unit) {
     val isGoogle = draft.typeLabel == AiProviderType.GOOGLE.name
 
     Card(modifier = Modifier.fillMaxWidth()) {

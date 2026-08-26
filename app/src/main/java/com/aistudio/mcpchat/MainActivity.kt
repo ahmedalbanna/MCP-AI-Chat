@@ -9,12 +9,14 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -44,10 +46,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.aistudio.mcpchat.data.local.ThemeMode
 import com.aistudio.mcpchat.ui.screens.ChatScreen
 import com.aistudio.mcpchat.ui.screens.InspectorScreen
 import com.aistudio.mcpchat.ui.screens.OnboardingScreen
 import com.aistudio.mcpchat.ui.screens.ServersScreen
+import com.aistudio.mcpchat.ui.screens.SettingsScreen
 import com.aistudio.mcpchat.ui.screens.hasSeenOnboarding
 import com.aistudio.mcpchat.ui.screens.markOnboardingSeen
 import com.aistudio.mcpchat.ui.theme.IndigoPrimary
@@ -57,12 +61,14 @@ import com.aistudio.mcpchat.ui.viewmodel.AiProviderSettingsViewModel
 import com.aistudio.mcpchat.ui.viewmodel.ChatViewModel
 import com.aistudio.mcpchat.ui.viewmodel.McpInspectorViewModel
 import com.aistudio.mcpchat.ui.viewmodel.McpServersViewModel
+import com.aistudio.mcpchat.ui.viewmodel.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Chat : Screen("chat", "Chat", Icons.Default.Chat)
     object Servers : Screen("servers", "MCP Servers", Icons.Default.Hub)
     object Inspector : Screen("inspector", "Inspector", Icons.Default.Science)
+    object Settings : Screen("settings", "Settings", Icons.Default.Settings)
 }
 
 @AndroidEntryPoint
@@ -71,7 +77,19 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MyApplicationTheme {
+            val themeViewModel: ThemeViewModel = hiltViewModel()
+            val prefs by themeViewModel.uiState.collectAsStateWithLifecycle()
+            val systemDark = isSystemInDarkTheme()
+            val darkTheme = when (prefs.themeMode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.SYSTEM -> systemDark
+            }
+            MyApplicationTheme(
+                darkTheme = darkTheme,
+                dynamicColor = prefs.useDynamicColor,
+                useAmoledDark = prefs.useAmoledDark,
+            ) {
                 MainApp()
             }
         }
@@ -87,6 +105,7 @@ fun MainApp() {
     val providerViewModel: AiProviderSettingsViewModel = hiltViewModel()
     val serversViewModel: McpServersViewModel = hiltViewModel()
     val inspectorViewModel: McpInspectorViewModel = hiltViewModel()
+    val themeViewModel: ThemeViewModel = hiltViewModel()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -97,6 +116,7 @@ fun MainApp() {
         Screen.Chat,
         Screen.Servers,
         Screen.Inspector,
+        Screen.Settings,
     )
 
     Scaffold(
@@ -182,6 +202,9 @@ fun MainApp() {
             }
             composable(Screen.Inspector.route) {
                 InspectorScreen(viewModel = inspectorViewModel)
+            }
+            composable(Screen.Settings.route) {
+                SettingsScreen(viewModel = themeViewModel)
             }
         }
     }

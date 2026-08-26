@@ -55,7 +55,6 @@ class McpRepositoryTest {
         every { database.mcpLogDao() } returns logDao
     }
 
-
     // AndroidKeyStore is unavailable on the JVM; inject a stable test key.
     private val testCrypto = CryptoManager(
         keyProvider = {

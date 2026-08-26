@@ -117,6 +117,7 @@ dependencies {
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.okhttp)
   implementation(libs.androidx.security.crypto)
+  implementation(libs.androidx.datastore.preferences)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

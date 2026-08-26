@@ -5,16 +5,17 @@ import androidx.lifecycle.viewModelScope
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.security.AiProviderSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /** Draft being edited in the provider sheet; null when the sheet is closed. */
 data class ProviderDraft(
-    val id: String? = null, // null => creating a new provider
+    // null => creating a new provider
+    val id: String? = null,
     val name: String,
     val typeLabel: String,
     val baseUrl: String,

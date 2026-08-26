@@ -6,7 +6,6 @@ import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
 import com.aistudio.mcpchat.data.model.GeminiResponse
 import com.aistudio.mcpchat.data.model.McpTool
-import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -15,6 +14,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 
 /**
  * Talks to any OpenAI Chat Completions-compatible endpoint: OpenAI/ChatGPT,
@@ -68,8 +68,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
     }
 
     /** Some local runtimes (Ollama, OpenCode) work without an API key. */
-    private fun requiresApiKey(config: AiProviderConfig): Boolean =
-        config.baseUrl.contains("api.openai.com")
+    private fun requiresApiKey(config: AiProviderConfig): Boolean = config.baseUrl.contains("api.openai.com")
 
     private fun buildRequestJson(
         config: AiProviderConfig,
@@ -88,8 +87,11 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
                 "user" -> messages.put(
                     JSONObject()
                         .put("role", "user")
-                        .put("content", message.parts.filterIsInstance<GeminiPart.Text>()
-                            .joinToString("\n") { it.text}),
+                        .put(
+                            "content",
+                            message.parts.filterIsInstance<GeminiPart.Text>()
+                                .joinToString("\n") { it.text },
+                        ),
                 )
 
                 "model" -> messages.put(buildAssistantMessage(message))
@@ -209,8 +211,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
         return GeminiResponse(text = null, rawJson = body, error = message)
     }
 
-    private fun sanitizeName(name: String): String =
-        name.replace(Regex("[^a-zA-Z0-9_-]"), "_").take(64)
+    private fun sanitizeName(name: String): String = name.replace(Regex("[^a-zA-Z0-9_-]"), "_").take(64)
 
     companion object {
         const val TAG = "OpenAiCompatClient"

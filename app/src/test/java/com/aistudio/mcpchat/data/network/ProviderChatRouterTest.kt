@@ -1,8 +1,8 @@
 package com.aistudio.mcpchat.data.network
 
 import com.aistudio.mcpchat.data.model.AiProviderConfig
-import org.junit.Assert.assertEquals
 import okhttp3.OkHttpClient
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ProviderChatRouterTest {

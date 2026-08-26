@@ -25,10 +25,7 @@ data class AiProviderConfig(
     val model: String = "",
 ) {
     companion object {
-        fun google(
-            apiKey: String = "",
-            model: String = "gemini-3.5-flash",
-        ) = AiProviderConfig(
+        fun google(apiKey: String = "", model: String = "gemini-3.5-flash") = AiProviderConfig(
             id = ID_GOOGLE,
             name = "Google Gemini",
             type = AiProviderType.GOOGLE,
@@ -55,14 +52,13 @@ data class AiProviderConfig(
             model = model,
         )
 
-        fun openCode(endpoint: String = "http://localhost:4096/v1", model: String = "opencode") =
-            AiProviderConfig(
-                id = ID_OPENCODE,
-                name = "OpenCode (local)",
-                type = AiProviderType.OPENAI_COMPATIBLE,
-                baseUrl = endpoint,
-                model = model,
-            )
+        fun openCode(endpoint: String = "http://localhost:4096/v1", model: String = "opencode") = AiProviderConfig(
+            id = ID_OPENCODE,
+            name = "OpenCode (local)",
+            type = AiProviderType.OPENAI_COMPATIBLE,
+            baseUrl = endpoint,
+            model = model,
+        )
 
         fun custom() = AiProviderConfig(
             name = "Custom provider",
