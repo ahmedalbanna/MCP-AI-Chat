@@ -40,6 +40,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -103,6 +105,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -162,12 +165,15 @@ fun ChatScreen(
     }
 
     LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex }
-            .collect { index ->
-                val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                val total = listState.layoutInfo.totalItemsCount
-                userHasScrolledUp = lastVisible < total - 3 && index > 0
-            }
+        snapshotFlow {
+            Triple(
+                listState.firstVisibleItemIndex,
+                listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0,
+                listState.layoutInfo.totalItemsCount,
+            )
+        }.collect { (firstVisible, lastVisible, total) ->
+            userHasScrolledUp = total > 0 && lastVisible < total - 3 && firstVisible > 0
+        }
     }
 
     Scaffold(
@@ -487,21 +493,23 @@ fun ChatScreen(
                                 viewModel.sendMessage("Calculate sqrt(1024) + (45 * 12) / 3.5 and convert 150 km to miles.")
                             }
                         }
-                        // Gradient fade hint indicating horizontal scrollability
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .width(24.dp)
-                                .height(32.dp)
-                                .background(
-                                    androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                        colors = listOf(
-                                            Color.Transparent,
-                                            MaterialTheme.colorScheme.surface,
+                        // Gradient fade hint — only when chips can scroll forward
+                        if (scrollState.canScrollForward) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .width(24.dp)
+                                    .height(32.dp)
+                                    .background(
+                                        androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                MaterialTheme.colorScheme.surface,
+                                            ),
                                         ),
                                     ),
-                                ),
-                        )
+                            )
+                        }
                     }
 
                     Row(
@@ -519,6 +527,17 @@ fun ChatScreen(
                                 )
                             },
                             maxLines = 4,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                            keyboardActions = KeyboardActions(
+                                onSend = {
+                                    if (!isGenerating && inputText.isNotBlank()) {
+                                        val prompt = inputText.trim()
+                                        inputText = ""
+                                        keyboardController?.hide()
+                                        viewModel.sendMessage(prompt)
+                                    }
+                                },
+                            ),
                             shape = RoundedCornerShape(Dimens.cornerRadiusXl),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = IndigoPrimary,

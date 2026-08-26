@@ -20,16 +20,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Science
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -107,117 +107,117 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
             ) {
                 Spacer(modifier = Modifier.height(32.dp))
 
-            Box(contentAlignment = Alignment.Center) {
-                Surface(
-                    color = IndigoPrimary.copy(alpha = glowAlpha * 0.15f),
-                    shape = CircleShape,
-                    modifier = Modifier.size(120.dp * pulseScale),
-                ) {}
-                Surface(
-                    color = IndigoPrimary.copy(alpha = 0.15f),
-                    shape = CircleShape,
-                    border = BorderStroke(2.dp, IndigoPrimary.copy(alpha = 0.4f)),
-                    modifier = Modifier.size(96.dp),
+                Box(contentAlignment = Alignment.Center) {
+                    Surface(
+                        color = IndigoPrimary.copy(alpha = glowAlpha * 0.15f),
+                        shape = CircleShape,
+                        modifier = Modifier.size(120.dp * pulseScale),
+                    ) {}
+                    Surface(
+                        color = IndigoPrimary.copy(alpha = 0.15f),
+                        shape = CircleShape,
+                        border = BorderStroke(2.dp, IndigoPrimary.copy(alpha = 0.4f)),
+                        modifier = Modifier.size(96.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = IndigoPrimaryLight,
+                                modifier = Modifier.size(48.dp),
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Text(
+                    text = "Welcome to",
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium,
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "MCP AI Chat",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "AI-powered chat with Model Context Protocol.\nConnect to remote servers, invoke tools,\nand explore the Inspector.",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp,
+                )
+
+                Spacer(modifier = Modifier.height(40.dp))
+
+                OnboardingFeatureRow(
+                    icon = Icons.Default.Chat,
+                    title = "Chat with AI",
+                    description = "Ask questions and get answers powered by Gemini with MCP tools",
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OnboardingFeatureRow(
+                    icon = Icons.Default.Hub,
+                    title = "MCP Tool Calling",
+                    description = "Connect remote servers and invoke tools via JSON-RPC",
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OnboardingFeatureRow(
+                    icon = Icons.Default.Science,
+                    title = "Inspector & Logs",
+                    description = "Test tools directly and view audit logs of every invocation",
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Pagination dots
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 8.dp),
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            tint = IndigoPrimaryLight,
-                            modifier = Modifier.size(48.dp),
+                    repeat(3) { index ->
+                        Box(
+                            modifier = Modifier
+                                .size(if (index == 0) 24.dp else 8.dp)
+                                .background(
+                                    color = if (index == 0) IndigoPrimary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                    shape = CircleShape,
+                                ),
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                text = "Welcome to",
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium,
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = "MCP AI Chat",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "AI-powered chat with Model Context Protocol.\nConnect to remote servers, invoke tools,\nand explore the Inspector.",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                lineHeight = 22.sp,
-            )
-
-            Spacer(modifier = Modifier.height(40.dp))
-
-            OnboardingFeatureRow(
-                icon = Icons.Default.Chat,
-                title = "Chat with AI",
-                description = "Ask questions and get answers powered by Gemini with MCP tools",
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OnboardingFeatureRow(
-                icon = Icons.Default.Hub,
-                title = "MCP Tool Calling",
-                description = "Connect remote servers and invoke tools via JSON-RPC",
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OnboardingFeatureRow(
-                icon = Icons.Default.Science,
-                title = "Inspector & Logs",
-                description = "Test tools directly and view audit logs of every invocation",
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Pagination dots
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(vertical = 8.dp),
-            ) {
-                repeat(3) { index ->
-                    Box(
-                        modifier = Modifier
-                            .size(if (index == 0) 24.dp else 8.dp)
-                            .background(
-                                color = if (index == 0) IndigoPrimary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                shape = CircleShape,
-                            ),
-                    )
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Get Started", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-            ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Get Started", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }

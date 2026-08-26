@@ -217,7 +217,7 @@ fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier)
                     }
                 }
 
-                if (servers.size > 1) {
+                if (servers.isNotEmpty()) {
                     item {
                         OutlinedTextField(
                             value = searchQuery,
@@ -714,7 +714,9 @@ fun AddServerSheetContent(onDismiss: () -> Unit, onAdd: (name: String, descripti
                 isError = urlError,
                 supportingText = if (urlError) {
                     { Text("Must start with http:// or https://", color = RoseError) }
-                } else null,
+                } else {
+                    null
+                },
                 modifier = Modifier.fillMaxWidth(),
             )
 

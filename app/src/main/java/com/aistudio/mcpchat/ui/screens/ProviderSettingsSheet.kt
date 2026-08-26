@@ -15,19 +15,19 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -238,7 +238,9 @@ private fun DraftEditor(draft: ProviderDraft, onChange: ((ProviderDraft) -> Prov
                 isError = draft.baseUrl.isNotBlank() && !draft.baseUrl.startsWith("http"),
                 supportingText = if (draft.baseUrl.isNotBlank() && !draft.baseUrl.startsWith("http")) {
                     { Text("Must start with http:// or https://", color = MaterialTheme.colorScheme.error) }
-                } else null,
+                } else {
+                    null
+                },
                 modifier = Modifier.fillMaxWidth(),
             )
 

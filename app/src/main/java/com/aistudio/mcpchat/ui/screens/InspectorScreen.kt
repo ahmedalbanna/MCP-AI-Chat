@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -90,11 +91,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InspectorScreen(
-    viewModel: McpInspectorViewModel,
-    modifier: Modifier = Modifier,
-    onNavigateToServers: (() -> Unit)? = null,
-) {
+fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier, onNavigateToServers: (() -> Unit)? = null) {
     val servers by viewModel.servers.collectAsStateWithLifecycle()
     val tools by viewModel.tools.collectAsStateWithLifecycle()
     val logs by viewModel.logs.collectAsStateWithLifecycle()
@@ -314,7 +311,10 @@ fun InspectorScreen(
                                                 text = { Text("This will delete all ${logs.size} log entries.") },
                                                 confirmButton = {
                                                     TextButton(
-                                                        onClick = { viewModel.clearLogs(); showClearConfirm = false },
+                                                        onClick = {
+                                                            viewModel.clearLogs()
+                                                            showClearConfirm = false
+                                                        },
                                                         colors = ButtonDefaults.textButtonColors(contentColor = RoseError),
                                                     ) { Text("Clear") }
                                                 },
@@ -443,9 +443,13 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
     var expanded by remember { mutableStateOf(false) }
     var pickerQuery by remember { mutableStateOf("") }
     val filteredTools = remember(tools, pickerQuery) {
-        if (pickerQuery.isBlank()) tools else tools.filter {
-            it.name.contains(pickerQuery, ignoreCase = true) ||
-                it.serverName.contains(pickerQuery, ignoreCase = true)
+        if (pickerQuery.isBlank()) {
+            tools
+        } else {
+            tools.filter {
+                it.name.contains(pickerQuery, ignoreCase = true) ||
+                    it.serverName.contains(pickerQuery, ignoreCase = true)
+            }
         }
     }
 
@@ -509,7 +513,11 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
 
                 DropdownMenu(
                     expanded = expanded,
-                    onDismissRequest = { expanded = false; pickerQuery = "" },
+                    onDismissRequest = {
+                        expanded = false
+                        pickerQuery = ""
+                    },
+                    modifier = Modifier.heightIn(max = 320.dp),
                 ) {
                     if (tools.size > 5) {
                         OutlinedTextField(
@@ -596,7 +604,9 @@ fun ParametersCard(
                     try {
                         val arr = JSONObject(tool.inputSchemaJson).optJSONArray("required")
                         (0 until (arr?.length() ?: 0)).map { i -> arr!!.getString(i) }.toSet()
-                    } catch (_: Exception) { emptySet() }
+                    } catch (_: Exception) {
+                        emptySet()
+                    }
                 }
                 val propTypes = remember(tool.inputSchemaJson) {
                     try {
@@ -606,7 +616,9 @@ fun ParametersCard(
                                 put(k, props.optJSONObject(k)?.optString("type")?.lowercase())
                             }
                         }
-                    } catch (_: Exception) { emptyMap() }
+                    } catch (_: Exception) {
+                        emptyMap()
+                    }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     for ((key, value) in parameterInputs) {

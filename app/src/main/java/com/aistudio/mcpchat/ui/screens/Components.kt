@@ -10,7 +10,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +24,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
@@ -49,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -163,7 +165,10 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                             role = Role.Button
                             contentDescription = "Expand or collapse tool call details for ${toolCall.toolName}"
                         }
-                        .clickable { isExpanded = !isExpanded },
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null,
+                        ) { isExpanded = !isExpanded },
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -215,10 +220,12 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                                 Spacer(modifier = Modifier.width(Spacing.xs))
                                 Text(
                                     text = toolCall.toolName,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                    ),
                                     color = MaterialTheme.colorScheme.primary,
-                                    fontFamily = FontFamily.Monospace,
                                 )
                             }
                             Text(
@@ -238,9 +245,11 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                             ) {
                                 Text(
                                     text = "${toolCall.executionTimeMs}ms",
-                                    fontSize = 10.sp,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp,
+                                    ),
                                     color = EmeraldTertiary,
-                                    fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
                                 )
                             }
@@ -376,19 +385,21 @@ fun CodeBlock(code: String, language: String = "", modifier: Modifier = Modifier
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(Spacing.sm)
-                    .horizontalScroll(rememberScrollState()),
-            ) {
-                Text(
-                    text = code,
-                    color = codeTextColor,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    lineHeight = 16.sp,
-                )
+            SelectionContainer {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Spacing.sm)
+                        .horizontalScroll(rememberScrollState()),
+                ) {
+                    Text(
+                        text = code,
+                        color = codeTextColor,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight = 16.sp,
+                    )
+                }
             }
         }
     }
@@ -453,19 +464,14 @@ fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
                             fontSize = 14.sp,
                             modifier = Modifier.padding(end = Spacing.sm),
                         )
-                        Text(
-                            text = parseInlineMarkdown(bulletText),
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 20.sp,
+                        InlineMarkdownText(
+                            annotatedString = parseInlineMarkdown(bulletText),
+                            modifier = Modifier,
                         )
                     }
                 } else if (line.isNotBlank()) {
-                    Text(
-                        text = parseInlineMarkdown(line),
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        lineHeight = 20.sp,
+                    InlineMarkdownText(
+                        annotatedString = parseInlineMarkdown(line),
                         modifier = Modifier.padding(vertical = Spacing.xxs),
                     )
                 } else {
@@ -484,19 +490,18 @@ fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
     }
 }
 
+@Suppress("CyclomaticComplexMethod")
 private fun parseInlineMarkdown(text: String): androidx.compose.ui.text.AnnotatedString {
     return buildAnnotatedString {
         var idx = 0
         while (idx < text.length) {
             val boldStart = text.indexOf("**", idx)
             val codeStart = text.indexOf("`", idx)
+            val linkStart = text.indexOf("[", idx)
 
-            val nextSpecial = when {
-                boldStart != -1 && codeStart != -1 -> minOf(boldStart, codeStart)
-                boldStart != -1 -> boldStart
-                codeStart != -1 -> codeStart
-                else -> -1
-            }
+            val nextSpecial = listOf(boldStart, codeStart, linkStart)
+                .filter { it != -1 }
+                .minOrNull() ?: -1
 
             if (nextSpecial == -1) {
                 append(text.substring(idx))
@@ -507,37 +512,88 @@ private fun parseInlineMarkdown(text: String): androidx.compose.ui.text.Annotate
                 append(text.substring(idx, nextSpecial))
             }
 
-            if (nextSpecial == boldStart) {
-                val boldEnd = text.indexOf("**", boldStart + 2)
-                if (boldEnd != -1) {
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                        append(text.substring(boldStart + 2, boldEnd))
+            when (nextSpecial) {
+                boldStart -> {
+                    val boldEnd = text.indexOf("**", boldStart + 2)
+                    if (boldEnd != -1) {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                            append(text.substring(boldStart + 2, boldEnd))
+                        }
+                        idx = boldEnd + 2
+                    } else {
+                        append("**")
+                        idx = boldStart + 2
                     }
-                    idx = boldEnd + 2
-                } else {
-                    append("**")
-                    idx = boldStart + 2
                 }
-            } else if (nextSpecial == codeStart) {
-                val codeEnd = text.indexOf("`", codeStart + 1)
-                if (codeEnd != -1) {
-                    withStyle(
-                        SpanStyle(
-                            fontFamily = FontFamily.Monospace,
-                            color = CyanSecondary,
-                            background = Color(0xFF1E293B).copy(alpha = 0.5f),
-                        ),
-                    ) {
-                        append(text.substring(codeStart + 1, codeEnd))
+                codeStart -> {
+                    val codeEnd = text.indexOf("`", codeStart + 1)
+                    if (codeEnd != -1) {
+                        withStyle(
+                            SpanStyle(
+                                fontFamily = FontFamily.Monospace,
+                                color = CyanSecondary,
+                                background = Color(0xFF1E293B).copy(alpha = 0.5f),
+                            ),
+                        ) {
+                            append(text.substring(codeStart + 1, codeEnd))
+                        }
+                        idx = codeEnd + 1
+                    } else {
+                        append("`")
+                        idx = codeStart + 1
                     }
-                    idx = codeEnd + 1
-                } else {
-                    append("`")
-                    idx = codeStart + 1
+                }
+                linkStart -> {
+                    val linkEnd = text.indexOf("]", linkStart + 1)
+                    val parenStart = if (linkEnd != -1) text.indexOf("(", linkEnd) else -1
+                    val parenEnd = if (parenStart == linkEnd + 1) text.indexOf(")", parenStart + 1) else -1
+                    if (linkEnd != -1 && parenStart == linkEnd + 1 && parenEnd != -1) {
+                        val label = text.substring(linkStart + 1, linkEnd)
+                        val url = text.substring(parenStart + 1, parenEnd)
+                        if (url.startsWith("http://") || url.startsWith("https://")) {
+                            pushStringAnnotation(tag = "URL", annotation = url)
+                            withStyle(SpanStyle(color = CyanSecondary, fontWeight = FontWeight.Medium)) {
+                                append(label)
+                            }
+                            pop()
+                        } else {
+                            append(text.substring(linkStart, parenEnd + 1))
+                        }
+                        idx = parenEnd + 1
+                    } else {
+                        append("[")
+                        idx = linkStart + 1
+                    }
+                }
+                else -> {
+                    append(text.substring(idx, nextSpecial + 1))
+                    idx = nextSpecial + 1
                 }
             }
         }
     }
+}
+
+@Composable
+private fun InlineMarkdownText(annotatedString: androidx.compose.ui.text.AnnotatedString, modifier: Modifier = Modifier) {
+    val uriHandler = LocalUriHandler.current
+    ClickableText(
+        text = annotatedString,
+        style = androidx.compose.ui.text.TextStyle(
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            lineHeight = 20.sp,
+        ),
+        modifier = modifier,
+        onClick = { offset ->
+            annotatedString.getStringAnnotations(tag = "URL", start = offset, end = offset)
+                .firstOrNull()?.let { annotation ->
+                    try {
+                        uriHandler.openUri(annotation.item)
+                    } catch (_: Exception) { }
+                }
+        },
+    )
 }
 
 private fun formatJsonArguments(map: Map<String, Any?>): String {
