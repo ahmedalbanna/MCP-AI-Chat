@@ -39,6 +39,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,11 +53,27 @@ import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.ThemeViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: ThemeViewModel, modifier: Modifier = Modifier) {
     val prefs by viewModel.uiState.collectAsStateWithLifecycle()
+    SettingsScreenContent(
+        prefs = prefs,
+        onSelectMode = viewModel::setThemeMode,
+        onAmoledChange = viewModel::setUseAmoledDark,
+        onDynamicChange = viewModel::setUseDynamicColor,
+        modifier = modifier,
+    )
+}
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreenContent(
+    prefs: com.aistudio.mcpchat.data.local.ThemePreferences,
+    onSelectMode: (ThemeMode) -> Unit,
+    onAmoledChange: (Boolean) -> Unit,
+    onDynamicChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -97,7 +119,7 @@ fun SettingsScreen(viewModel: ThemeViewModel, modifier: Modifier = Modifier) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.Palette,
-                            contentDescription = null,
+                            contentDescription = "Theme mode",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(Dimens.iconSizeLg),
                         )
@@ -106,6 +128,7 @@ fun SettingsScreen(viewModel: ThemeViewModel, modifier: Modifier = Modifier) {
                             text = "Theme mode",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 15.sp,
+                            modifier = Modifier.semantics { heading() },
                         )
                     }
                     Spacer(modifier = Modifier.height(Spacing.md))
@@ -117,21 +140,21 @@ fun SettingsScreen(viewModel: ThemeViewModel, modifier: Modifier = Modifier) {
                             label = "System",
                             icon = Icons.Default.BrightnessAuto,
                             selected = prefs.themeMode == ThemeMode.SYSTEM,
-                            onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
+                            onClick = { onSelectMode(ThemeMode.SYSTEM) },
                             modifier = Modifier.weight(1f),
                         )
                         ThemeModeChip(
                             label = "Light",
                             icon = Icons.Default.LightMode,
                             selected = prefs.themeMode == ThemeMode.LIGHT,
-                            onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) },
+                            onClick = { onSelectMode(ThemeMode.LIGHT) },
                             modifier = Modifier.weight(1f),
                         )
                         ThemeModeChip(
                             label = "Dark",
                             icon = Icons.Default.DarkMode,
                             selected = prefs.themeMode == ThemeMode.DARK,
-                            onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
+                            onClick = { onSelectMode(ThemeMode.DARK) },
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -162,7 +185,7 @@ fun SettingsScreen(viewModel: ThemeViewModel, modifier: Modifier = Modifier) {
                         subtitle = "Pure black background in dark mode. Saves battery on OLED.",
                         checked = prefs.useAmoledDark,
                         enabled = prefs.themeMode != ThemeMode.LIGHT,
-                        onCheckedChange = { viewModel.setUseAmoledDark(it) },
+                        onCheckedChange = onAmoledChange,
                         testTag = "amoled_switch",
                     )
                     Spacer(modifier = Modifier.height(Spacing.md))
@@ -175,7 +198,7 @@ fun SettingsScreen(viewModel: ThemeViewModel, modifier: Modifier = Modifier) {
                         },
                         checked = prefs.useDynamicColor,
                         enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
-                        onCheckedChange = { viewModel.setUseDynamicColor(it) },
+                        onCheckedChange = onDynamicChange,
                         testTag = "dynamic_color_switch",
                     )
                 }
@@ -193,6 +216,7 @@ fun SettingsScreen(viewModel: ThemeViewModel, modifier: Modifier = Modifier) {
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.semantics { heading() },
                     )
                     Spacer(modifier = Modifier.height(Spacing.sm))
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -219,7 +243,13 @@ private fun ThemeModeChip(label: String, icon: ImageVector, selected: Boolean, o
             selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
             selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
         ),
-        modifier = modifier.testTag("theme_chip_${label.lowercase()}"),
+        modifier = modifier
+            .testTag("theme_chip_${label.lowercase()}")
+            .semantics {
+                role = Role.Button
+                contentDescription = "Select $label theme"
+                stateDescription = if (selected) "Selected" else "Not selected"
+            },
     )
 }
 
@@ -234,7 +264,12 @@ private fun SettingSwitchRow(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                contentDescription = title
+                stateDescription = if (checked) "On" else "Off"
+            },
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -255,7 +290,12 @@ private fun SettingSwitchRow(
             checked = checked,
             enabled = enabled,
             onCheckedChange = onCheckedChange,
-            modifier = Modifier.testTag(testTag),
+            modifier = Modifier
+                .testTag(testTag)
+                .semantics {
+                    contentDescription = title
+                    stateDescription = if (checked) "Enabled" else "Disabled"
+                },
         )
     }
 }

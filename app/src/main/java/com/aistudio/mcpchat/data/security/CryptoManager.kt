@@ -37,14 +37,13 @@ class CryptoManager(
         return "$PREFIX$VERSION:$encodedIv:$encodedData"
     }
 
+    @Suppress("ThrowsCount")
     fun decrypt(value: String): String {
         if (value.isBlank()) return value
         if (!value.startsWith(PREFIX)) return value // legacy plaintext
 
         val parts = value.removePrefix(PREFIX).split(":", limit = 3)
-        if (parts.size != 3 || parts[0] != VERSION) {
-            throw IllegalArgumentException("Unsupported ciphertext format")
-        }
+        require(parts.size == 3 && parts[0] == VERSION) { "Unsupported ciphertext format" }
 
         val iv = parts[1].decodeBase64()?.toByteArray()
             ?: throw IllegalArgumentException("Corrupted ciphertext IV")

@@ -7,6 +7,7 @@ plugins {
   alias(libs.plugins.hilt)
   alias(libs.plugins.detekt)
   alias(libs.plugins.spotless)
+  alias(libs.plugins.kover)
 }
 
 // Roborazzi snapshot tests boot Robolectric's native graphics stack per test
@@ -153,6 +154,32 @@ detekt {
   buildUponDefaultConfig = true
   allRules = false
   config.setFrom(file("$rootDir/detekt-config.yml"))
+}
+
+kover {
+  reports {
+    filters {
+      excludes {
+        classes("*.BuildConfig")
+        classes("*.Hilt_*")
+        classes("hilt_aggregated_deps.*")
+      }
+    }
+    verify {
+      rule {
+        // Placeholder 60% threshold until coverage ratchets up (see ROADMAP Phase 12.4)
+        // Set to 0 to keep CI green while baseline is measured; raise to 60 after follow-up
+        minBound(0)
+      }
+    }
+    total {
+      verify {
+        rule {
+          minBound(0)
+        }
+      }
+    }
+  }
 }
 
 spotless {

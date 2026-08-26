@@ -2,10 +2,13 @@ package com.aistudio.mcpchat
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import com.aistudio.mcpchat.data.local.ThemeMode
+import com.aistudio.mcpchat.data.local.ThemePreferences
 import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.model.ToolExecutionStatus
 import com.aistudio.mcpchat.ui.screens.ServerStatusBadge
+import com.aistudio.mcpchat.ui.screens.SettingsScreenContent
 import com.aistudio.mcpchat.ui.screens.ToolCallCard
 import com.aistudio.mcpchat.ui.theme.MyApplicationTheme
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -117,5 +120,65 @@ class SnapshotTests {
             }
         }
         capture("tool_call_card_error")
+    }
+
+    @Test
+    fun settings_light() {
+        composeTestRule.setContent {
+            MyApplicationTheme(darkTheme = false) {
+                SettingsScreenContent(
+                    prefs = ThemePreferences(ThemeMode.LIGHT, useAmoledDark = false, useDynamicColor = false),
+                    onSelectMode = {},
+                    onAmoledChange = {},
+                    onDynamicChange = {},
+                )
+            }
+        }
+        capture("settings_light")
+    }
+
+    @Test
+    fun settings_dark() {
+        composeTestRule.setContent {
+            MyApplicationTheme(darkTheme = true) {
+                SettingsScreenContent(
+                    prefs = ThemePreferences(ThemeMode.DARK, useAmoledDark = false, useDynamicColor = false),
+                    onSelectMode = {},
+                    onAmoledChange = {},
+                    onDynamicChange = {},
+                )
+            }
+        }
+        capture("settings_dark")
+    }
+
+    @Test
+    fun settings_amoled() {
+        composeTestRule.setContent {
+            MyApplicationTheme(darkTheme = true, useAmoledDark = true) {
+                SettingsScreenContent(
+                    prefs = ThemePreferences(ThemeMode.DARK, useAmoledDark = true, useDynamicColor = false),
+                    onSelectMode = {},
+                    onAmoledChange = {},
+                    onDynamicChange = {},
+                )
+            }
+        }
+        capture("settings_amoled")
+    }
+
+    @Test
+    fun settings_system() {
+        composeTestRule.setContent {
+            MyApplicationTheme(darkTheme = false) {
+                SettingsScreenContent(
+                    prefs = ThemePreferences(ThemeMode.SYSTEM, useAmoledDark = false, useDynamicColor = false),
+                    onSelectMode = {},
+                    onAmoledChange = {},
+                    onDynamicChange = {},
+                )
+            }
+        }
+        capture("settings_system")
     }
 }

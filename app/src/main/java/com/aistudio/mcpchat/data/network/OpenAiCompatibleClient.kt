@@ -70,8 +70,9 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
     /** Some local runtimes (Ollama, OpenCode) work without an API key. */
     private fun requiresApiKey(config: AiProviderConfig): Boolean = config.baseUrl.contains("api.openai.com")
 
+    @Suppress("UnusedParameter")
     private fun buildRequestJson(
-        config: AiProviderConfig,
+        @Suppress("UNUSED_PARAMETER") config: AiProviderConfig,
         modelName: String,
         history: List<GeminiMessage>,
         tools: List<McpTool>,

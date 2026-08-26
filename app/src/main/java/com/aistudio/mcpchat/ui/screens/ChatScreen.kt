@@ -138,7 +138,6 @@ fun ChatScreen(
     var inputText by remember { mutableStateOf("") }
     var showServersSheet by remember { mutableStateOf(false) }
     var showSessionsSheet by remember { mutableStateOf(false) }
-    var showModelMenu by remember { mutableStateOf(false) }
     var showProviderSheet by remember { mutableStateOf(false) }
     val providerUiState by providerViewModel.uiState.collectAsStateWithLifecycle()
     val activeProviderConfig = providerUiState.configs.find { it.id == providerUiState.activeId }

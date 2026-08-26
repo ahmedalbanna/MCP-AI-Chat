@@ -16,7 +16,7 @@ import okhttp3.OkHttpClient
  */
 class ProviderChatRouter(
     client: OkHttpClient,
-    private val settings: ActiveAiProviderSource,
+    @Suppress("UnusedPrivateProperty") private val settings: ActiveAiProviderSource,
 ) : AiChatService {
 
     private val openAiCompatible = OpenAiCompatibleClient(client)

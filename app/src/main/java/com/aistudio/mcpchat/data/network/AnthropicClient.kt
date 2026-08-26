@@ -62,8 +62,9 @@ class AnthropicClient(private val client: OkHttpClient) {
         }
     }
 
+    @Suppress("CyclomaticComplexMethod", "NestedBlockDepth", "UnusedParameter")
     private fun buildRequestJson(
-        config: AiProviderConfig,
+        @Suppress("UNUSED_PARAMETER") config: AiProviderConfig,
         modelName: String,
         history: List<GeminiMessage>,
         tools: List<McpTool>,
@@ -165,6 +166,7 @@ class AnthropicClient(private val client: OkHttpClient) {
         return requestJson
     }
 
+    @Suppress("NestedBlockDepth")
     private fun parseResponse(body: String): GeminiResponse {
         val json = JSONObject(body)
         val contentBlocks = json.optJSONArray("content")

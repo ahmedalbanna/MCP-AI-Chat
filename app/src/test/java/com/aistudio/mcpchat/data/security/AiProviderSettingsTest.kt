@@ -1,6 +1,5 @@
 package com.aistudio.mcpchat.data.security
 
-import android.content.Context
 import android.content.SharedPreferences
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.AiProviderIds
@@ -118,6 +117,8 @@ private class InMemoryPrefs : SharedPreferences {
             return this
         }
         override fun commit() = true
+
+        @Suppress("EmptyFunctionBlock")
         override fun apply() {}
     }
 
@@ -133,5 +134,3 @@ private class InMemoryPrefs : SharedPreferences {
     override fun registerOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
     override fun unregisterOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
 }
-
-private fun Context.dummy() = Unit
