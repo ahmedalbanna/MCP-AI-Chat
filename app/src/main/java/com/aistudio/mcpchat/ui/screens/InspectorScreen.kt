@@ -598,13 +598,23 @@ fun ParametersCard(
                         (0 until (arr?.length() ?: 0)).map { i -> arr!!.getString(i) }.toSet()
                     } catch (_: Exception) { emptySet() }
                 }
+                val propTypes = remember(tool.inputSchemaJson) {
+                    try {
+                        val props = JSONObject(tool.inputSchemaJson).optJSONObject("properties")
+                        buildMap {
+                            props?.keys()?.forEach { k ->
+                                put(k, props.optJSONObject(k)?.optString("type")?.lowercase())
+                            }
+                        }
+                    } catch (_: Exception) { emptyMap() }
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     for ((key, value) in parameterInputs) {
                         val isError = value.isBlank() && requiredKeys.contains(key)
-                        val helperText = when {
-                            key == "days" && value.toIntOrNull() == null && value.isNotBlank() -> "Must be a number"
-                            key == "amount" && value.toDoubleOrNull() == null && value.isNotBlank() -> "Must be a number"
-                            key == "value" && value.toDoubleOrNull() == null && value.isNotBlank() -> "Must be a number"
+                        val helperText = when (propTypes[key]) {
+                            "integer" -> if (value.isNotBlank() && value.toIntOrNull() == null) "Must be an integer" else null
+                            "number" -> if (value.isNotBlank() && value.toDoubleOrNull() == null) "Must be a number" else null
+                            "boolean" -> if (value.isNotBlank() && value.lowercase() !in setOf("true", "false")) "Must be true or false" else null
                             else -> null
                         }
                         OutlinedTextField(

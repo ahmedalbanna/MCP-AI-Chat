@@ -223,6 +223,11 @@ fun SettingsScreenContent(
                         PreviewBubble(text = "Hello with MCP tools!", isUser = true, modifier = Modifier.weight(1f))
                         PreviewBubble(text = "Hi! How can I help?", isUser = false, modifier = Modifier.weight(1f))
                     }
+                    Spacer(modifier = Modifier.height(Spacing.sm))
+                    CodeBlock(
+                        code = """{"tool": "weather", "args": {"location": "Tokyo"}}""",
+                        language = "json",
+                    )
                 }
             }
         }

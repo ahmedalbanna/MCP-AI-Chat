@@ -327,13 +327,11 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
 @Composable
 fun CodeBlock(code: String, language: String = "", modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
-
-    val codeBgColor = if (isDark) Color(0xFF090D16) else Color(0xFFE2E8F0)
-    val headerBgColor = if (isDark) Color(0xFF0F172A) else Color(0xFFCBD5E1)
-    val borderColorCode = if (isDark) Color(0xFF1E293B) else Color(0xFF94A3B8)
-    val codeTextColor = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B)
-    val iconTintColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)
+    val codeBgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+    val headerBgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val borderColorCode = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+    val codeTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val iconTintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
 
     Surface(
         color = codeBgColor,

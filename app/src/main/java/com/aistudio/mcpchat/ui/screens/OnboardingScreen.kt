@@ -28,12 +28,15 @@ import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -85,14 +88,24 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.background,
         modifier = modifier.fillMaxSize(),
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-        ) {
-            Spacer(modifier = Modifier.weight(0.15f))
+        Box(modifier = Modifier.fillMaxSize()) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 16.dp, end = 8.dp),
+            ) {
+                Text("Skip", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(32.dp),
+            ) {
+                Spacer(modifier = Modifier.height(32.dp))
 
             Box(contentAlignment = Alignment.Center) {
                 Surface(
@@ -169,7 +182,27 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                 description = "Test tools directly and view audit logs of every invocation",
             )
 
-            Spacer(modifier = Modifier.weight(0.2f))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Pagination dots
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = 8.dp),
+            ) {
+                repeat(3) { index ->
+                    Box(
+                        modifier = Modifier
+                            .size(if (index == 0) 24.dp else 8.dp)
+                            .background(
+                                color = if (index == 0) IndigoPrimary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                shape = CircleShape,
+                            ),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             Button(
                 onClick = onDismiss,
@@ -185,6 +218,7 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 }

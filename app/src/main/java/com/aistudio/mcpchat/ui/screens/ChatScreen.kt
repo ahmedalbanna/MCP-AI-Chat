@@ -253,19 +253,6 @@ fun ChatScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { showServersSheet = true },
-                        modifier = Modifier
-                            .minimumInteractiveComponentSize()
-                            .testTag("mcp_servers_toggle_button"),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Hub,
-                            contentDescription = "Active MCP Servers",
-                            tint = CyanSecondary,
-                        )
-                    }
-
-                    IconButton(
                         onClick = { showSessionsSheet = true },
                         modifier = Modifier
                             .minimumInteractiveComponentSize()
@@ -461,43 +448,60 @@ fun ChatScreen(
                     .navigationBarsPadding(),
             ) {
                 Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(bottom = Spacing.sm),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                    ) {
-                        QuickActionChip(
-                            label = "Tokyo Weather",
-                            icon = Icons.Default.WbSunny,
+                    Box(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
+                        val scrollState = rememberScrollState()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(scrollState),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                         ) {
-                            viewModel.sendMessage("Get the live weather in Tokyo and describe current conditions.")
+                            QuickActionChip(
+                                label = "Tokyo Weather",
+                                icon = Icons.Default.WbSunny,
+                            ) {
+                                viewModel.sendMessage("Get the live weather in Tokyo and describe current conditions.")
+                            }
+                            QuickActionChip(
+                                label = "Kotlin Repos",
+                                icon = Icons.Default.Code,
+                            ) {
+                                viewModel.sendMessage("Search GitHub for trending Kotlin Jetpack Compose repositories.")
+                            }
+                            QuickActionChip(
+                                label = "BTC & EUR",
+                                icon = Icons.Default.CurrencyBitcoin,
+                            ) {
+                                viewModel.sendMessage("Get the live price of Bitcoin and convert 1500 USD to EUR.")
+                            }
+                            QuickActionChip(
+                                label = "World Time",
+                                icon = Icons.Default.Schedule,
+                            ) {
+                                viewModel.sendMessage("What is the current time in Tokyo, London, and New York?")
+                            }
+                            QuickActionChip(
+                                label = "Math Engine",
+                                icon = Icons.Default.Speed,
+                            ) {
+                                viewModel.sendMessage("Calculate sqrt(1024) + (45 * 12) / 3.5 and convert 150 km to miles.")
+                            }
                         }
-                        QuickActionChip(
-                            label = "Kotlin Repos",
-                            icon = Icons.Default.Code,
-                        ) {
-                            viewModel.sendMessage("Search GitHub for trending Kotlin Jetpack Compose repositories.")
-                        }
-                        QuickActionChip(
-                            label = "BTC & EUR",
-                            icon = Icons.Default.CurrencyBitcoin,
-                        ) {
-                            viewModel.sendMessage("Get the live price of Bitcoin and convert 1500 USD to EUR.")
-                        }
-                        QuickActionChip(
-                            label = "World Time",
-                            icon = Icons.Default.Schedule,
-                        ) {
-                            viewModel.sendMessage("What is the current time in Tokyo, London, and New York?")
-                        }
-                        QuickActionChip(
-                            label = "Math Engine",
-                            icon = Icons.Default.Speed,
-                        ) {
-                            viewModel.sendMessage("Calculate sqrt(1024) + (45 * 12) / 3.5 and convert 150 km to miles.")
-                        }
+                        // Gradient fade hint indicating horizontal scrollability
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .width(24.dp)
+                                .height(32.dp)
+                                .background(
+                                    androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            MaterialTheme.colorScheme.surface,
+                                        ),
+                                    ),
+                                ),
+                        )
                     }
 
                     Row(
