@@ -2,7 +2,7 @@
 
 A phased plan to transform the current prototype into a production-ready, maintainable Android application.
 
-> **Status audit (Sept 2026 code review):** Phase 9 (Aug 2026) remediation is largely verified in `app/src/main:44` sources, `AppDatabase:10` v2, `McpHttpClient:21`, `ChatRepository:27`, `AiProviderSettings:21`, `di/AppModule:21`. Three Phase 9 claims are only partially true (see Phase 10), and new build/CI drift was found. New **Phase 10** tracks the Sept 2026 delta. **Phase 11 (26 Aug 2026)** adds persistent UI customization (theme). **Phase 12 (26 Aug 2026)** hardens quality/accessibility/snapshots/coverage. Statuses below reflect `git log --oneline b47b638..f6b0424` + file reads on 2026-09-23 and `git log --oneline` + file reads on 2026-08-26 for Phase 11-12.
+> **Status audit (Sept 2026 code review):** Phase 9 (Aug 2026) remediation is largely verified in `app/src/main:44` sources, `AppDatabase:10` v2, `McpHttpClient:21`, `ChatRepository:27`, `AiProviderSettings:21`, `di/AppModule:21`. Three Phase 9 claims are only partially true (see Phase 10), and new build/CI drift was found. New **Phase 10** tracks the Sept 2026 delta. **Phase 11 (26 Aug 2026)** adds persistent UI customization (theme). **Phase 12 (26 Aug 2026)** hardens quality/accessibility/snapshots/coverage. **Phase 13 (26 Aug 2026)** hardens UI review PR1 (Theme/Chat/Servers/Inspector/Components). Statuses below reflect `git log --oneline b47b638..f6b0424` + file reads on 2026-09-23 and `git log --oneline` + file reads on 2026-08-26 for Phase 11-13 (incl. `4884684`).
 
 ---
 
@@ -315,8 +315,48 @@ Addresses remaining P1/P2 from priority table (accessibility, detekt, snapshots,
 | **P1** | 1.3 Accessibility audit (TalkBack focus) | M | High |
 | **P2** | 12.3 Snapshot goldens (Settings variants) | M | Medium |
 | **P2** | 12.4 Kover gate 60% placeholder | S | Medium |
+| **P0** | 13.1 Theme Activity cast crash | S | Critical |
+| **P0** | 13.2 Chat autoscroll + IME Send + gradient | S | High |
+| **P1** | 13.3 Servers filter + 13.4 Inspector dropdown | S | High |
+| **P1** | 13.5 Components nested click/selectable/mono | S | High |
+| **P2** | 13.6 Markdown link support | S | Medium |
 | **P2** | 7.1-7.2 CI coverage + nightly | M | Medium |
 | **P2** | 4.4 Snapshot goldens (legacy `greeting.png`) | L | Medium |
 | **P3** | 8.1/8.2 SSE vs Memory decision | M | Low-Med |
 
 > Completion rule: Phase 10-12 items must be verified by `./gradlew detekt spotlessCheck testDebugUnitTest -PscreenshotTests=true lintDebug koverVerify` on JDK 21 + `MockWebServer` handshake→list→call + `NavigationTest` 4/4 + `SnapshotTests` 10/10 before closing the phase.
+
+---
+
+## Phase 13: UI Application Review Remediation — PR1 (Aug 2026)
+
+Addresses P0/P1 from read-only UI review (Theme crash, Chat/Server/Inspector/Components). All items **completed 2026-08-26**, verified `detekt` SUCCESS, `spotlessCheck` SUCCESS, `assembleDebug` SUCCESS 3m12s, `testDebugUnitTest` subset SUCCESS. Commit `4884684` `fix(ui): harden chat, servers, inspector and components (PR1)` on `kotlin`.
+
+### 13.1 Theme Crash Guard [P0] — **completed 2026-08-26**
+- [x] `ui/theme/Theme.kt:109` — `view.context as Activity` → `view.context as? Activity ?: return@SideEffect` (prevents `ClassCastException` in previews/tests/non-Activity contexts) [x]
+
+### 13.2 Chat Screen Hardening [P0/P1] — **completed 2026-08-26**
+- [x] Autoscroll observer `ChatScreen.kt:165` — `snapshotFlow { Triple(firstVisible, lastVisible, total) }` so `lastVisible`/`total` changes also emit; guard `total>0` (fixes missed `userHasScrolledUp` updates when layoutInfo changes without scroll index) [x]
+- [x] `imeAction=Send` — `OutlinedTextField` `keyboardOptions=KeyboardOptions(imeAction=Send)` + `keyboardActions onSend` (trim, clear, `hide()`, `sendMessage`) — keyboard Send triggers send when not generating [x]
+- [x] Prompt suggestion gradient — wrap 24dp fade `Box` with `if (scrollState.canScrollForward)` (indicator only when horizontal overflow) [x]
+
+### 13.3 Servers Filter [P1] — **completed 2026-08-26**
+- [x] `ServersScreen.kt` `filteredServers` — `query.length>1` → `isNotEmpty()` (search works for single-char queries); trimmed query retained [x]
+
+### 13.4 Inspector Dropdown Clip [P1] — **completed 2026-08-26**
+- [x] `InspectorScreen.kt:519` catalog dropdown — add `heightIn import` + `Modifier.heightIn(max=320.dp).verticalScroll(rememberScrollState())` (prevents viewport overflow on small screens) [x]
+
+### 13.5 Components Polish [P1] — **completed 2026-08-26**
+- [x] `ToolCallCard` nested clickable — `Card` `onClick` opens `InspectorScreen` + header `clickable` toggles expand; replace header `clickable` with `MutableInteractionSource()+indication=null` to avoid double-ripple/nested-clickable competition while preserving both handlers [x]
+- [x] Token typography — `toolName` `13.sp Monospace Bold` → `MaterialTheme.typography.labelMedium.copy(monospace, Bold, 13.sp)`, `executionTimeMs` `10.sp` → `labelSmall.copy(monospace, 10.sp)` (monospace retained tokenized via Typography) [x]
+- [x] `CodeBlock` selectable — wrap content `Box` with `SelectionContainer` (user can long-press copy code) [x]
+- [x] Unused import cleanup — remove `isSystemInDarkTheme` from `Components.kt` (detekt `UnusedImport` pre-existing) [x]
+
+### 13.6 Markdown Links [P2] — **completed 2026-08-26**
+- [x] `Components.kt:490` `parseInlineMarkdown` — extend to parse `[label](url)` via `linkStart` + `pushStringAnnotation("URL", url)` with primary+underline style; add `InlineMarkdownText` `ClickableText` + `LocalUriHandler` with `try{openUri}` guard; suppress `CyclomaticComplexMethod` (19/15) — links clickable without adding heavy markdown library [x]
+
+### 13.7 Verification [P1] — **completed 2026-08-26**
+- [x] `./gradlew detekt` SUCCESS (1 `CyclomaticComplexMethod` suppressed)
+- [x] `./gradlew :app:spotlessApply` + `spotlessCheck` SUCCESS
+- [x] `./gradlew assembleDebug` SUCCESS after `heightIn` import fix
+- [x] `testDebugUnitTest --tests *ChatViewModelLifecycleTest*` SUCCESS
