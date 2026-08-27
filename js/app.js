@@ -10,6 +10,7 @@ const attachBtn = $('#attachBtn');
 const mediaInput = $('#mediaInput');
 const attachPreview = $('#attachPreview');
 const slashMenu = $('#slashMenu');
+const slashTrigger = $('#slashTrigger');
 const charCount = $('#charCount');
 const composerInner = $('#composerInner');
 const topNodes = $('#nodesInline'); // removed from header - may be null
@@ -371,15 +372,24 @@ const PROMPTS = [
 ];
 
 const SLASH = [
-  {key:'/sql', desc:'Run SQL via postgres-mcp', hint:'SELECT * FROM users', insert:'/sql SELECT * FROM users LIMIT 5'},
-  {key:'/s3', desc:'List S3 buckets', hint:'aws-us-east', insert:'/s3 list buckets'},
-  {key:'/fs', desc:'List local files', hint:'/data', insert:'/fs list /data'},
-  {key:'/clear', desc:'Clear chat', hint:'', insert:'/clear'},
-  {key:'/help', desc:'Show tools', hint:'', insert:'/help'},
-  {key:'/todo', desc:'Add checklist', hint:'e.g. review PR', insert:'/todo '},
-  {key:'/connect', desc:'Connect server', hint:'<name>', insert:'/connect '},
-  {key:'/disconnect', desc:'Disconnect', hint:'<name>', insert:'/disconnect '},
+  {key:'/sql', cat:'MCP', icon:'database', desc:'Run SQL via postgres-mcp', hint:'SELECT * FROM users LIMIT 5', insert:'/sql SELECT * FROM users LIMIT 5'},
+  {key:'/s3', cat:'MCP', icon:'cloud', desc:'List S3 buckets', hint:'aws-us-east', insert:'/s3 list buckets'},
+  {key:'/fs', cat:'MCP', icon:'folder-open', desc:'List local files', hint:'/data', insert:'/fs list /data'},
+  {key:'/github', cat:'MCP', icon:'git-branch', desc:'GitHub repos & PRs', hint:'list repos', insert:'/github list repos'},
+  {key:'/marketplace', cat:'MCP', icon:'store', desc:'Browse MCP marketplace', hint:'', insert:'/marketplace'},
+  {key:'/servers', cat:'MCP', icon:'server', desc:'List & toggle MCP servers', hint:'', insert:'/servers'},
+  {key:'/new', cat:'Chat', icon:'plus', desc:'New conversation', hint:'', insert:'/new'},
+  {key:'/clear', cat:'Chat', icon:'trash-2', desc:'Clear current chat', hint:'', insert:'/clear'},
+  {key:'/export', cat:'Chat', icon:'download', desc:'Export conversation JSON', hint:'', insert:'/export'},
+  {key:'/help', cat:'Chat', icon:'help-circle', desc:'Show help & tools', hint:'', insert:'/help'},
+  {key:'/todo', cat:'Chat', icon:'list-checks', desc:'Add checklist item', hint:'e.g. review PR', insert:'/todo '},
+  {key:'/mode', cat:'System', icon:'bot', desc:'Switch agent mode', hint:'Chat / Code / Research', insert:'/mode '},
+  {key:'/model', cat:'System', icon:'cpu', desc:'Switch model/provider', hint:'gpt-4o, claude…', insert:'/model '},
+  {key:'/connect', cat:'System', icon:'plug', desc:'Connect MCP server', hint:'<name>', insert:'/connect '},
+  {key:'/disconnect', cat:'System', icon:'plug-zap', desc:'Disconnect server', hint:'<name>', insert:'/disconnect '},
+  {key:'/retry', cat:'Chat', icon:'refresh-cw', desc:'Retry last message', hint:'', insert:'/retry'},
 ];
+const SLASH_CATS = ['MCP','Chat','System'];
 
 // Providers render — complete
 function renderProviders(){
@@ -717,6 +727,7 @@ function toggleComposerModeMenu(force){
   if(!composerModeMenu || !composerModePill) return;
   const willOpen = typeof force==='boolean' ? force : composerModeMenu.classList.contains('hidden');
   if(willOpen){
+    if(typeof hideSlash==='function') try{ hideSlash(); }catch{}
     renderComposerModeMenu();
     composerModeMenu.classList.remove('hidden');
     composerModePill.setAttribute('aria-expanded','true');
@@ -1170,45 +1181,158 @@ promptStrip?.addEventListener('click', e=>{
 try{ inputEl.value=localStorage.getItem('mcp_draft')||''; }catch{ inputEl.value=''; }
 autoResize(); syncComposer(); renderPromptStrip();
 
+// Slash commands — enhanced palette with recents, grouping & quick trigger
+const RECENT_SLASH_KEY = 'mcp_recent_slash';
+const getRecentSlash = ()=> safeParse(RECENT_SLASH_KEY, []);
+const pushRecentSlash = (key)=>{
+  let rec=getRecentSlash().filter(k=>k!==key);
+  rec.unshift(key);
+  rec=rec.slice(0,5);
+  safeSet(RECENT_SLASH_KEY, JSON.stringify(rec));
+};
+function getFilteredSlash(q){
+  const qq=(q||'').toLowerCase();
+  let list=[];
+  if(!qq || qq==='/'){
+    const rec=getRecentSlash();
+    const recentItems = rec.map(k=>SLASH.find(s=>s.key===k)).filter(Boolean);
+    const rest = SLASH.filter(s=>!rec.includes(s.key));
+    list = [...recentItems, ...rest];
+  } else {
+    const scored = SLASH.map(c=>{
+      const key=c.key.toLowerCase();
+      let score=99;
+      if(key===qq) score=0;
+      else if(key.startsWith(qq)) score=1;
+      else if(key.includes(qq)) score=2;
+      else if(c.desc.toLowerCase().includes(qq) || c.hint.toLowerCase().includes(qq)) score=3;
+      else score=99;
+      const recIdx=getRecentSlash().indexOf(c.key);
+      const recBoost = recIdx>=0 ? -0.5 - (0.1*recIdx) : 0;
+      return {c, score: score + recBoost};
+    }).filter(x=>x.score<99);
+    scored.sort((a,b)=> a.score - b.score || a.c.key.localeCompare(b.c.key));
+    list = scored.map(x=>x.c);
+  }
+  return list;
+}
+let slashTriggerOpen=false;
+function renderSlash(){
+  if(!slashMenu || !filtered.length){ hideSlash(); return; }
+  const recent=getRecentSlash();
+  // group by cat preserving SLASH_CATS order
+  const byCat={};
+  filtered.forEach(c=>{ (byCat[c.cat]=byCat[c.cat]||[]).push(c); });
+  const sections = SLASH_CATS.filter(cat=>byCat[cat]?.length);
+  // if only one cat or query filter, don't force section split? But keep grouped for clarity when showing all
+  const header = `<div class="slash-head"><b><i data-lucide="command" style="width:12px;height:12px"></i> Commands <span style="font-weight:500;color:var(--faint);margin-left:6px">${filtered.length}</span></b><span style="display:flex;gap:6px;align-items:center"><kbd>↑</kbd><kbd>↓</kbd><kbd>↵</kbd></span></div>`;
+  const body = sections.map(cat=>{
+    const items=byCat[cat];
+    const title = cat;
+    const rows=items.map(c=>{
+      const idx=filtered.indexOf(c);
+      const isActive=idx===slashIndex;
+      const isRecent=recent.includes(c.key);
+      return `<div class="s-item ${isActive?'active':''}" data-i="${idx}" role="option" aria-selected="${isActive?'true':'false'}"><span class="s-icon"><i data-lucide="${c.icon}" style="width:14px;height:14px"></i></span><span class="s-key">${esc(c.key)}</span><span class="s-desc">${esc(c.desc)}<small>${esc(c.hint|| (isRecent?'recent':'') )}</small></span><span class="s-hint">${esc(c.hint||'')}</span></div>`;
+    }).join('');
+    return `<div class="slash-section"><div class="slash-section-title">${esc(title)}</div>${rows}</div>`;
+  }).join('');
+  const foot=`<div class="slash-foot"><span><kbd>/</kbd> filter • <kbd>Tab</kbd> insert</span><span style="margin-left:auto;display:flex;gap:6px;align-items:center"><span style="color:var(--faint)">${recent.length? 'Recent: '+recent.slice(0,3).join(' ') : ''}</span></span></div>`;
+  slashMenu.innerHTML = header + body + foot;
+  slashMenu?.classList.remove('hidden');
+  if(slashTrigger) slashTrigger.classList.add('active');
+  refreshIcons();
+}
+function hideSlash(){ 
+  slashMenu?.classList.add('hidden'); 
+  filtered=[]; 
+  slashTriggerOpen=false;
+  if(slashTrigger) slashTrigger.classList.remove('active');
+}
+function pickSlash(cmd){
+  if(!cmd) return;
+  pushRecentSlash(cmd.key);
+  const pos=inputEl.selectionStart; const before=inputEl.value.slice(0,pos); const after=inputEl.value.slice(pos);
+  const hasSlashBefore = /\/[a-z0-9-]*$/i.test(before);
+  if(hasSlashBefore){
+    inputEl.value=before.replace(/\/[a-z0-9-]*$/i, cmd.insert)+after;
+  } else {
+    // triggered via button with no slash prefix — either replace whole or insert
+    const trimmed=(inputEl.value||'').trim();
+    if(!trimmed) inputEl.value=cmd.insert;
+    else inputEl.value=(trimmed + ' ' + cmd.insert).trim();
+  }
+  hideSlash(); autoResize(); syncComposer(); inputEl.focus();
+  // immediate actions for system commands
+  if(cmd.key==='/clear'){ clearCurrentChat(); return; }
+  if(cmd.key==='/help'){ doSend('/help'); return; }
+  if(cmd.key==='/new'){ const chat=getActiveChat(); if(!chat || chat.messages.length){ toast('New chat ready'); inputEl.focus(); } else { document.getElementById('newChatBtn')?.click(); } return; }
+  if(cmd.key==='/export'){ const ch=getActiveChat(); if(ch) doExport(ch); return; }
+  if(cmd.key==='/retry'){ const ch=getActiveChat(); if(ch && ch.messages.length){ const lastUser=[...ch.messages].reverse().find(m=>m.role==='user'); if(lastUser) doSend(lastUser.text, lastUser.files||[], lastUser.todos||[], true); } return; }
+  if(cmd.key==='/marketplace'){ marketplaceView?.classList.remove('hidden'); renderMarket(); return; }
+  if(cmd.key==='/servers'){ settingsView?.classList.remove('hidden'); return; }
+  if(cmd.key==='/mode' || cmd.key==='/model'){ toggleComposerModeMenu(true); return; }
+  // for toggle commands with args like /todo, keep focus for typing hint
+  if(cmd.insert.endsWith(' ') && !cmd.insert.trim().includes('SELECT') && !cmd.insert.includes('buckets')) {
+    // keep slash menu open for next arg? No, let user type
+  }
+}
+slashMenu?.addEventListener('click', e=>{ const it=e.target.closest('.s-item'); if(it) pickSlash(filtered[Number(it.dataset.i)]); });
+function openSlashPalette(q='/'){
+  if(typeof closeComposerModeMenu==='function') try{ closeComposerModeMenu(); }catch{}
+  filtered=getFilteredSlash(q);
+  if(!filtered.length){ hideSlash(); return; }
+  slashIndex=0;
+  slashTriggerOpen=true;
+  renderSlash();
+  inputEl?.focus();
+}
+slashTrigger?.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  if(slashMenu && !slashMenu.classList.contains('hidden') && slashTriggerOpen){
+    hideSlash();
+  } else {
+    // if input has slash query, use it, else show all
+    const pos=inputEl.selectionStart || (inputEl.value||'').length;
+    const before=(inputEl.value||'').slice(0,pos);
+    const m=before.match(/(^|\s)(\/[a-z0-9-]*)$/i);
+    const q=m? m[2].toLowerCase() : '/';
+    openSlashPalette(q);
+  }
+});
 inputEl?.addEventListener('input', ()=>{
   autoResize(); syncComposer();
   const pos=inputEl.selectionStart; const before=inputEl.value.slice(0,pos);
   const m=before.match(/(^|\s)(\/[a-z0-9-]*)$/i);
   if(!m){ hideSlash(); return; }
   const q=m[2].toLowerCase();
-  filtered=SLASH.filter(c=>c.key.toLowerCase().startsWith(q));
+  filtered=getFilteredSlash(q);
   if(!filtered.length){ hideSlash(); return; }
   slashIndex=0; renderSlash();
 });
-function renderSlash(){
-  slashMenu.innerHTML=filtered.map((c,i)=>`<div class="s-item ${i===slashIndex?'active':''}" data-i="${i}"><span class="s-key">${esc(c.key)}</span><span class="s-desc">${esc(c.desc)}</span><span class="s-hint">${esc(c.hint)}</span></div>`).join('');
-  slashMenu?.classList.remove('hidden');
-}
-function hideSlash(){ slashMenu?.classList.add('hidden'); filtered=[]; }
-function pickSlash(cmd){
-  if(!cmd) return;
-  const pos=inputEl.selectionStart; const before=inputEl.value.slice(0,pos); const after=inputEl.value.slice(pos);
-  inputEl.value=before.replace(/\/[a-z0-9-]*$/i, cmd.insert)+after;
-  hideSlash(); autoResize(); syncComposer(); inputEl.focus();
-  if(cmd.key==='/clear') clearCurrentChat();
-  if(cmd.key==='/help') doSend('/help');
-}
-slashMenu?.addEventListener('click', e=>{ const it=e.target.closest('.s-item'); if(it) pickSlash(filtered[Number(it.dataset.i)]); });
 inputEl?.addEventListener('keydown', e=>{
   if(!slashMenu?.classList.contains('hidden')){
-    if(e.key==='ArrowDown'){ e.preventDefault(); slashIndex=(slashIndex+1)%filtered.length; renderSlash(); }
-    else if(e.key==='ArrowUp'){ e.preventDefault(); slashIndex=(slashIndex-1+filtered.length)%filtered.length; renderSlash(); }
+    if(e.key==='ArrowDown'){ e.preventDefault(); slashIndex=(slashIndex+1)%filtered.length; renderSlash(); const activeEl=slashMenu.querySelector('.s-item.active'); activeEl?.scrollIntoView({block:'nearest'}); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); slashIndex=(slashIndex-1+filtered.length)%filtered.length; renderSlash(); const activeEl=slashMenu.querySelector('.s-item.active'); activeEl?.scrollIntoView({block:'nearest'}); }
     else if(e.key==='Enter'||e.key==='Tab'){ e.preventDefault(); pickSlash(filtered[slashIndex]); return; }
-    else if(e.key==='Escape') hideSlash();
+    else if(e.key==='Escape'){ e.preventDefault(); hideSlash(); }
   }
   if(e.key==='Enter' && !e.shiftKey){
     if(!slashMenu?.classList.contains('hidden') && filtered.length){ e.preventDefault(); pickSlash(filtered[slashIndex]); return; }
     e.preventDefault(); doSend();
   }
+  if(e.key==='/' && !e.ctrlKey && !e.metaKey && !e.shiftKey && (inputEl.selectionStart===0 || /\s$/.test(inputEl.value.slice(0,inputEl.selectionStart)))){
+    // allow slash to open palette after this key inserts
+    setTimeout(()=>{
+      const pos=inputEl.selectionStart; const before=inputEl.value.slice(0,pos);
+      const mm=before.match(/(^|\s)(\/[a-z0-9-]*)$/i);
+      if(mm){ filtered=getFilteredSlash(mm[2].toLowerCase()); if(filtered.length){ slashIndex=0; renderSlash(); }}
+    }, 0);
+  }
   if((e.ctrlKey||e.metaKey) && e.key==='z' && !e.shiftKey){ e.preventDefault(); undo(); }
   if((e.ctrlKey||e.metaKey) && (e.key==='y' || (e.key==='z' && e.shiftKey))){ e.preventDefault(); redo(); }
 });
-document.addEventListener('click', e=>{ if(!slashMenu || !inputEl) return; if(!slashMenu.contains(e.target) && e.target!==inputEl) hideSlash(); });
+document.addEventListener('click', e=>{ if(!slashMenu || !inputEl) return; if(!slashMenu.contains(e.target) && e.target!==inputEl && e.target.closest('#slashTrigger')==null) hideSlash(); });
 
 // Speech — single + Live Conversation (complete)
 let liveActive=false, liveMuted=false, livePaused=false, liveSpeaker=true;
@@ -1693,10 +1817,18 @@ async function doSend(rawText, rawFiles, rawTodos, isRetry){
   const curTodos = rawTodos ?? (todos.length? [...todos] : []);
   if(!text && !files.length && !curTodos.length) return;
   if(isTyping){ toast('Please wait — still generating'); return; }
-  if(text==='/clear'){ clearCurrentChat(); if(inputEl) inputEl.value=''; pending.forEach(pr=>{ if(pr.url) try{ URL.revokeObjectURL(pr.url);}catch{} }); pending=[]; todos=[]; if(todoDraft) todoDraft?.classList.add('hidden'); drawPreview(); syncComposer(); hideSlash(); return; }
-  if(text==='/help'){ await sendAndStream(text, files, curTodos, 'general'); return; }
+  if(text==='/clear'){ try{ pushRecentSlash('/clear'); }catch{} clearCurrentChat(); if(inputEl) inputEl.value=''; pending.forEach(pr=>{ if(pr.url) try{ URL.revokeObjectURL(pr.url);}catch{} }); pending=[]; todos=[]; if(todoDraft) todoDraft?.classList.add('hidden'); drawPreview(); syncComposer(); hideSlash(); return; }
+  if(text==='/help'){ try{ pushRecentSlash('/help'); }catch{} await sendAndStream(text, files, curTodos, 'general'); return; }
+  if(text==='/new' || text.startsWith('/new ')){ try{ pushRecentSlash('/new'); }catch{} if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); const ch=getActiveChat(); if(!ch || ch.messages.length) document.getElementById('newChatBtn')?.click(); else createChat(); return; }
+  if(text==='/export'){ try{ pushRecentSlash('/export'); }catch{} if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); const ch=getActiveChat(); if(ch) doExport(ch); return; }
+  if(text==='/retry'){ try{ pushRecentSlash('/retry'); }catch{} if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); const ch=getActiveChat(); if(ch && ch.messages.length){ const lastUser=[...ch.messages].reverse().find(m=>m.role==='user'); if(lastUser) doSend(lastUser.text, lastUser.files||[], lastUser.todos||[], true); } return; }
+  if(text==='/marketplace' || text==='/market'){ try{ pushRecentSlash('/marketplace'); }catch{} if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); marketplaceView?.classList.remove('hidden'); renderMarket(); refreshIcons(); return; }
+  if(text==='/servers' || text.startsWith('/servers') || text==='/server'){ try{ pushRecentSlash('/servers'); }catch{} if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); settingsView?.classList.remove('hidden'); refreshIcons(); return; }
+  if(text.startsWith('/mode')){ try{ pushRecentSlash('/mode'); }catch{} const arg=text.slice(5).trim(); if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); if(arg){ const found=MODES.find(m=>m.id.toLowerCase()===arg.toLowerCase() || m.name.toLowerCase()===arg.toLowerCase()); if(found){ selectedMode=found.id; localStorage.setItem('agentMode', selectedMode); if(found.provider){ const pr=PROVIDERS.find(x=>x.id===found.provider); if(pr && pr.enabled){ selectedProvider=pr.id; localStorage.setItem('provider', pr.id); if(found.model){ selectedModel=found.model; localStorage.setItem('model', selectedModel);} renderProviders(); } } renderModes(); renderModesGrid(); toast(`Mode: ${found.name}`); } else toast(`Unknown mode "${arg}" — try /mode ${MODES.map(m=>m.id).join(', ')}`);} else toggleComposerModeMenu(true); return; }
+  if(text.startsWith('/model')){ try{ pushRecentSlash('/model'); }catch{} const arg=text.slice(6).trim(); if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); if(arg){ const prov=PROVIDERS.find(pr=> pr.models.includes(arg) || pr.id===arg.toLowerCase()); if(prov){ selectedProvider=prov.id; selectedModel= arg.includes(' ') ? arg.split(' ').pop() : (prov.models.find(m=>m.toLowerCase()===arg.toLowerCase()) || prov.models[0]); localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); renderProviders(); toast(`Model: ${selectedModel} via ${prov.name}`); } else toast(`Unknown model "${arg}"`);} else { providerView?.classList.remove('hidden'); renderProviderList(); } return; }
   // todo command
-  if(text.startsWith('/todo ')){ const t=text.slice(6).trim(); if(t){ todos.push({text:t, done:false}); renderTodo(); todoDraft?.classList.remove('hidden'); toast('Todo added'); } inputEl.value=''; syncComposer(); hideSlash(); autoResize(); return; }
+  if(text.startsWith('/todo ')){ try{ pushRecentSlash('/todo'); }catch{} const t=text.slice(6).trim(); if(t){ todos.push({text:t, done:false}); renderTodo(); todoDraft?.classList.remove('hidden'); toast('Todo added'); } inputEl.value=''; syncComposer(); hideSlash(); autoResize(); return; }
+  if(text.startsWith('/sql') || text.startsWith('/s3') || text.startsWith('/fs') || text.startsWith('/github')){ try{ const k=text.split(' ')[0].toLowerCase(); if(SLASH.find(s=>s.key===k)) pushRecentSlash(k); }catch{} }
   if(text.startsWith('/connect ') || text.startsWith('/disconnect ')){
     const isCon=text.startsWith('/connect ');
     const name=text.slice(isCon?9:12).trim();

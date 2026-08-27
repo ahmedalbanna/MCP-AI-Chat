@@ -283,13 +283,29 @@ tbody tr:hover td{background:#f8fafc}
 .todo-add{display:flex;gap:8px;margin-top:10px}
 .todo-add input{flex:1;border:1px solid var(--line);border-radius:999px;padding:9px 13px;font-size:13px;outline:none;transition:all .15s}
 .todo-add input:focus{border-color:#93c5fd;box-shadow:var(--shadow-focus)}
-.slash-menu{position:absolute;bottom:100%;left:22px;right:22px;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden;max-height:260px;overflow-y:auto;z-index:6;padding:6px}
+.slash-trigger{border:1px solid transparent}
+.slash-trigger.active{background:var(--primary-ghost);border-color:#dbeafe;color:var(--primary)}
+.slash-menu{position:absolute;bottom:100%;left:22px;right:22px;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden;max-height:360px;overflow-y:auto;z-index:7;padding:0;display:flex;flex-direction:column}
 .slash-menu.hidden{display:none}
-.s-item{display:flex;align-items:center;gap:11px;padding:11px 12px;cursor:pointer;border-radius:10px;margin:2px}
-.s-item.active,.s-item:hover{background:#f1f5f9}
-.s-key{font-family:var(--mono);font-size:11px;font-weight:800;background:#0f172a;color:#fff;padding:5px 9px;border-radius:8px;letter-spacing:.02em}
-.s-desc{flex:1;font-size:13px;font-weight:600;letter-spacing:-.01em}
-.s-hint{font-size:11px;color:var(--muted);font-weight:500}
+.slash-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line-2);background:linear-gradient(180deg,#fff,#fcfcfe);position:sticky;top:0;z-index:1}
+.slash-head b{font-size:11px;letter-spacing:.07em;color:var(--muted);display:flex;align-items:center;gap:6px}
+.slash-head kbd{font-family:var(--mono);font-size:10px;background:#f1f5f9;border:1px solid var(--line);border-bottom-width:2px;padding:1px 5px;border-radius:6px;color:var(--muted)}
+.slash-section{padding:6px 6px 2px}
+.slash-section-title{font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--faint);padding:6px 6px 4px;display:flex;align-items:center;gap:6px}
+.slash-section-title::after{content:"";flex:1;height:1px;background:var(--line-2);margin-left:8px}
+.s-item{display:flex;align-items:center;gap:10px;padding:9px 10px;cursor:pointer;border-radius:10px;margin:2px 4px;border:1px solid transparent;transition:all .15s var(--ease)}
+.s-item.active,.s-item:hover{background:#f1f5f9;border-color:var(--line)}
+.s-item.active{background:linear-gradient(180deg,#eff6ff,#f5f3ff);border-color:#bfdbfe;box-shadow:0 1px 6px rgba(37,99,235,.08)}
+.s-key{font-family:var(--mono);font-size:11px;font-weight:800;background:#0f172a;color:#fff;padding:5px 8px;border-radius:8px;letter-spacing:.02em;min-width:56px;text-align:center;flex-shrink:0}
+.s-icon{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:#fff;border:1px solid var(--line);color:var(--muted);flex-shrink:0;box-shadow:var(--shadow-xs)}
+.s-item.active .s-icon{border-color:#bfdbfe;background:var(--primary-ghost);color:var(--primary)}
+.s-desc{flex:1;min-width:0;font-size:13px;font-weight:600;letter-spacing:-.01em;display:flex;flex-direction:column;gap:2px}
+.s-desc small{font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-hint{font-family:var(--mono);font-size:11px;color:var(--muted);background:#f8fafc;border:1px solid var(--line);padding:3px 6px;border-radius:6px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.slash-foot{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--line-2);background:#fcfcfe;font-size:11px;color:var(--muted);position:sticky;bottom:0}
+.slash-foot kbd{font-family:var(--mono);font-size:10px;background:#fff;border:1px solid var(--line);border-bottom-width:2px;padding:1px 5px;border-radius:6px}
+.slash-empty{padding:18px 14px;text-align:center;color:var(--muted);font-size:13px}
+.slash-empty small{color:var(--faint);font-size:11px}
 .speech-bar{display:flex;align-items:center;gap:11px;background:linear-gradient(180deg,#0f172a,#0b1226);color:#e2e8f0;padding:11px 13px;border-radius:14px;margin-bottom:10px;border:1px solid rgba(255,255,255,.08);box-shadow:var(--shadow-md)}
 .speech-bar.hidden{display:none}
 .wave{display:flex;gap:3px;align-items:center}
