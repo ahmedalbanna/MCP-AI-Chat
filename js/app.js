@@ -1,5 +1,6 @@
-/* MCP Terminal — Premium JS */
+/* MCP Terminal — Ultimate */
 const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
 const messagesEl = $('#messages');
 const inputEl = $('#promptInput');
 const sendBtn = $('#sendBtn');
@@ -17,9 +18,33 @@ const tunnelBar = $('#tunnelBar');
 const tunnelStatus = $('#tunnelStatus');
 const toastEl = $('#toast');
 const dropOverlay = $('#dropOverlay');
-// drawer
+const promptStrip = $('#promptStrip');
+const chatListEl = $('#chatList');
+const chatCountEl = $('#chatCount');
+const crumbTitle = $('#crumbTitle');
+const providerSelect = $('#providerSelect');
+const modelSelect = $('#modelSelect');
+const agentModesEl = $('#agentModes');
+const undoBtn = $('#undoBtn');
+const redoBtn = $('#redoBtn');
+const convMenuBtn = $('#convMenuBtn');
+const convMenu = $('#convMenu');
+const speechBar = $('#speechBar');
+const micBtn = $('#micBtn');
+const stopSpeech = $('#stopSpeech');
+const todoDraft = $('#todoDraft');
+const todoList = $('#todoList');
+const todoInput = $('#todoInput');
+const todoProgress = $('#todoProgress');
+const todoToggle = $('#todoToggle');
+const clearTodo = $('#clearTodo');
+const addTodoBtn = $('#addTodoBtn');
+
+// drawers
 const settingsView = $('#settingsView');
-const settingsBackdrop = $('#settingsBackdrop');
+const marketplaceView = $('#marketplaceView');
+const promptsView = $('#promptsView');
+const profileView = $('#profileView');
 const serverSearch = $('#serverSearch');
 const serversList = $('#serversList');
 const addServerBtn = $('#addServerBtn');
@@ -27,115 +52,301 @@ const addServerSidebar = $('#addServerSidebar');
 const closeSettings = $('#closeSettings');
 const serversBtn = $('#serversBtn');
 const settingsBtn = $('#settingsBtn');
-const settingsBtn2 = $('#settingsBtn2');
-// modal
+const marketplaceBtn = $('#marketplaceBtn');
+const promptLibraryBtn = $('#promptLibraryBtn');
+const showPromptsLink = $('#showPromptsLink');
+const closeMarketplace = $('#closeMarketplace');
+const marketplaceBackdrop = $('#marketplaceBackdrop');
+const marketGrid = $('#marketGrid');
+const marketSearch = $('#marketSearch');
+const marketFilter = $('#marketFilter');
+const promptsBackdrop = $('#promptsBackdrop');
+const closePrompts = $('#closePrompts');
+const promptCats = $('#promptCats');
+const promptGrid = $('#promptGrid');
+const profileBackdrop = $('#profileBackdrop');
+const closeProfile = $('#closeProfile');
+const userProfileCard = $('#userProfileCard');
+const profileName = $('#profileName');
+const profileRole = $('#profileRole');
+const profileAvatar = $('#profileAvatar');
+const profileLargeAvatar = $('#profileLargeAvatar');
+const profileNameInput = $('#profileNameInput');
+const profileEmail = $('#profileEmail');
+const avatarInput = $('#avatarInput');
+const changeAvatar = $('#changeAvatar');
+const themeSelect = $('#themeSelect');
+const streamToggle = $('#streamToggle');
+const ttsToggle = $('#ttsToggle');
+const saveProfileBtn = $('#saveProfile');
+
+// modals
 const serverModal = $('#serverModal');
-const serverModalBackdrop = $('#serverModalBackdrop');
 const closeServerModalBtn = $('#closeServerModal');
-const cancelServer = $('#cancelServer');
 const serverForm = $('#serverForm');
 const srvName = $('#srvName');
 const srvTransport = $('#srvTransport');
 const srvEndpoint = $('#srvEndpoint');
 const srvTools = $('#srvTools');
 const serverModalTitle = $('#serverModalTitle');
-// sheet
+const serverModalBackdrop = $('#serverModalBackdrop');
+const cancelServer = $('#cancelServer');
 const toolsModal = $('#toolsModal');
 const toolsBackdrop = $('#toolsBackdrop');
 const closeModalBtn = $('#closeModal');
 const quickToolsBtn = $('#quickToolsBtn');
-// sidebar
 const sidebar = $('#sidebar');
 const menuBtn = $('#menuBtn');
 const sidebarClose = $('#sidebarClose');
 const sidebarSearch = $('#sidebarSearch');
 const newChatBtn = $('#newChatBtn');
+const newChatTopBtn = $('#newChatTopBtn');
+const importChatBtn = $('#importChatBtn');
+const importFile = $('#importFile');
+const archiveToggle = $('#archiveToggle');
+const editMsgModal = $('#editMsgModal');
+const editMsgBackdrop = $('#editMsgBackdrop');
+const closeEditMsg = $('#closeEditMsg');
+const cancelEdit = $('#cancelEdit');
+const saveEdit = $('#saveEdit');
+const editMsgInput = $('#editMsgInput');
 
-let pending = []; // {id,file,url}
-let isTyping=false;
-let editingId=null;
-let slashIndex=0, filtered=[];
+let pending = [];
+let isTyping = false;
+let editingId = null;
+let editingMsgId = null;
+let slashIndex = 0, filtered = [];
+let activeChatId = null;
+let showArchived = false;
+let todos = [];
+let isRecording = false;
+let recognition = null;
+let history = { undo: [], redo: [] };
 
-const DEFAULT = [
+// Providers
+const PROVIDERS = [
+  { id:'openai', name:'OpenAI', models:['gpt-4o','gpt-4o-mini','o1-preview']},
+  { id:'anthropic', name:'Anthropic', models:['claude-3.5-sonnet','claude-3-opus']},
+  { id:'google', name:'Google', models:['gemini-1.5-pro','gemini-1.5-flash']},
+  { id:'local', name:'Local', models:['llama-3.1-70B','mistral-large']},
+];
+let selectedProvider = localStorage.getItem('provider') || 'anthropic';
+let selectedModel = localStorage.getItem('model') || 'claude-3.5-sonnet';
+let selectedMode = localStorage.getItem('agentMode') || 'Chat';
+const MODES = [
+  {id:'Chat', icon:'message-circle', desc:'General chat'},
+  {id:'Code', icon:'code-2', desc:'Code assistant'},
+  {id:'Research', icon:'search', desc:'Deep research'},
+  {id:'Planning', icon:'map', desc:'Planning'},
+];
+
+// Chats
+let chats = JSON.parse(localStorage.getItem('mcp_chats')||'null') || [
+  {id:'c1', title:'PostgreSQL users query', created:Date.now()-3600000, archived:false, messages:[
+    {id:'m1', role:'user', text:'Query the remote PostgreSQL database for the last 5 user registrations and format as a table.', time:'10:21 AM'},
+    {id:'m2', role:'assistant', html:'pg', time:'10:21 AM', tasks:[{id:'t1', text:'Verify table schema', done:false},{id:'t2', text:'Run SELECT on remote_db.users', done:true},{id:'t3', text:'Format as markdown table', done:true}], todos:[{text:'Export to CSV', done:false},{text:'Share with team', done:false}], status:'done'},
+  ]},
+  {id:'c2', title:'S3 bucket audit', created:Date.now()-86400000, archived:false, messages:[
+    {id:'m3', role:'user', text:'List S3 buckets in aws-us-east', time:'09:12 AM'},
+    {id:'m4', role:'assistant', html:'aws', time:'09:12 AM', status:'done'},
+  ]},
+  {id:'c3', title:'Local filesystem', created:Date.now()-172800000, archived:true, messages:[
+    {id:'m5', role:'user', text:'List files in /data', time:'Yesterday'},
+  ]},
+];
+if(!localStorage.getItem('mcp_chats')) localStorage.setItem('mcp_chats', JSON.stringify(chats));
+activeChatId = localStorage.getItem('activeChat') || chats[0].id;
+
+// Servers
+const DEFAULT_SERVERS = [
   {id:'srv1', name:'aws-us-east', transport:'sse', endpoint:'wss://aws.mcp.local/sse', tools:'s3_list, ec2_status', status:'connected', color:'aws'},
   {id:'srv2', name:'postgres-mcp', transport:'stdio', endpoint:'npx @modelcontextprotocol/server-postgres', tools:'query, list_tables', status:'connected', color:'pg'},
   {id:'srv3', name:'local-fs', transport:'stdio', endpoint:'npx @modelcontextprotocol/server-filesystem /data', tools:'read, write, list', status:'disconnected', color:'fs'},
 ];
-let servers = JSON.parse(localStorage.getItem('mcp_servers')||'null') || DEFAULT;
-const save=()=> localStorage.setItem('mcp_servers', JSON.stringify(servers));
+let servers = JSON.parse(localStorage.getItem('mcp_servers')||'null') || DEFAULT_SERVERS;
+const saveServers=()=> localStorage.setItem('mcp_servers', JSON.stringify(servers));
+const saveChats=()=> localStorage.setItem('mcp_chats', JSON.stringify(chats));
+
+const MARKET = [
+  {id:'m1', name:'Postgres Pro', cat:'db', icon:'database', color:'#334155', desc:'Advanced SQL tooling with vector search', stars:4.9, installs:'12k', installed:true},
+  {id:'m2', name:'AWS Suite', cat:'cloud', icon:'cloud', color:'#ff9900', desc:'S3, EC2, Lambda, CloudWatch unified', stars:4.8, installs:'8.4k', installed:true},
+  {id:'m3', name:'Filesystem', cat:'fs', icon:'folder', color:'#2563eb', desc:'Secure local file access with sandboxing', stars:4.7, installs:'6.1k', installed:true},
+  {id:'m4', name:'GitHub', cat:'cloud', icon:'github', color:'#0f172a', desc:'Repos, PRs, issues, actions', stars:4.9, installs:'15k', installed:false},
+  {id:'m5', name:'Slack', cat:'cloud', icon:'message-square', color:'#e11d48', desc:'Channels, messages, threads', stars:4.6, installs:'9k', installed:false},
+  {id:'m6', name:'Notion', cat:'fs', icon:'book-open', color:'#000', desc:'Pages, databases, blocks', stars:4.5, installs:'5.2k', installed:false},
+  {id:'m7', name:'Redis', cat:'db', icon:'layers', color:'#dc2626', desc:'Cache, pub/sub, streams', stars:4.7, installs:'4k', installed:false},
+  {id:'m8', name:'Puppeteer', cat:'cloud', icon:'globe', color:'#7c3aed', desc:'Browser automation & scraping', stars:4.8, installs:'7k', installed:false},
+];
+
+const PROMPTS = [
+  {cat:'MCP', title:'SQL audit', prompt:'Query the remote PostgreSQL database for the last 5 user registrations and format as a table.', icon:'database'},
+  {cat:'MCP', title:'S3 inventory', prompt:'List S3 buckets in aws-us-east and sort by size', icon:'cloud'},
+  {cat:'MCP', title:'File explorer', prompt:'List files in /data and summarize CSV headers', icon:'folder-open'},
+  {cat:'Analysis', title:'Summarize logs', prompt:'Summarize CloudWatch logs for the last 24h, highlight errors', icon:'bar-chart-3'},
+  {cat:'Analysis', title:'User insights', prompt:'Analyze user registrations trend and propose growth actions', icon:'trending-up'},
+  {cat:'Code', title:'Generate API', prompt:'Create a REST API for users table with pagination and auth', icon:'code-2'},
+  {cat:'Write', title:'Release notes', prompt:'Draft release notes for MCP Terminal v2 with highlights', icon:'pen-tool'},
+];
 
 const SLASH = [
   {key:'/sql', desc:'Run SQL via postgres-mcp', hint:'SELECT * FROM users', insert:'/sql SELECT * FROM users LIMIT 5'},
   {key:'/s3', desc:'List S3 buckets', hint:'aws-us-east', insert:'/s3 list buckets'},
   {key:'/fs', desc:'List local files', hint:'/data', insert:'/fs list /data'},
-  {key:'/clear', desc:'Clear chat history', hint:'', insert:'/clear'},
-  {key:'/help', desc:'Show available tools', hint:'', insert:'/help'},
-  {key:'/connect', desc:'Connect a server', hint:'<name>', insert:'/connect '},
-  {key:'/disconnect', desc:'Disconnect a server', hint:'<name>', insert:'/disconnect '},
+  {key:'/clear', desc:'Clear chat', hint:'', insert:'/clear'},
+  {key:'/help', desc:'Show tools', hint:'', insert:'/help'},
+  {key:'/todo', desc:'Add checklist', hint:'e.g. review PR', insert:'/todo '},
+  {key:'/connect', desc:'Connect server', hint:'<name>', insert:'/connect '},
+  {key:'/disconnect', desc:'Disconnect', hint:'<name>', insert:'/disconnect '},
 ];
 
 const refreshIcons=()=> window.lucide && lucide.createIcons();
 const toast=(m,d=2200)=>{ toastEl.textContent=m; toastEl.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(()=>toastEl.classList.add('hidden'),d); };
 const esc=s=> s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const scrollBottom=()=>{ messagesEl.scrollTop=messagesEl.scrollHeight; };
+const uid=()=> Math.random().toString(36).slice(2,9);
 
-/* Render servers */
-function render(){
+// Providers render
+function renderProviders(){
+  providerSelect.innerHTML = PROVIDERS.map(p=>`<option value="${p.id}" ${p.id===selectedProvider?'selected':''}>${p.name}</option>`).join('');
+  const prov = PROVIDERS.find(p=>p.id===selectedProvider);
+  modelSelect.innerHTML = prov.models.map(m=>`<option ${m===selectedModel?'selected':''}>${m}</option>`).join('');
+  profileRole.textContent = `${$('#profileRoleSelect')?.value || 'Admin'} • ${selectedModel} • ${selectedMode} mode`;
+}
+providerSelect.addEventListener('change', e=>{
+  selectedProvider=e.target.value;
+  const prov=PROVIDERS.find(p=>p.id===selectedProvider);
+  selectedModel=prov.models[0];
+  localStorage.setItem('provider', selectedProvider);
+  localStorage.setItem('model', selectedModel);
+  renderProviders(); toast(`Provider: ${prov.name}`);
+});
+modelSelect.addEventListener('change', e=>{ selectedModel=e.target.value; localStorage.setItem('model', selectedModel); toast(`Model: ${selectedModel}`); renderProviders(); });
+
+// Modes
+function renderModes(){
+  agentModesEl.innerHTML = MODES.map(m=>`<button class="mode-pill ${selectedMode===m.id?'active':''}" data-mode="${m.id}"><i data-lucide="${m.icon}" style="width:12px;height:12px"></i> ${m.id}</button>`).join('');
+  refreshIcons();
+}
+agentModesEl.addEventListener('click', e=>{
+  const b=e.target.closest('[data-mode]'); if(!b) return;
+  selectedMode=b.dataset.mode; localStorage.setItem('agentMode', selectedMode); renderModes(); renderProviders();
+  toast(`Agent mode: ${selectedMode}`);
+});
+
+// Chats
+function getActiveChat(){ return chats.find(c=>c.id===activeChatId); }
+function renderChats(){
+  const q=(sidebarSearch.value||'').toLowerCase();
+  let filtered = chats.filter(c=> showArchived ? true : !c.archived);
+  if(q) filtered = filtered.filter(c=> c.title.toLowerCase().includes(q) || c.messages.some(m=>m.text?.toLowerCase().includes(q)));
+  // group
+  const groups = { Today:[], Yesterday:[], Earlier:[], Archived:[] };
+  const now=Date.now();
+  filtered.forEach(c=>{
+    if(c.archived) groups.Archived.push(c);
+    else if(now - c.created < 86400000) groups.Today.push(c);
+    else if(now - c.created < 172800000) groups.Yesterday.push(c);
+    else groups.Earlier.push(c);
+  });
+  chatCountEl.textContent = filtered.length;
+  crumbTitle.textContent = getActiveChat()?.title || 'MCP Chat';
+  chatListEl.innerHTML = Object.entries(groups).filter(([k,v])=>v.length).map(([g, arr])=>`
+    <div><p class="group-title">${g.toUpperCase()}</p>
+    ${arr.map(c=>`
+      <div class="chat-item ${c.id===activeChatId?'active':''} ${c.archived?'archived':''}" data-id="${c.id}">
+        <div class="chat-item-main"><b>${esc(c.title)}</b><p>${esc(c.messages[c.messages.length-1]?.text || c.messages[c.messages.length-1]?.html || 'No messages')}</p></div>
+        <span class="chat-item-meta">${new Date(c.created).toLocaleDateString()}</span>
+        <div class="chat-item-actions">
+          <button class="icon-btn xs" data-act="more" data-id="${c.id}"><i data-lucide="more-horizontal" style="width:12px;height:12px"></i></button>
+        </div>
+      </div>
+    `).join('')}
+    </div>
+  `).join('') || `<p style="font-size:12px;color:#94a3b8;padding:8px">No chats</p>`;
+  refreshIcons();
+}
+chatListEl.addEventListener('click', e=>{
+  const item=e.target.closest('.chat-item'); if(!item) return;
+  const more=e.target.closest('[data-act="more"]');
+  if(more){
+    const id=more.dataset.id;
+    const chat=chats.find(c=>c.id===id);
+    const act=prompt(`Actions for "${chat.title}"\n1 rename\n2 export\n3 archive/unarchive\n4 delete\nType 1-4`);
+    if(act==='1'){ const t=prompt('New title', chat.title); if(t){ pushHistory(); chat.title=t; saveChats(); renderChats(); renderMessages(); } }
+    else if(act==='2') doExport(chat);
+    else if(act==='3'){ chat.archived=!chat.archived; saveChats(); renderChats(); }
+    else if(act==='4'){ if(confirm('Delete?')){ pushHistory(); chats=chats.filter(c=>c.id!==id); if(activeChatId===id) activeChatId=chats[0]?.id||null; saveChats(); if(activeChatId) localStorage.setItem('activeChat', activeChatId); renderChats(); renderMessages(); } }
+    return;
+  }
+  activeChatId=item.dataset.id; localStorage.setItem('activeChat', activeChatId); renderChats(); renderMessages(); pushHistory();
+});
+newChatBtn.addEventListener('click', ()=> createChat());
+newChatTopBtn.addEventListener('click', ()=> createChat());
+function createChat(){
+  pushHistory();
+  const id=uid();
+  chats.unshift({id, title:'New conversation', created:Date.now(), archived:false, messages:[]});
+  activeChatId=id; saveChats(); localStorage.setItem('activeChat', id); renderChats(); renderMessages(); inputEl.focus();
+}
+function doExport(chat){
+  const blob=new Blob([JSON.stringify(chat,null,2)], {type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=`${chat.title}.json`; a.click(); URL.revokeObjectURL(url); toast('Exported');
+}
+convMenuBtn.addEventListener('click', ()=> convMenu.classList.toggle('hidden'));
+document.addEventListener('click', e=>{ if(!e.target.closest('.dropdown')) convMenu.classList.add('hidden'); });
+convMenu.addEventListener('click', e=>{
+  const b=e.target.closest('[data-action]'); if(!b) return;
+  const act=b.dataset.action;
+  const chat=getActiveChat(); if(!chat) return;
+  convMenu.classList.add('hidden');
+  if(act==='rename'){ const t=prompt('Rename', chat.title); if(t){ pushHistory(); chat.title=t; saveChats(); renderChats(); renderMessages(); } }
+  if(act==='export') doExport(chat);
+  if(act==='duplicate'){ pushHistory(); const copy=JSON.parse(JSON.stringify(chat)); copy.id=uid(); copy.title=chat.title+' (copy)'; copy.created=Date.now(); chats.unshift(copy); activeChatId=copy.id; saveChats(); renderChats(); renderMessages(); toast('Duplicated'); }
+  if(act==='archive'){ pushHistory(); chat.archived=!chat.archived; saveChats(); renderChats(); renderMessages(); toast(chat.archived?'Archived':'Unarchived'); }
+  if(act==='delete'){ if(confirm('Delete conversation?')){ pushHistory(); chats=chats.filter(c=>c.id!==chat.id); activeChatId=chats[0]?.id||null; saveChats(); renderChats(); renderMessages(); toast('Deleted'); } }
+});
+importChatBtn.addEventListener('click', ()=> importFile.click());
+importFile.addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=()=>{ try{ const data=JSON.parse(r.result); if(data.title && data.messages){ pushHistory(); data.id=uid(); data.created=Date.now(); chats.unshift(data); activeChatId=data.id; saveChats(); renderChats(); renderMessages(); toast('Imported'); } else toast('Invalid file'); } catch{ toast('Invalid JSON'); } }; r.readAsText(f); e.target.value='';
+});
+archiveToggle.addEventListener('click', ()=>{ showArchived=!showArchived; archiveToggle.style.background=showArchived?'#0f172a':''; archiveToggle.style.color=showArchived?'#fff':''; renderChats(); toast(showArchived?'Showing archived':'Hiding archived'); });
+
+// Servers render
+function renderServers(){
   const q=(serverSearch.value||'').toLowerCase();
   const sq=(sidebarSearch.value||'').toLowerCase();
-  // top nodes
   topNodes.innerHTML = servers.map(s=>{
     const on=s.status==='connected';
     return `<button class="node-pill ${on?'connected':'disconnected'}" data-id="${s.id}"><span class="d" style="background:${on ? (s.color==='aws'?'#ff9900': s.color==='pg'?'#16a34a':'#2563eb') : '#cbd5e1'}"></span> ${esc(s.name)}</button>`;
   }).join('');
-  // sidebar list (filtered)
   const sideFiltered = servers.filter(s=> !sq || s.name.toLowerCase().includes(sq));
   sidebarList.innerHTML = sideFiltered.map(s=>{
     const on=s.status==='connected', busy=s.status==='connecting';
-    return `<li class="server-item ${s.status}" data-id="${s.id}" title="${esc(s.endpoint)}">
-      <span class="server-ic ${s.color==='pg'?'pg':s.color==='aws'?'aws':s.color==='fs'?'fs':'custom'}"><i data-lucide="${s.color==='pg'?'database': s.color==='aws'?'cloud': s.color==='fs'?'folder-open':'server'}" style="width:16px;height:16px"></i></span>
-      <span class="server-meta"><strong>${esc(s.name)}</strong><span>${esc(s.transport)} • ${esc(s.endpoint.slice(0,32))}</span></span>
-      <span class="chip-dot ${on?'on': busy?'': 'off'}"></span>
-    </li>`;
+    return `<li class="server-item ${s.status}" data-id="${s.id}"><span class="server-ic ${s.color}"><i data-lucide="${s.color==='pg'?'database': s.color==='aws'?'cloud': s.color==='fs'?'folder-open':'server'}" style="width:16px;height:16px"></i></span><span class="server-meta"><strong>${esc(s.name)}</strong><span>${esc(s.transport)} • ${esc(s.endpoint.slice(0,28))}</span></span><span class="chip-dot ${on?'on':busy?'':'off'}"></span></li>`;
   }).join('') || `<li style="font-size:12px;color:#94a3b8;padding:8px">No matches</li>`;
-
-  // drawer list
-  const filteredDrawer = servers.filter(s=> !q || s.name.toLowerCase().includes(q) || s.endpoint.toLowerCase().includes(q));
+  const filteredDrawer = servers.filter(s=> !q || s.name.toLowerCase().includes(q));
   serversList.innerHTML = filteredDrawer.map(s=>{
-    const ic = s.color==='pg'?'pg':s.color==='aws'?'aws':s.color==='fs'?'fs':'custom';
-    const iname = s.color==='pg'?'database': s.color==='aws'?'cloud': s.color==='fs'?'folder-open':'server';
-    const label = s.status==='connected'?'Connected': s.status==='connecting'?'Connecting':'Disconnected';
-    const cls = s.status==='connected'?'on': s.status==='connecting'?'busy':'off';
-    return `<div class="server-card" data-id="${s.id}">
-      <div class="server-card-top">
-        <span class="ic ${ic}"><i data-lucide="${iname}" style="width:16px;height:16px"></i></span>
-        <span class="meta"><b>${esc(s.name)}</b><p>${esc(s.transport)} • ${esc(s.endpoint)}</p></span>
-        <label class="switch"><input type="checkbox" ${s.status==='connected'?'checked':''} data-toggle="${s.id}"><span></span></label>
-      </div>
-      <div class="server-card-foot">
-        <span class="status ${cls}">${label}</span>
-        <span style="flex:1"></span>
-        <button class="mini" data-edit="${s.id}"><i data-lucide="pencil" style="width:12px;height:12px"></i> Edit</button>
-        <button class="mini danger" data-del="${s.id}"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>
-      </div>
-    </div>`;
+    const ic=s.color, iname=s.color==='pg'?'database': s.color==='aws'?'cloud': s.color==='fs'?'folder-open':'server';
+    const label=s.status==='connected'?'Connected': s.status==='connecting'?'Connecting':'Disconnected';
+    const cls=s.status==='connected'?'on': s.status==='connecting'?'busy':'off';
+    return `<div class="server-card" data-id="${s.id}"><div class="server-card-top"><span class="ic ${ic}"><i data-lucide="${iname}" style="width:16px;height:16px"></i></span><span class="meta"><b>${esc(s.name)}</b><p>${esc(s.transport)} • ${esc(s.endpoint)}</p></span><label class="switch"><input type="checkbox" ${s.status==='connected'?'checked':''} data-toggle="${s.id}"><span></span></label></div><div class="server-card-foot"><span class="status ${cls}">${label}</span><span style="flex:1"></span><button class="mini" data-edit="${s.id}"><i data-lucide="pencil" style="width:12px;height:12px"></i> Edit</button><button class="mini danger" data-del="${s.id}"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button></div></div>`;
   }).join('') || `<p style="text-align:center;color:#94a3b8;padding:12px">No servers</p>`;
-
-  const connected = servers.filter(s=>s.status==='connected').length;
-  sidebarCount.textContent = servers.length;
-  if(activeCount2) activeCount2.textContent = connected;
-  if(tunnelBar) tunnelBar.style.width = `${Math.round(connected/servers.length*100)}%`;
-  if(tunnelStatus) tunnelStatus.innerHTML = connected? `Secure MCP tunnel • <strong>${connected}</strong> connected` : `No MCP nodes connected`;
+  const connected=servers.filter(s=>s.status==='connected').length;
+  sidebarCount.textContent=servers.length;
+  if(activeCount2) activeCount2.textContent=connected;
+  if(tunnelBar) tunnelBar.style.width=`${servers.length?Math.round(connected/servers.length*100):0}%`;
+  if(tunnelStatus) tunnelStatus.innerHTML=connected? `Secure MCP tunnel • <strong>${connected}</strong> connected` : `No MCP nodes connected`;
   refreshIcons();
 }
 
-/* Media */
+// Media
 function addFiles(files){
   for(const f of files){
     if(pending.length>=6){ toast('Max 6 files'); break; }
     if(f.size>12*1024*1024){ toast(`${f.name} too large`); continue; }
-    const id=Math.random().toString(36).slice(2,8);
-    const url = f.type.startsWith('image/') || f.type.startsWith('video/') ? URL.createObjectURL(f) : null;
+    const id=uid(); const url=f.type.startsWith('image/')||f.type.startsWith('video/')?URL.createObjectURL(f):null;
     pending.push({id,file:f,url});
   }
   drawPreview(); syncComposer();
@@ -143,14 +354,13 @@ function addFiles(files){
 function drawPreview(){
   if(!pending.length){ attachPreview.classList.add('hidden'); attachPreview.innerHTML=''; return; }
   attachPreview.classList.remove('hidden');
-  attachPreview.innerHTML = pending.map(p=>{
+  attachPreview.innerHTML=pending.map(p=>{
     let inner='';
     if(p.file.type.startsWith('image/')) inner=`<img src="${p.url}" alt="">`;
     else if(p.file.type.startsWith('video/')) inner=`<video src="${p.url}" muted></video>`;
     else inner=`<div class="fn"><i data-lucide="file"></i><span>${esc(p.file.name.slice(0,18))}</span><small>${(p.file.size/1024).toFixed(1)} KB</small></div>`;
     return `<div class="preview">${inner}<button class="rm" data-rm="${p.id}"><i data-lucide="x"></i></button></div>`;
-  }).join('');
-  refreshIcons();
+  }).join(''); refreshIcons();
 }
 attachPreview.addEventListener('click', e=>{
   const b=e.target.closest('[data-rm]'); if(!b) return;
@@ -159,27 +369,62 @@ attachPreview.addEventListener('click', e=>{
 });
 mediaInput.addEventListener('change', e=>{ if(e.target.files.length) addFiles([...e.target.files]); e.target.value=''; });
 
-/* Composer */
-function autoResize(){
-  inputEl.style.height='auto';
-  inputEl.style.height=Math.min(inputEl.scrollHeight,120)+'px';
+// Todo draft
+function renderTodo(){
+  if(!todos.length && todoDraft.classList.contains('hidden')) return;
+  todoList.innerHTML=todos.map((t,i)=>`<li><input type="checkbox" ${t.done?'checked':''} data-i="${i}"><input value="${esc(t.text)}" data-input="${i}"><button class="icon-btn xs" data-del="${i}"><i data-lucide="x" style="width:12px;height:12px"></i></button></li>`).join('');
+  const done=todos.filter(t=>t.done).length;
+  todoProgress.textContent=`${done}/${todos.length}`;
+  refreshIcons();
 }
+todoToggle.addEventListener('click', ()=>{
+  todoDraft.classList.toggle('hidden');
+  if(!todoDraft.classList.contains('hidden')) todoInput.focus();
+  refreshIcons();
+});
+clearTodo.addEventListener('click', ()=>{ todos=[]; todoDraft.classList.add('hidden'); renderTodo(); });
+addTodoBtn.addEventListener('click', ()=>{
+  const v=todoInput.value.trim(); if(!v) return;
+  todos.push({text:v, done:false}); todoInput.value=''; renderTodo();
+});
+todoInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addTodoBtn.click(); }});
+todoList.addEventListener('change', e=>{
+  const c=e.target.closest('[data-i]'); if(c && e.target.type==='checkbox'){ todos[Number(c.dataset.i)].done=e.target.checked; renderTodo(); }
+});
+todoList.addEventListener('input', e=>{
+  const inp=e.target.closest('[data-input]'); if(inp) todos[Number(inp.dataset.input)].text=inp.value;
+});
+todoList.addEventListener('click', e=>{
+  const b=e.target.closest('[data-del]'); if(b){ todos.splice(Number(b.dataset.del),1); renderTodo(); }
+});
+
+// Composer
+function autoResize(){ inputEl.style.height='auto'; inputEl.style.height=Math.min(inputEl.scrollHeight,120)+'px'; }
 function syncComposer(){
   const hasText=inputEl.value.trim().length>0;
   const hasMedia=pending.length>0;
-  sendBtn.disabled = (!hasText && !hasMedia) || isTyping;
-  charCount.textContent = inputEl.value.length? `${inputEl.value.length}/2000` : '';
-  charCount.style.color = inputEl.value.length>1800 ? '#ef4444' : '#94a3b8';
-  // draft save
+  sendBtn.disabled=(!hasText && !hasMedia && !todos.length) || isTyping;
+  charCount.textContent=inputEl.value.length? `${inputEl.value.length}/2000` : '';
+  charCount.style.color=inputEl.value.length>1800?'#ef4444':'#94a3b8';
   localStorage.setItem('mcp_draft', inputEl.value);
+  // show prompt strip when empty
+  if(!hasText && !hasMedia && !isTyping) promptStrip.classList.remove('hidden'); else promptStrip.classList.add('hidden');
 }
-inputEl.value = localStorage.getItem('mcp_draft')||'';
-autoResize(); syncComposer();
+const PROMPT_CHIPS = ["Summarize S3 buckets","Query users table","List /data files","Draft release notes","Explain TLS tunnel"];
+function renderPromptStrip(){
+  promptStrip.innerHTML = PROMPT_CHIPS.map(p=>`<button class="prompt-chip" data-prompt="${esc(p)}"><i data-lucide="sparkles"></i> ${esc(p)}</button>`).join('');
+  refreshIcons();
+}
+promptStrip.addEventListener('click', e=>{
+  const b=e.target.closest('[data-prompt]'); if(!b) return;
+  inputEl.value=b.dataset.prompt; autoResize(); syncComposer(); inputEl.focus();
+});
+inputEl.value=localStorage.getItem('mcp_draft')||'';
+autoResize(); syncComposer(); renderPromptStrip();
 
 inputEl.addEventListener('input', ()=>{
   autoResize(); syncComposer();
-  const pos=inputEl.selectionStart;
-  const before=inputEl.value.slice(0,pos);
+  const pos=inputEl.selectionStart; const before=inputEl.value.slice(0,pos);
   const m=before.match(/(^|\s)(\/[a-z]*)$/);
   if(!m){ hideSlash(); return; }
   const q=m[2].toLowerCase();
@@ -188,206 +433,441 @@ inputEl.addEventListener('input', ()=>{
   slashIndex=0; renderSlash();
 });
 function renderSlash(){
-  slashMenu.innerHTML = filtered.map((c,i)=>`
-    <div class="s-item ${i===slashIndex?'active':''}" data-i="${i}"><span class="s-key">${esc(c.key)}</span><span class="s-desc">${esc(c.desc)}</span><span class="s-hint">${esc(c.hint)}</span></div>
-  `).join('');
+  slashMenu.innerHTML=filtered.map((c,i)=>`<div class="s-item ${i===slashIndex?'active':''}" data-i="${i}"><span class="s-key">${esc(c.key)}</span><span class="s-desc">${esc(c.desc)}</span><span class="s-hint">${esc(c.hint)}</span></div>`).join('');
   slashMenu.classList.remove('hidden');
 }
 function hideSlash(){ slashMenu.classList.add('hidden'); filtered=[]; }
 function pickSlash(cmd){
   if(!cmd) return;
-  const pos=inputEl.selectionStart;
-  const before=inputEl.value.slice(0,pos);
-  const after=inputEl.value.slice(pos);
-  inputEl.value = before.replace(/\/[a-z]*$/, cmd.insert) + after;
+  const pos=inputEl.selectionStart; const before=inputEl.value.slice(0,pos); const after=inputEl.value.slice(pos);
+  inputEl.value=before.replace(/\/[a-z]*$/, cmd.insert)+after;
   hideSlash(); autoResize(); syncComposer(); inputEl.focus();
-  if(cmd.key==='/clear') clearChat();
+  if(cmd.key==='/clear') clearCurrentChat();
   if(cmd.key==='/help') doSend('/help');
 }
-slashMenu.addEventListener('click', e=>{
-  const it=e.target.closest('.s-item'); if(!it) return;
-  pickSlash(filtered[Number(it.dataset.i)]);
-});
+slashMenu.addEventListener('click', e=>{ const it=e.target.closest('.s-item'); if(it) pickSlash(filtered[Number(it.dataset.i)]); });
 inputEl.addEventListener('keydown', e=>{
   if(!slashMenu.classList.contains('hidden')){
     if(e.key==='ArrowDown'){ e.preventDefault(); slashIndex=(slashIndex+1)%filtered.length; renderSlash(); }
     else if(e.key==='ArrowUp'){ e.preventDefault(); slashIndex=(slashIndex-1+filtered.length)%filtered.length; renderSlash(); }
-    else if(e.key==='Enter' || e.key==='Tab'){ e.preventDefault(); pickSlash(filtered[slashIndex]); return; }
-    else if(e.key==='Escape'){ hideSlash(); }
+    else if(e.key==='Enter'||e.key==='Tab'){ e.preventDefault(); pickSlash(filtered[slashIndex]); return; }
+    else if(e.key==='Escape') hideSlash();
   }
   if(e.key==='Enter' && !e.shiftKey){
     if(!slashMenu.classList.contains('hidden') && filtered.length){ e.preventDefault(); pickSlash(filtered[slashIndex]); return; }
     e.preventDefault(); doSend();
   }
+  if((e.ctrlKey||e.metaKey) && e.key==='z' && !e.shiftKey){ e.preventDefault(); undo(); }
+  if((e.ctrlKey||e.metaKey) && (e.key==='y' || (e.key==='z' && e.shiftKey))){ e.preventDefault(); redo(); }
 });
 document.addEventListener('click', e=>{ if(!slashMenu.contains(e.target) && e.target!==inputEl) hideSlash(); });
 
-/* Drag & paste */
-['dragenter','dragover'].forEach(ev=>{
-  document.addEventListener(ev, e=>{
-    e.preventDefault();
-    if(ev==='dragenter') dropOverlay.classList.remove('hidden');
-    composerInner.classList.add('drag');
-  });
-});
-['dragleave','drop'].forEach(ev=>{
-  document.addEventListener(ev, e=>{
-    if(ev==='dragleave' && e.target===dropOverlay) dropOverlay.classList.add('hidden');
-    if(ev==='drop') dropOverlay.classList.add('hidden');
-    composerInner.classList.remove('drag');
-  });
-});
-document.addEventListener('drop', e=>{
-  e.preventDefault();
-  if(e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]);
-});
-document.addEventListener('paste', e=>{
-  const files=[... (e.clipboardData?.files||[])];
-  if(files.length) addFiles(files);
+// Speech
+function initSpeech(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ micBtn.title='Speech not supported in this browser (mock)'; return; }
+  recognition=new SR();
+  recognition.continuous=true; recognition.interimResults=true; recognition.lang='en-US';
+  recognition.onstart=()=>{ isRecording=true; speechBar.classList.remove('hidden'); micBtn.classList.add('active'); };
+  recognition.onend=()=>{ isRecording=false; speechBar.classList.add('hidden'); micBtn.classList.remove('active'); };
+  recognition.onresult=(e)=>{
+    let final='';
+    for(let i=e.resultIndex;i<e.results.length;i++){ const r=e.results[i]; if(r.isFinal) final+=r[0].transcript; }
+    if(final){ inputEl.value=(inputEl.value+' '+final).trim(); autoResize(); syncComposer(); }
+  };
+  recognition.onerror=()=>{ isRecording=false; speechBar.classList.add('hidden'); micBtn.classList.remove('active'); toast('Mic error'); };
+}
+initSpeech();
+function toggleSpeech(){
+  if(!recognition){
+    // mock
+    if(!isRecording){ isRecording=true; speechBar.classList.remove('hidden'); micBtn.classList.add('active'); toast('Listening (mock)… say something'); setTimeout(()=>{ if(isRecording){ inputEl.value=(inputEl.value+' list S3 buckets').trim(); autoResize(); syncComposer(); stopSpeechClick(); }}, 1800); }
+    else stopSpeechClick();
+    return;
+  }
+  if(isRecording) recognition.stop();
+  else recognition.start();
+}
+function stopSpeechClick(){ if(recognition && isRecording) recognition.stop(); isRecording=false; speechBar.classList.add('hidden'); micBtn.classList.remove('active'); }
+micBtn.addEventListener('click', toggleSpeech);
+stopSpeech.addEventListener('click', stopSpeechClick);
+
+// Drag & paste
+['dragenter','dragover'].forEach(ev=> document.addEventListener(ev, e=>{ e.preventDefault(); if(ev==='dragenter') dropOverlay.classList.remove('hidden'); composerInner.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev=> document.addEventListener(ev, e=>{ if(ev==='dragleave' && e.target===dropOverlay) dropOverlay.classList.add('hidden'); if(ev==='drop') dropOverlay.classList.add('hidden'); composerInner.classList.remove('drag'); }));
+document.addEventListener('drop', e=>{ e.preventDefault(); if(e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]); });
+document.addEventListener('paste', e=>{ const files=[...(e.clipboardData?.files||[])]; if(files.length) addFiles(files); });
+
+// History undo/redo
+function pushHistory(){
+  const snap=JSON.stringify(chats);
+  history.undo.push(snap);
+  if(history.undo.length>30) history.undo.shift();
+  history.redo=[];
+  updateUndoRedo();
+}
+function updateUndoRedo(){
+  undoBtn.disabled=history.undo.length===0;
+  redoBtn.disabled=history.redo.length===0;
+  undoBtn.style.opacity=history.undo.length?1:0.4;
+  redoBtn.style.opacity=history.redo.length?1:0.4;
+}
+function undo(){
+  if(!history.undo.length) return toast('Nothing to undo');
+  const cur=JSON.stringify(chats);
+  history.redo.push(cur);
+  const prev=history.undo.pop();
+  chats=JSON.parse(prev); saveChats(); renderChats(); renderMessages(); updateUndoRedo(); toast('Undone');
+  activeChatId=chats.find(c=>c.id===activeChatId)?activeChatId:chats[0]?.id; if(activeChatId) localStorage.setItem('activeChat', activeChatId);
+}
+function redo(){
+  if(!history.redo.length) return toast('Nothing to redo');
+  const cur=JSON.stringify(chats);
+  history.undo.push(cur);
+  const nxt=history.redo.pop();
+  chats=JSON.parse(nxt); saveChats(); renderChats(); renderMessages(); updateUndoRedo(); toast('Redone');
+}
+undoBtn.addEventListener('click', undo);
+redoBtn.addEventListener('click', redo);
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z' && !e.shiftKey){ e.preventDefault(); undo(); }
+  if((e.ctrlKey||e.metaKey) && (e.key.toLowerCase()==='y' || (e.shiftKey && e.key.toLowerCase()==='z'))){ e.preventDefault(); redo(); }
 });
 
-/* Messages */
-function addUser(text, files){
-  const row=document.createElement('div');
-  row.className='message user';
-  const time=new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  let media='';
-  if(files.length){
-    media=`<div class="user-media">` + files.map(p=>{
-      if(p.file.type.startsWith('image/')) return `<img src="${p.url}" alt="">`;
-      if(p.file.type.startsWith('video/')) return `<video src="${p.url}" controls></video>`;
-      return `<span class="file-chip"><i data-lucide="file"></i> ${esc(p.file.name)}</span>`;
-    }).join('') + `</div>`;
-  }
-  const bubble=text? `<div class="bubble">${esc(text).replace(/\n/g,'<br>')}</div>` : '';
-  row.innerHTML=`<div class="msg-head"><span class="who">You</span><span class="when">${time}</span></div>${media}${bubble}`;
-  messagesEl.appendChild(row);
+// Messages rendering with tasks/todos/stream
+function renderMessages(){
+  const chat=getActiveChat();
+  if(!chat){ messagesEl.innerHTML=`<div class="date-sep"><span>No conversation selected</span></div><div style="text-align:center;padding:24px"><button class="primary-btn" onclick="document.getElementById('newChatBtn').click()">Start new chat</button></div>`; return; }
+  const title=chat.title;
+  messagesEl.innerHTML=`<div class="date-sep"><span>${esc(title)} • ${chat.messages.length} messages • ${selectedModel}</span></div>` + chat.messages.map(m=>{
+    if(m.role==='user'){
+      return `<div class="message user" data-id="${m.id}">
+        <div class="msg-head"><span class="who">You</span><span class="when">${m.time||''}</span>
+          <button class="msg-action" data-edit="${m.id}"><i data-lucide="pencil" style="width:12px;height:12px"></i> Edit</button>
+          <button class="msg-action" data-retry="${m.id}"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Retry</button>
+        </div>
+        ${m.files? `<div class="user-media">${m.files.map(f=> f.type?.startsWith('image/')?`<img src="${f.url}" alt="">`: `<span class="file-chip">${esc(f.name)}</span>`).join('')}</div>`:''}
+        ${m.todos && m.todos.length? `<div class="task-card"><div class="task-head"><b>Checklist</b><span>${m.todos.filter(t=>t.done).length}/${m.todos.length}</span></div><ul class="todo-list">${m.todos.map(t=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} disabled><span>${esc(t.text)}</span></li>`).join('')}</ul></div>`:''}
+        <div class="bubble">${esc(m.text).replace(/\n/g,'<br>')}</div>
+      </div>`;
+    } else {
+      // assistant
+      const html = m.html==='pg'? pgHTML(m) : m.html==='aws'? awsHTML() : m.html==='fs'? fsHTML() : generalHTML(m.text||'');
+      const tasks = m.tasks? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-checks" style="width:14px;height:14px"></i> Tasks</b><span>${m.tasks.filter(t=>t.done).length}/${m.tasks.length} done</span><div class="task-actions"><button class="accept" data-accept="${m.id}">Accept all</button><button class="cancel" data-cancel="${m.id}">Cancel</button></div></div><ul class="todo-list">${m.tasks.map(t=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} data-task="${m.id}:${t.id}"><span>${esc(t.text)}</span><span style="margin-left:auto;font-size:11px;color:${t.status==='accepted'?'#16a34a': t.status==='cancelled'?'#ef4444':'#94a3b8'}">${t.status||''}</span></li>`).join('')}</ul></div>` : '';
+      const todosHtml = m.todos? `<div class="task-card"><div class="task-head"><b>Todos</b><span>${m.todos.filter(t=>t.done).length}/${m.todos.length}</span></div><ul class="todo-list">${m.todos.map((t,i)=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} data-todo="${m.id}:${i}"><span>${esc(t.text)}</span></li>`).join('')}</ul></div>` : '';
+      return `<div class="message assistant" data-id="${m.id}">
+        <div class="msg-head"><span class="who"><i data-lucide="bot" style="width:14px;height:14px"></i> ${esc(selectedModel)} • ${esc(selectedMode)}</span><span class="badge">${m.status||'done'}</span><span class="when">${m.time||''}</span>
+          <button class="msg-action" data-copy="${m.id}"><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button>
+          <button class="msg-action" data-retry="${m.id}"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Retry</button>
+          <button class="msg-action danger" data-delete="${m.id}"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>
+        </div>
+        <div class="stream-wrap" id="stream-${m.id}">${html}${tasks}${todosHtml}</div>
+        <div class="message-assist-actions">
+          <button class="msg-action" data-tts="${m.id}"><i data-lucide="volume-2" style="width:12px;height:12px"></i> Speak</button>
+          <button class="msg-action" data-exportmsg="${m.id}"><i data-lucide="download" style="width:12px;height:12px"></i> Export</button>
+        </div>
+      </div>`;
+    }
+  }).join('') || `<div style="text-align:center;color:#94a3b8;padding:40px"><i data-lucide="message-square" style="width:32px;height:32px;margin:0 auto;display:block;color:#cbd5e1"></i><p style="margin:8px 0 0">No messages yet</p><p style="font-size:12px">Try a prompt below or type “/”</p></div>`;
   refreshIcons(); scrollBottom();
 }
-function addTyping(){
-  const r=document.createElement('div');
-  r.className='message assistant'; r.id='typing';
-  r.innerHTML=`<div class="msg-head"><span class="who"><i data-lucide="bot" style="width:14px;height:14px"></i> MCP</span></div><div class="typing"><span></span><span></span><span></span></div>`;
-  messagesEl.appendChild(r); refreshIcons(); scrollBottom();
+function clearCurrentChat(){
+  pushHistory();
+  const chat=getActiveChat(); if(chat){ chat.messages=[]; saveChats(); renderMessages(); toast('Cleared'); }
 }
-function rmTyping(){ document.getElementById('typing')?.remove(); }
-function detect(q){
-  const s=q.toLowerCase();
-  const has=(...k)=>k.some(v=>s.includes(v));
-  if(has('postgres','sql','user','select','/sql')) return 'pg';
-  if(has('aws','s3','bucket','/s3')) return 'aws';
-  if(has('file','fs','/data','/fs')) return 'fs';
-  return 'general';
+
+function pgHTML(m){
+  // if streaming not done, show skeleton; but for rendered after done, full table
+  return `<div class="card"><div class="card-head"><h4>Retrieved 5 records from <code>remote_db.users</code></h4><p>Parsing metadata • 184ms • TLS 1.3 • ${esc(selectedModel)}</p></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>USERNAME</th><th>REGISTERED</th></tr></thead><tbody><tr><td>101</td><td>k_morgan</td><td>2023-10-21</td></tr><tr><td>102</td><td>j_doe</td><td>2023-10-21</td></tr><tr><td>103</td><td>m_smith</td><td>2023-10-22</td></tr><tr><td>104</td><td>a_wilson</td><td>2023-10-22</td></tr><tr><td>105</td><td>s_chen</td><td>2023-10-23</td></tr></tbody></table></div><div class="card-foot"><button class="chip" data-copy-table><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button><button class="chip"><i data-lucide="download" style="width:12px;height:12px"></i> CSV</button><span class="tls">✓ TLS 1.3</span></div></div>`;
 }
-function pgHTML(){
-  return `<div class="card"><div class="card-head"><h4>Retrieved 5 records from <code>remote_db.users</code></h4><p>Parsing metadata • 184ms • TLS 1.3</p></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>USERNAME</th><th>REGISTERED</th></tr></thead><tbody><tr><td>101</td><td>k_morgan</td><td>2023-10-21</td></tr><tr><td>102</td><td>j_doe</td><td>2023-10-21</td></tr><tr><td>103</td><td>m_smith</td><td>2023-10-22</td></tr><tr><td>104</td><td>a_wilson</td><td>2023-10-22</td></tr><tr><td>105</td><td>s_chen</td><td>2023-10-23</td></tr></tbody></table></div><div class="card-foot"><button class="chip" onclick="navigator.clipboard.writeText('SELECT * FROM users LIMIT 5')"><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button><button class="chip"><i data-lucide="download" style="width:12px;height:12px"></i> CSV</button><span class="tls">✓ TLS 1.3</span></div></div>`;
-}
-function awsHTML(){ return `<div class="card"><div class="card-head"><h4>Found 3 buckets in <code>us-east-1</code></h4><p>via aws-connector • 184ms</p></div><div class="table-wrap"><table><thead><tr><th>BUCKET</th><th>SIZE</th><th>OBJECTS</th></tr></thead><tbody><tr><td>mcp-app-data</td><td>2.4 GB</td><td>342</td></tr><tr><td>user-avatars-prod</td><td>18.7 GB</td><td>12.4k</td></tr><tr><td>logs-archive-2023</td><td>412 GB</td><td>89k</td></tr></tbody></table></div><div class="card-foot"><button class="chip"><i data-lucide="copy"></i> Copy</button><span class="tls">✓ TLS 1.3</span></div></div>`; }
+function awsHTML(){ return `<div class="card"><div class="card-head"><h4>Found 3 buckets in <code>us-east-1</code></h4><p>via aws-connector • 184ms</p></div><div class="table-wrap"><table><thead><tr><th>BUCKET</th><th>SIZE</th><th>OBJECTS</th></tr></thead><tbody><tr><td>mcp-app-data</td><td>2.4 GB</td><td>342</td></tr><tr><td>user-avatars-prod</td><td>18.7 GB</td><td>12.4k</td></tr><tr><td>logs-archive-2023</td><td>412 GB</td><td>89k</td></tr></tbody></table></div></div>`; }
 function fsHTML(){ return `<div class="card"><div class="card-head"><h4>Listed 5 entries in <code>/data</code></h4><p>read-only mount</p></div><div class="table-wrap"><table><thead><tr><th>NAME</th><th>TYPE</th><th>SIZE</th></tr></thead><tbody><tr><td>config.json</td><td>file</td><td>1.2 KB</td></tr><tr><td>datasets/</td><td>dir</td><td>—</td></tr><tr><td>users.csv</td><td>file</td><td>4.8 KB</td></tr><tr><td>README.md</td><td>file</td><td>2.1 KB</td></tr><tr><td>exports/</td><td>dir</td><td>—</td></tr></tbody></table></div></div>`; }
-function helpHTML(){ return `<div class="card"><div class="card-head"><h4>Available commands</h4><p>Type <code>/</code> to autocomplete</p></div><div style="padding:12px;display:grid;gap:6px">${SLASH.map(c=>`<div style="display:flex;gap:8px;align-items:center;font-size:13px"><code style="background:#0f172a;color:#fff;padding:3px 7px;border-radius:7px;font-family:var(--mono);font-size:11px">${c.key}</code> ${esc(c.desc)} <span style="color:#94a3b8">${esc(c.hint)}</span></div>`).join('')}</div></div>`; }
-function generalHTML(q){ return `<div class="card"><div class="card-head"><h4>MCP Router</h4><p>Received: <code>${esc(q.slice(0,80))}</code></p></div><div style="padding:12px"><p style="margin:0 0 8px;font-size:13px">Try <code>/sql</code>, <code>/s3</code>, <code>/fs</code> or upload media.</p><div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:10px;padding:10px;font-size:12px">Suggested: <code>/sql SELECT * FROM users LIMIT 5</code> • <code>/s3 list buckets</code> • <code>/fs list /data</code></div></div></div>`; }
-function addAssistant(html){
-  const time=new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  const row=document.createElement('div');
-  row.className='message assistant';
-  row.innerHTML=`<div class="msg-head"><span class="who"><i data-lucide="bot" style="width:14px;height:14px"></i> ASSISTANT</span><span class="when">${time}</span></div>${html}`;
-  messagesEl.appendChild(row); refreshIcons(); scrollBottom();
+function generalHTML(t){ return `<div class="card"><div class="card-head"><h4>MCP Router • ${esc(selectedMode)}</h4><p>Received: <code>${esc((t||'').slice(0,80))}</code></p></div><div style="padding:12px"><p style="margin:0 0 8px;font-size:13px">Try <code>/sql</code>, <code>/s3</code>, <code>/fs</code> or upload media.</p><div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:10px;padding:10px;font-size:12px">Suggested: <code>/sql SELECT * FROM users LIMIT 5</code> • <code>/s3 list buckets</code></div></div></div>`; }
+
+// Message actions delegation
+messagesEl.addEventListener('click', e=>{
+  const edit=e.target.closest('[data-edit]'); if(edit){
+    const id=edit.dataset.edit;
+    const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===id);
+    if(msg){ editingMsgId=id; editMsgInput.value=msg.text; editMsgModal.classList.remove('hidden'); refreshIcons(); }
+    return;
+  }
+  const del=e.target.closest('[data-delete]'); if(del){
+    const id=del.dataset.delete;
+    const chat=getActiveChat();
+    pushHistory();
+    chat.messages=chat.messages.filter(m=>m.id!==id);
+    saveChats(); renderMessages(); toast('Deleted');
+    return;
+  }
+  const retry=e.target.closest('[data-retry]'); if(retry){
+    const id=retry.dataset.retry;
+    const chat=getActiveChat(); const idx=chat.messages.findIndex(m=>m.id===id);
+    if(idx>=0){
+      const userMsg=chat.messages[idx].role==='user' ? chat.messages[idx] : chat.messages[idx-1];
+      if(userMsg && userMsg.role==='user'){ doSend(userMsg.text, userMsg.files||[], userMsg.todos||[], true); }
+    }
+    return;
+  }
+  const copy=e.target.closest('[data-copy]'); if(copy){
+    const id=copy.dataset.copy;
+    const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===id);
+    if(msg){ const txt= msg.html==='pg' ? 'pg table' : (msg.text||''); navigator.clipboard.writeText(txt); toast('Copied'); }
+    return;
+  }
+  const copyTbl=e.target.closest('[data-copy-table]'); if(copyTbl){
+    const tbl=copyTbl.closest('.card')?.querySelector('table');
+    if(tbl){ const t=[...tbl.rows].map(r=>[...r.cells].map(c=>c.textContent).join('\t')).join('\n'); navigator.clipboard.writeText(t); toast('Copied table'); }
+    return;
+  }
+  const tts=e.target.closest('[data-tts]'); if(tts){
+    const id=tts.dataset.tts;
+    const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===id);
+    if(msg && 'speechSynthesis' in window){
+      const u=new SpeechSynthesisUtterance(msg.text||'Hello from MCP');
+      speechSynthesis.speak(u); toast('Speaking…');
+    } else toast('TTS not supported');
+    return;
+  }
+  const exp=e.target.closest('[data-exportmsg]'); if(exp){
+    const id=exp.dataset.exportmsg;
+    const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===id);
+    const blob=new Blob([JSON.stringify(msg,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`msg-${id}.json`; a.click(); URL.revokeObjectURL(url); toast('Exported message');
+    return;
+  }
+  const accept=e.target.closest('[data-accept]'); if(accept){
+    const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===accept.dataset.accept);
+    if(msg && msg.tasks){ msg.tasks.forEach(t=> t.status='accepted'); saveChats(); renderMessages(); toast('All tasks accepted ✓'); }
+    return;
+  }
+  const cancel=e.target.closest('[data-cancel]'); if(cancel){
+    const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===cancel.dataset.cancel);
+    if(msg && msg.tasks){ msg.tasks.forEach(t=> t.status='cancelled'); saveChats(); renderMessages(); toast('Tasks cancelled'); }
+    return;
+  }
+});
+messagesEl.addEventListener('change', e=>{
+  const task=e.target.closest('[data-task]'); if(task){
+    const [mid,tid]=task.dataset.task.split(':');
+    const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===mid);
+    const t=msg.tasks.find(x=>x.id===tid); t.done=e.target.checked; saveChats(); renderMessages();
+  }
+  const todo=e.target.closest('[data-todo]'); if(todo){
+    const [mid,i]=todo.dataset.todo.split(':');
+    const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===mid);
+    msg.todos[Number(i)].done=e.target.checked; saveChats(); renderMessages();
+  }
+});
+closeEditMsg.addEventListener('click', ()=> editMsgModal.classList.add('hidden'));
+cancelEdit.addEventListener('click', ()=> editMsgModal.classList.add('hidden'));
+editMsgBackdrop.addEventListener('click', ()=> editMsgModal.classList.add('hidden'));
+saveEdit.addEventListener('click', ()=>{
+  const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===editingMsgId);
+  if(msg){
+    pushHistory();
+    msg.text=editMsgInput.value;
+    saveChats(); renderMessages(); editMsgModal.classList.add('hidden');
+    // resend
+    doSend(msg.text, msg.files||[], msg.todos||[], true);
+  }
+});
+
+// Streaming
+function streamHTML(targetId, html, doneText){
+  const el=document.getElementById(targetId);
+  if(!el) return;
+  if(!streamToggle.checked){
+    el.innerHTML=html; refreshIcons(); return;
+  }
+  el.innerHTML='';
+  let i=0;
+  const chunk=2;
+  const iv=setInterval(()=>{
+    el.innerHTML = html.slice(0,i) + '<span class="stream-cursor"></span>';
+    i+=chunk;
+    scrollBottom();
+    if(i>=html.length){ clearInterval(iv); el.innerHTML=html; refreshIcons(); }
+  }, 12);
 }
-function clearChat(){ messagesEl.innerHTML=`<div class="date-sep"><span>New conversation</span></div>`; toast('Chat cleared'); }
 
-async function doSend(raw){
-  let text = (raw ?? inputEl.value).trim();
-  const files=[...pending];
-  if(!text && !files.length) return;
+// Do send with todo, files, stream
+async function doSend(rawText, rawFiles, rawTodos, isRetry){
+  let text = (rawText ?? inputEl.value).trim();
+  const files=[... (rawFiles ?? pending)];
+  const curTodos = rawTodos ?? (todos.length? [...todos] : []);
+  if(!text && !files.length && !curTodos.length) return;
   if(isTyping) return;
-  if(text==='/clear'){ clearChat(); inputEl.value=''; pending=[]; drawPreview(); syncComposer(); autoResize(); hideSlash(); return; }
-  if(text==='/help'){ addUser(text,[]); inputEl.value=''; pending=[]; drawPreview(); syncComposer(); hideSlash(); addAssistant(helpHTML()); return; }
-  if(text.startsWith('/connect ')){ const n=text.slice(9).trim(); const s=servers.find(x=>x.name===n); if(s) await toggle(s.id,true); else toast(`Unknown server ${n}`); inputEl.value=''; hideSlash(); syncComposer(); return; }
-  if(text.startsWith('/disconnect ')){ const n=text.slice(12).trim(); const s=servers.find(x=>x.name===n); if(s) await toggle(s.id,false); else toast(`Unknown ${n}`); inputEl.value=''; hideSlash(); syncComposer(); return; }
-
+  if(text==='/clear'){ clearCurrentChat(); inputEl.value=''; pending=[]; todos=[]; todoDraft.classList.add('hidden'); drawPreview(); syncComposer(); hideSlash(); return; }
+  if(text==='/help'){ await sendAndStream(text, files, curTodos, 'general'); return; }
+  // todo command
+  if(text.startsWith('/todo ')){ const t=text.slice(6).trim(); if(t){ todos.push({text:t, done:false}); renderTodo(); todoDraft.classList.remove('hidden'); toast('Todo added'); } inputEl.value=''; syncComposer(); hideSlash(); autoResize(); return; }
+  if(text.startsWith('/connect ') || text.startsWith('/disconnect ')){
+    const isCon=text.startsWith('/connect ');
+    const name=text.slice(isCon?9:12).trim();
+    const s=servers.find(x=>x.name===name);
+    if(s) await toggle(s.id, isCon);
+    else toast(`Unknown server ${name}`);
+    inputEl.value=''; hideSlash(); syncComposer(); autoResize(); return;
+  }
   const tool=detect(text);
   const need={pg:'postgres-mcp', aws:'aws-us-east', fs:'local-fs'}[tool];
   if(need){
     const srv=servers.find(s=>s.name===need);
     if(srv && srv.status!=='connected'){ toast(`${need} disconnected — connecting…`); await toggle(srv.id,true); }
   }
-
-  addUser(text, files);
-  const keepUrls=files.map(p=>p.url);
-  pending.forEach(p=>{}); pending=[]; drawPreview();
-  inputEl.value=''; hideSlash(); autoResize(); syncComposer();
-  isTyping=true; syncComposer(); addTyping();
-  await new Promise(r=>setTimeout(r, {pg:1100, aws:950, fs:800, general:650}[tool]||700));
-  rmTyping();
-  let html;
-  if(files.length && tool==='general'){
-    html=`<div class="card"><div class="card-head"><h4>Analyzed ${files.length} file(s)</h4><p>${files.map(f=>esc(f.file.name)).join(', ')}</p></div><div style="padding:12px"><div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px;font-family:var(--mono);font-size:12px">${files.map(f=>esc(f.file.name)+' • '+(f.file.size/1024).toFixed(1)+'KB').join('<br>')}</div></div></div>`;
-    if(text) html+= generalHTML(text);
-  } else {
-    if(tool==='pg') html=pgHTML();
-    else if(tool==='aws') html=awsHTML();
-    else if(tool==='fs') html=fsHTML();
-    else html=generalHTML(text);
-  }
-  addAssistant(html);
-  isTyping=false; syncComposer(); inputEl.focus();
+  await sendAndStream(text, files, curTodos, tool, isRetry);
 }
 
-/* Connect toggle */
-async function toggle(id, force){
-  const s=servers.find(x=>x.id===id); if(!s) return;
-  const should = typeof force==='boolean' ? force : s.status!=='connected';
-  if(should){
-    if(s.status==='connected') return;
-    s.status='connecting'; render(); toast(`Connecting ${s.name}…`);
-    await new Promise(r=>setTimeout(r,900));
-    s.status='connected'; save(); render(); toast(`${s.name} connected ✓`);
-  } else {
-    s.status='disconnected'; save(); render(); toast(`${s.name} disconnected`);
+async function sendAndStream(text, files, curTodos, tool, isRetry){
+  const chat=getActiveChat();
+  if(!chat){ toast('Create a chat first'); return; }
+  pushHistory();
+  const time=new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  // if not retry, add user message
+  if(!isRetry){
+    const um={id:uid(), role:'user', text, time, files: files.map(f=>({name:f.file.name, url:f.url, type:f.file.type})), todos: curTodos.length? curTodos : undefined};
+    chat.messages.push(um);
+    if(chat.messages.length===1) chat.title=text.slice(0,32)||'New chat';
   }
+  // prepare assistant placeholder
+  const aid=uid();
+  const placeholder={id:aid, role:'assistant', html: tool==='pg'?'pg': tool==='aws'?'aws': tool==='fs'?'fs':'general', text, time, status:'streaming', tasks: tool==='pg'? [{id:'t1', text:'Verify table schema', done:true},{id:'t2', text:'Run SELECT', done:true},{id:'t3', text:'Format table', done:false}] : null, todos: curTodos.length && tool!=='pg'? curTodos.map((t,i)=>({text:t.text, done:t.done})) : null};
+  chat.messages.push(placeholder);
+  // clear composer if not retry
+  if(!isRetry){
+    pending.forEach(p=>{}); pending=[]; todos=[]; todoDraft.classList.add('hidden'); drawPreview();
+    inputEl.value=''; hideSlash(); autoResize(); syncComposer();
+  }
+  saveChats(); renderChats(); renderMessages();
+  // now stream
+  isTyping=true; syncComposer();
+  const targetId=`stream-${aid}`;
+  const htmlRaw = tool==='pg'? pgHTML(placeholder) : tool==='aws'? awsHTML() : tool==='fs'? fsHTML() : generalHTML(text);
+  // tiny delay to show typing
+  await new Promise(r=>setTimeout(r, 300));
+  // remove typing if any (we use streaming, not typing dots)
+  streamHTML(targetId, htmlRaw);
+  await new Promise(r=>setTimeout(r, htmlRaw.length*8 + 400));
+  // finalize
+  placeholder.status='done';
+  if(placeholder.tasks) placeholder.tasks.forEach(t=> t.done=true);
+  saveChats(); renderChats(); renderMessages();
+  isTyping=false; syncComposer();
+  // TTS if enabled
+  if(ttsToggle.checked && 'speechSynthesis' in window){
+    const u=new SpeechSynthesisUtterance(text.slice(0,120));
+    speechSynthesis.speak(u);
+  }
+  scrollBottom();
 }
 
-/* Events */
-sendBtn.addEventListener('click', ()=>doSend());
-attachBtn.addEventListener('click', ()=>mediaInput.click());
-quickToolsBtn.addEventListener('click', ()=> toolsModal.classList.remove('hidden'));
-toolsBackdrop.addEventListener('click', ()=>toolsModal.classList.add('hidden'));
-closeModalBtn.addEventListener('click', ()=>toolsModal.classList.add('hidden'));
-document.querySelectorAll('.quick-card, .tool').forEach(b=>{
-  b.addEventListener('click', ()=>{
-    const t=b.dataset.tool;
-    toolsModal.classList.add('hidden');
-    if(t==='upload') mediaInput.click();
-    else if(t==='pg') { inputEl.value='/sql SELECT * FROM users LIMIT 5'; inputEl.focus(); autoResize(); syncComposer(); }
-    else if(t==='aws') { inputEl.value='/s3 list buckets'; inputEl.focus(); autoResize(); syncComposer(); }
-    else if(t==='fs') { inputEl.value='/fs list /data'; inputEl.focus(); autoResize(); syncComposer(); }
-  });
+function detect(q){
+  const s=(q||'').toLowerCase();
+  const has=(...k)=>k.some(v=>s.includes(v));
+  if(has('postgres','sql','user','select','/sql')) return 'pg';
+  if(has('aws','s3','bucket','/s3')) return 'aws';
+  if(has('file','fs','/data','/fs')) return 'fs';
+  return 'general';
+}
+
+// Marketplace
+function renderMarket(){
+  const q=(marketSearch.value||'').toLowerCase();
+  const f=marketFilter.value;
+  const filtered=MARKET.filter(m=> (!q||m.name.toLowerCase().includes(q)||m.desc.toLowerCase().includes(q)) && (f==='all'||m.cat===f));
+  marketGrid.innerHTML=filtered.map(m=>`
+    <div class="mkt-card">
+      <div class="mkt-head"><span class="ic" style="background:${m.color}"><i data-lucide="${m.icon}" style="width:16px;height:16px"></i></span><div><b>${esc(m.name)}</b><p>${esc(m.cat)} • ${m.installs}</p></div><span style="margin-left:auto;font-size:11px;background:#f1f5f9;padding:4px 8px;border-radius:999px">${m.stars} ★</span></div>
+      <p class="mkt-desc">${esc(m.desc)}</p>
+      <div class="mkt-foot"><span class="stars">${'★'.repeat(5)}</span><button class="${m.installed?'ghost-btn sm':'primary-btn sm'}" data-install="${m.id}">${m.installed?'Installed':'Install'}</button></div>
+    </div>
+  `).join('') || `<p style="grid-column:1/-1;text-align:center;color:#94a3b8;padding:12px">No results</p>`;
+  refreshIcons();
+}
+marketSearch.addEventListener('input', renderMarket);
+marketFilter.addEventListener('change', renderMarket);
+marketGrid.addEventListener('click', e=>{
+  const b=e.target.closest('[data-install]'); if(!b) return;
+  const id=b.dataset.install; const m=MARKET.find(x=>x.id===id);
+  if(m.installed){ toast(`${m.name} already installed`); return; }
+  m.installed=true;
+  // add to servers
+  const nid='srv'+Date.now();
+  const col=m.cat==='db'?'pg': m.cat==='cloud'?'aws':'fs';
+  servers.push({id:nid, name:m.name.toLowerCase().replace(/\s/g,'-'), transport:'sse', endpoint:`wss://${m.name.toLowerCase()}.mcp.local/sse`, tools:'auto', status:'disconnected', color:col});
+  saveServers(); renderServers();
+  renderMarket(); toast(`${m.name} installed — connect in MCP servers`);
 });
-document.querySelectorAll('.hint').forEach(b=>{
-  b.addEventListener('click', ()=>{ inputEl.value=b.dataset.insert; inputEl.focus(); autoResize(); syncComposer(); });
+
+// Prompts
+const promptCatsEl=promptCats, promptGridEl=promptGrid;
+let activePromptCat='All';
+function renderPromptCats(){
+  const cats=['All', ...new Set(PROMPTS.map(p=>p.cat))];
+  promptCatsEl.innerHTML=cats.map(c=>`<button class="${activePromptCat===c?'active':''}" data-cat="${c}">${c}</button>`).join('');
+}
+function renderPromptGrid(){
+  const filtered= activePromptCat==='All'? PROMPTS : PROMPTS.filter(p=>p.cat===activePromptCat);
+  promptGridEl.innerHTML=filtered.map(p=>`
+    <div class="prompt-item" data-prompt="${esc(p.prompt)}">
+      <b><i data-lucide="${p.icon}" style="width:14px;height:14px"></i> ${esc(p.title)}</b>
+      <p>${esc(p.prompt)}</p>
+      <button class="primary-btn sm use">Use prompt</button>
+    </div>
+  `).join('');
+  refreshIcons();
+}
+promptCatsEl.addEventListener('click', e=>{
+  const b=e.target.closest('[data-cat]'); if(!b) return;
+  activePromptCat=b.dataset.cat; renderPromptCats(); renderPromptGrid();
 });
-topNodes.addEventListener('click', e=>{
-  const p=e.target.closest('[data-id]'); if(!p) return; toggle(p.dataset.id);
+promptGridEl.addEventListener('click', e=>{
+  const card=e.target.closest('.prompt-item'); if(!card) return;
+  inputEl.value=card.dataset.prompt; autoResize(); syncComposer();
+  promptsView.classList.add('hidden'); toast('Prompt inserted');
+  inputEl.focus();
 });
-sidebarList.addEventListener('click', e=>{
-  const p=e.target.closest('[data-id]'); if(!p) return; toggle(p.dataset.id);
+
+// Profile
+userProfileCard.addEventListener('click', ()=>{ profileView.classList.remove('hidden'); refreshIcons(); });
+profileBackdrop.addEventListener('click', ()=> profileView.classList.add('hidden'));
+closeProfile.addEventListener('click', ()=> profileView.classList.add('hidden'));
+changeAvatar.addEventListener('click', ()=> avatarInput.click());
+avatarInput.addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const url=URL.createObjectURL(f);
+  profileAvatar.src=url; profileLargeAvatar.src=url; toast('Avatar updated');
 });
-serversList.addEventListener('click', e=>{
-  const del=e.target.closest('[data-del]'); if(del){ servers=servers.filter(s=>s.id!==del.dataset.del); save(); render(); toast('Removed'); return; }
-  const ed=e.target.closest('[data-edit]'); if(ed){ const s=servers.find(x=>x.id===ed.dataset.edit); if(s){ editingId=s.id; serverModalTitle.textContent='Edit MCP Server'; srvName.value=s.name; srvTransport.value=s.transport; srvEndpoint.value=s.endpoint; srvTools.value=s.tools; serverModal.classList.remove('hidden'); refreshIcons(); } return; }
+saveProfileBtn.addEventListener('click', ()=>{
+  profileName.textContent=profileNameInput.value;
+  const role=$('#profileRoleSelect').value;
+  profileRole.textContent=`${role} • ${selectedModel} • ${selectedMode} mode`;
+  localStorage.setItem('profileName', profileNameInput.value);
+  localStorage.setItem('profileEmail', profileEmail.value);
+  profileView.classList.add('hidden'); toast('Profile saved');
 });
-serversList.addEventListener('change', e=>{
-  const t=e.target.closest('[data-toggle]'); if(t) toggle(t.dataset.toggle, t.checked);
+themeSelect.addEventListener('change', e=>{
+  if(e.target.value==='dark'){ document.documentElement.style.filter='invert(1) hue-rotate(180deg)'; document.body.style.background='#0f172a'; toast('Dark preview — invert filter'); }
+  else { document.documentElement.style.filter=''; document.body.style.background=''; toast('Light theme'); }
 });
+
+// Servers drawer events
 function openSettings(){ settingsView.classList.remove('hidden'); refreshIcons(); }
 function closeSettingsView(){ settingsView.classList.add('hidden'); }
 serversBtn.addEventListener('click', openSettings);
 settingsBtn.addEventListener('click', openSettings);
-settingsBtn2.addEventListener('click', openSettings);
+marketplaceBtn.addEventListener('click', ()=>{ marketplaceView.classList.remove('hidden'); renderMarket(); refreshIcons(); });
+promptLibraryBtn.addEventListener('click', ()=>{ promptsView.classList.remove('hidden'); renderPromptCats(); renderPromptGrid(); refreshIcons(); });
+showPromptsLink.addEventListener('click', ()=> promptLibraryBtn.click());
+closeMarketplace.addEventListener('click', ()=> marketplaceView.classList.add('hidden'));
+marketplaceBackdrop.addEventListener('click', ()=> marketplaceView.classList.add('hidden'));
+promptsBackdrop.addEventListener('click', ()=> promptsView.classList.add('hidden'));
+closePrompts.addEventListener('click', ()=> promptsView.classList.add('hidden'));
 settingsBackdrop.addEventListener('click', closeSettingsView);
 closeSettings.addEventListener('click', closeSettingsView);
-serverSearch.addEventListener('input', render);
-sidebarSearch.addEventListener('input', render);
+serverSearch.addEventListener('input', renderServers);
+sidebarSearch.addEventListener('input', ()=>{ renderChats(); renderServers(); });
 addServerBtn.addEventListener('click', ()=>{ editingId=null; serverModalTitle.textContent='Add MCP Server'; srvName.value=''; srvEndpoint.value=''; srvTools.value=''; srvTransport.value='sse'; serverModal.classList.remove('hidden'); refreshIcons(); });
 addServerSidebar.addEventListener('click', ()=> addServerBtn.click());
 closeServerModalBtn.addEventListener('click', ()=> serverModal.classList.add('hidden'));
@@ -397,23 +877,53 @@ serverForm.addEventListener('submit', e=>{
   e.preventDefault();
   const name=srvName.value.trim(), ep=srvEndpoint.value.trim();
   if(!name||!ep) return;
-  if(editingId){
-    const s=servers.find(x=>x.id===editingId); s.name=name; s.transport=srvTransport.value; s.endpoint=ep; s.tools=srvTools.value; toast(`${name} updated`);
-  } else {
-    const id='srv'+Date.now();
-    const col=name.includes('postgres')?'pg': name.includes('aws')?'aws': name.includes('fs')?'fs':'custom';
-    servers.push({id,name,transport:srvTransport.value,endpoint:ep,tools:srvTools.value,status:'disconnected',color:col}); toast(`${name} added`);
-  }
-  save(); render(); serverModal.classList.add('hidden');
+  if(editingId){ const s=servers.find(x=>x.id===editingId); s.name=name; s.transport=srvTransport.value; s.endpoint=ep; s.tools=srvTools.value; toast(`${name} updated`); }
+  else { const id='srv'+Date.now(); const col=name.includes('postgres')?'pg': name.includes('aws')?'aws': name.includes('fs')?'fs':'custom'; servers.push({id,name,transport:srvTransport.value,endpoint:ep,tools:srvTools.value,status:'disconnected',color:col}); toast(`${name} added`); }
+  saveServers(); renderServers(); serverModal.classList.add('hidden');
 });
+topNodes.addEventListener('click', e=>{ const p=e.target.closest('[data-id]'); if(!p) return; toggle(p.dataset.id); });
+sidebarList.addEventListener('click', e=>{ const p=e.target.closest('[data-id]'); if(!p) return; toggle(p.dataset.id); });
+serversList.addEventListener('click', e=>{
+  const del=e.target.closest('[data-del]'); if(del){ servers=servers.filter(s=>s.id!==del.dataset.del); saveServers(); renderServers(); toast('Removed'); return; }
+  const ed=e.target.closest('[data-edit]'); if(ed){ const s=servers.find(x=>x.id===ed.dataset.edit); if(s){ editingId=s.id; serverModalTitle.textContent='Edit MCP Server'; srvName.value=s.name; srvTransport.value=s.transport; srvEndpoint.value=s.endpoint; srvTools.value=s.tools; serverModal.classList.remove('hidden'); refreshIcons(); } return; }
+});
+serversList.addEventListener('change', e=>{ const t=e.target.closest('[data-toggle]'); if(t) toggle(t.dataset.toggle, t.checked); });
+async function toggle(id, force){
+  const s=servers.find(x=>x.id===id); if(!s) return;
+  const should= typeof force==='boolean' ? force : s.status!=='connected';
+  if(should){ if(s.status==='connected') return; s.status='connecting'; renderServers(); toast(`Connecting ${s.name}…`); await new Promise(r=>setTimeout(r,900)); s.status='connected'; saveServers(); renderServers(); toast(`${s.name} connected ✓`); }
+  else { s.status='disconnected'; saveServers(); renderServers(); toast(`${s.name} disconnected`); }
+}
+
+// Quick tools sheet
+toolsBackdrop.addEventListener('click', ()=> toolsModal.classList.add('hidden'));
+closeModalBtn.addEventListener('click', ()=> toolsModal.classList.add('hidden'));
+quickToolsBtn.addEventListener('click', ()=> toolsModal.classList.remove('hidden'));
+$$('.quick-card, .tool').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const t=b.dataset.tool;
+    toolsModal.classList.add('hidden');
+    if(t==='marketplace'){ marketplaceView.classList.remove('hidden'); renderMarket(); }
+    else if(t==='upload') mediaInput.click();
+    else if(t==='pg') { inputEl.value='/sql SELECT * FROM users LIMIT 5'; inputEl.focus(); autoResize(); syncComposer(); }
+    else if(t==='aws'){ inputEl.value='/s3 list buckets'; inputEl.focus(); autoResize(); syncComposer(); }
+    else if(t==='fs'){ inputEl.value='/fs list /data'; inputEl.focus(); autoResize(); syncComposer(); }
+  });
+});
+
+// Sidebar toggle
 menuBtn.addEventListener('click', ()=> sidebar.classList.add('open'));
 sidebarClose.addEventListener('click', ()=> sidebar.classList.remove('open'));
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){ settingsView.classList.add('hidden'); serverModal.classList.add('hidden'); toolsModal.classList.add('hidden'); hideSlash(); sidebar.classList.remove('open'); }
+  if(e.key==='Escape'){ settingsView.classList.add('hidden'); serverModal.classList.add('hidden'); toolsModal.classList.add('hidden'); marketplaceView.classList.add('hidden'); promptsView.classList.add('hidden'); profileView.classList.add('hidden'); editMsgModal.classList.add('hidden'); hideSlash(); sidebar.classList.remove('open'); convMenu.classList.add('hidden'); }
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); openSettings(); }
 });
-newChatBtn.addEventListener('click', clearChat);
-messagesEl.addEventListener('click', e=>{
-  const c=e.target.closest('.chip'); if(c && c.textContent.includes('Copy')){ const tbl=c.closest('.card')?.querySelector('table'); if(tbl){ const t=[...tbl.rows].map(r=>[...r.cells].map(c=>c.textContent).join('\t')).join('\n'); navigator.clipboard.writeText(t); toast('Copied'); } }
-});
-render(); refreshIcons(); scrollBottom();
+
+// Send
+sendBtn.addEventListener('click', ()=> doSend());
+attachBtn.addEventListener('click', ()=> mediaInput.click());
+
+// Init
+renderProviders(); renderModes(); renderChats(); renderMessages(); renderServers(); renderPromptStrip(); renderMarket(); renderPromptCats(); renderPromptGrid(); refreshIcons(); scrollBottom(); updateUndoRedo();
+if(profileNameInput) profileNameInput.value=localStorage.getItem('profileName')||'Alex Rivera';
+if(profileEmail) profileEmail.value=localStorage.getItem('profileEmail')||'alex@local.dev';

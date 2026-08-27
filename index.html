@@ -12,73 +12,69 @@
 </head>
 <body>
   <div class="app">
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar" aria-label="MCP Servers">
+    <!-- Sidebar : Workspace + MCP -->
+    <aside class="sidebar" id="sidebar" aria-label="Workspace">
       <div class="sidebar-top">
         <div class="brand">
-          <div class="brand-mark">
-            <i data-lucide="network"></i>
-          </div>
-          <div class="brand-copy">
-            <h1>MCP Terminal</h1>
-            <p><span class="pulse"></span> REMOTE PROTOCOL ACTIVE</p>
-          </div>
-          <button class="icon-btn sidebar-close" id="sidebarClose" aria-label="Close sidebar"><i data-lucide="x"></i></button>
+          <div class="brand-mark"><i data-lucide="network"></i></div>
+          <div class="brand-copy"><h1>MCP Terminal</h1><p><span class="pulse"></span> REMOTE PROTOCOL ACTIVE</p></div>
+          <button class="icon-btn sidebar-close" id="sidebarClose" aria-label="Close"><i data-lucide="x"></i></button>
         </div>
-
         <div class="sidebar-search">
           <i data-lucide="search"></i>
-          <input id="sidebarSearch" type="text" placeholder="Search servers, tools…" />
+          <input id="sidebarSearch" type="text" placeholder="Search chats, servers…" />
           <kbd>⌘K</kbd>
+        </div>
+        <button class="primary-btn full" id="newChatBtn"><i data-lucide="plus"></i> New conversation</button>
+        <div class="provider-mini">
+          <label>AI Provider</label>
+          <select id="providerSelect"></select>
+          <select id="modelSelect"></select>
         </div>
       </div>
 
       <div class="sidebar-scroll">
+        <!-- Workspace Chats -->
+        <div class="section">
+          <div class="section-head">
+            <h3><i data-lucide="message-square" style="width:14px;height:14px"></i> WORKSPACE <span class="count" id="chatCount">3</span></h3>
+            <div class="head-actions">
+              <button class="icon-btn sm" id="importChatBtn" title="Import"><i data-lucide="upload"></i></button>
+              <input type="file" id="importFile" hidden accept=".json" />
+              <button class="icon-btn sm" id="archiveToggle" title="Show archived"><i data-lucide="archive"></i></button>
+            </div>
+          </div>
+          <div class="chat-groups" id="chatList"></div>
+        </div>
+
         <div class="section">
           <div class="section-head">
             <h3><i data-lucide="server" style="width:14px;height:14px"></i> MCP NODES <span class="count" id="sidebarCount">3</span></h3>
-            <button class="icon-btn sm" id="addServerSidebar" aria-label="Add server"><i data-lucide="plus"></i></button>
+            <button class="icon-btn sm" id="addServerSidebar"><i data-lucide="plus"></i></button>
           </div>
           <ul class="server-list" id="sidebarServerList"></ul>
           <div class="tunnel-card">
-            <div class="tunnel-card-head">
-              <i data-lucide="shield-check"></i>
-              <span>Tunnel</span>
-              <span class="badge-ok"><span class="dot"></span> TLS 1.3</span>
-            </div>
+            <div class="tunnel-card-head"><i data-lucide="shield-check"></i><span>Tunnel</span><span class="badge-ok"><span class="dot"></span> TLS 1.3</span></div>
             <p id="tunnelStatus">Secure MCP tunnel • <strong id="activeCount2">2</strong> connected</p>
-            <div class="bar"><span id="tunnelBar" style="width:66%"></span></div>
+            <div class="bar"><span id="tunnelBar"></span></div>
           </div>
         </div>
 
         <div class="section">
-          <div class="section-head">
-            <h3><i data-lucide="zap" style="width:14px;height:14px"></i> QUICK TOOLS</h3>
-          </div>
+          <div class="section-head"><h3><i data-lucide="zap" style="width:14px;height:14px"></i> QUICK TOOLS</h3></div>
           <div class="quick-grid">
-            <button class="quick-card" data-tool="postgres"><i data-lucide="database"></i><span>Postgres</span><small>query tables</small></button>
+            <button class="quick-card" data-tool="postgres"><i data-lucide="database"></i><span>Postgres</span><small>query</small></button>
             <button class="quick-card" data-tool="aws"><i data-lucide="cloud"></i><span>AWS S3</span><small>buckets</small></button>
             <button class="quick-card" data-tool="fs"><i data-lucide="folder-open"></i><span>Local FS</span><small>/data</small></button>
-            <button class="quick-card" data-tool="upload"><i data-lucide="image"></i><span>Upload</span><small>media</small></button>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-head"><h3><i data-lucide="command" style="width:14px;height:14px"></i> COMMANDS</h3></div>
-          <div class="command-hints">
-            <button class="hint" data-insert="/sql SELECT * FROM users LIMIT 5"><span>/sql</span> run SELECT</button>
-            <button class="hint" data-insert="/s3 list buckets"><span>/s3</span> list buckets</button>
-            <button class="hint" data-insert="/fs list /data"><span>/fs</span> list files</button>
+            <button class="quick-card" data-tool="marketplace"><i data-lucide="store"></i><span>Marketplace</span><small>browse MCP</small></button>
           </div>
         </div>
       </div>
 
-      <div class="sidebar-foot">
-        <div class="user-row">
-          <img src="https://i.pravatar.cc/100?img=32" alt="avatar" />
-          <div><strong>Alex Rivera</strong><p>Admin • local</p></div>
-          <button class="icon-btn" id="settingsBtn2" aria-label="Settings"><i data-lucide="settings"></i></button>
-        </div>
+      <div class="sidebar-foot" id="userProfileCard" role="button" tabindex="0" aria-label="Open profile">
+        <img id="profileAvatar" src="https://i.pravatar.cc/100?img=32" alt="avatar" />
+        <div><strong id="profileName">Alex Rivera</strong><p id="profileRole">Admin • Claude 3.5 • Research mode</p></div>
+        <i data-lucide="chevron-up" style="width:14px;height:14px;color:#94a3b8"></i>
       </div>
     </aside>
 
@@ -86,138 +82,171 @@
     <div class="main">
       <header class="topbar">
         <div class="topbar-left">
-          <button class="icon-btn" id="menuBtn" aria-label="Open menu"><i data-lucide="menu"></i></button>
-          <div class="crumb">
-            <span>Workspace</span><i data-lucide="chevron-right" style="width:14px;height:14px"></i><strong>MCP Chat</strong>
-            <span class="live"><span class="dot"></span> Live</span>
-          </div>
+          <button class="icon-btn" id="menuBtn"><i data-lucide="menu"></i></button>
+          <div class="crumb"><span id="crumbTitle">MCP Chat</span><span class="live"><span class="dot"></span> Live</span></div>
+          <div class="agent-modes" id="agentModes"></div>
         </div>
         <div class="topbar-right">
           <div class="nodes-inline" id="nodesInline"></div>
           <div class="divider"></div>
-          <button class="icon-btn" id="serversBtn" aria-label="Manage servers"><i data-lucide="sliders-horizontal"></i></button>
-          <button class="icon-btn" id="settingsBtn" aria-label="Settings"><i data-lucide="settings"></i></button>
-          <button class="primary-btn hide-mobile" id="newChatBtn"><i data-lucide="plus"></i> New chat</button>
+          <button class="icon-btn" id="promptLibraryBtn" title="Prompt suggestions"><i data-lucide="lightbulb"></i></button>
+          <button class="icon-btn" id="marketplaceBtn" title="Marketplace"><i data-lucide="store"></i></button>
+          <button class="icon-btn" id="serversBtn" title="MCP servers"><i data-lucide="sliders-horizontal"></i></button>
+          <div class="conv-actions">
+            <button class="icon-btn" id="undoBtn" title="Undo (Ctrl+Z)"><i data-lucide="undo-2"></i></button>
+            <button class="icon-btn" id="redoBtn" title="Redo"><i data-lucide="redo-2"></i></button>
+            <div class="dropdown">
+              <button class="icon-btn" id="convMenuBtn"><i data-lucide="more-horizontal"></i></button>
+              <div class="dropdown-menu hidden" id="convMenu">
+                <button data-action="rename"><i data-lucide="pencil"></i> Rename</button>
+                <button data-action="export"><i data-lucide="download"></i> Export JSON</button>
+                <button data-action="duplicate"><i data-lucide="copy"></i> Duplicate</button>
+                <button data-action="archive"><i data-lucide="archive"></i> Archive</button>
+                <button class="danger" data-action="delete"><i data-lucide="trash-2"></i> Delete</button>
+              </div>
+            </div>
+          </div>
+          <button class="primary-btn hide-mobile" id="newChatTopBtn"><i data-lucide="plus"></i> New</button>
         </div>
       </header>
 
       <div class="chat-wrap" id="chatWrap">
-        <div class="messages" id="messages" aria-live="polite">
-          <div class="date-sep"><span>Today • TLS 1.3 secured</span></div>
+        <div class="messages" id="messages" aria-live="polite"></div>
 
-          <div class="message user">
-            <div class="msg-head"><span class="who">You</span><span class="when">10:21 AM</span><button class="icon-btn xs" aria-label="Copy"><i data-lucide="copy" style="width:14px;height:14px"></i></button></div>
-            <div class="bubble">Query the remote PostgreSQL database for the last 5 user registrations and format as a table.</div>
-          </div>
-
-          <div class="message assistant">
-            <div class="msg-head"><span class="who"><i data-lucide="bot" style="width:14px;height:14px"></i> POSTGRES-MCP</span><span class="badge">Executed SELECT</span><span class="when">10:21 AM</span></div>
-            <div class="card">
-              <div class="card-head">
-                <h4>Retrieved 5 records from <code>remote_db.users</code></h4>
-                <p>Parsing metadata • latency 184ms</p>
-              </div>
-              <div class="table-wrap">
-                <table>
-                  <thead><tr><th>ID</th><th>USERNAME</th><th>REGISTERED</th></tr></thead>
-                  <tbody>
-                    <tr><td>101</td><td>k_morgan</td><td>2023-10-21</td></tr>
-                    <tr><td>102</td><td>j_doe</td><td>2023-10-21</td></tr>
-                    <tr><td>103</td><td>m_smith</td><td>2023-10-22</td></tr>
-                    <tr><td>104</td><td>a_wilson</td><td>2023-10-22</td></tr>
-                    <tr><td>105</td><td>s_chen</td><td>2023-10-23</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="card-foot">
-                <button class="chip"><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button>
-                <button class="chip"><i data-lucide="download" style="width:12px;height:12px"></i> CSV</button>
-                <span class="spacer"></span><span class="tls">✓ TLS 1.3</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- Prompt suggestions strip (when input empty) -->
+        <div class="prompt-strip" id="promptStrip"></div>
 
         <!-- Composer -->
         <div class="composer" id="composer">
           <div class="attach-preview hidden" id="attachPreview"></div>
-          <div class="slash-menu hidden" id="slashMenu" role="listbox"></div>
-
+          <div class="todo-draft hidden" id="todoDraft">
+            <div class="todo-head"><i data-lucide="list-checks" style="width:14px;height:14px"></i> Checklist <span id="todoProgress">0/0</span><button class="icon-btn sm" id="clearTodo"><i data-lucide="x" style="width:12px;height:12px"></i></button></div>
+            <ul id="todoList"></ul>
+            <div class="todo-add"><input id="todoInput" placeholder="Add todo…  ⏎" /><button class="ghost-btn sm" id="addTodoBtn">Add</button></div>
+          </div>
+          <div class="slash-menu hidden" id="slashMenu"></div>
+          <div class="speech-bar hidden" id="speechBar">
+            <div class="wave"><span></span><span></span><span></span><span></span><span></span></div>
+            <span class="speech-text">Listening… say “query users” or “list files”</span>
+            <button class="ghost-btn sm" id="stopSpeech">Stop</button>
+          </div>
           <div class="composer-box" id="composerInner">
-            <button class="attach-btn" id="attachBtn" aria-label="Attach media"><i data-lucide="paperclip"></i></button>
+            <button class="attach-btn" id="attachBtn" title="Attach media"><i data-lucide="paperclip"></i></button>
+            <button class="icon-btn sm" id="micBtn" title="Live speech (hold or click)"><i data-lucide="mic"></i></button>
             <input type="file" id="mediaInput" hidden multiple accept="image/*,video/*,audio/*,.pdf,.csv,.json,.txt,.md" />
-            <textarea id="promptInput" placeholder="Ask MCP to run a tool…  •  type “/” for commands, drop files" rows="1"></textarea>
+            <textarea id="promptInput" placeholder="Ask MCP to run a tool…  •  type “/” for commands" rows="1"></textarea>
             <div class="composer-tools">
+              <button class="icon-btn sm" id="todoToggle" title="Todo checklist"><i data-lucide="list-todo"></i></button>
+              <button class="icon-btn sm" id="quickToolsBtn" title="Quick tools"><i data-lucide="sparkles"></i></button>
               <span class="char" id="charCount"></span>
-              <button class="icon-btn sm" id="quickToolsBtn" aria-label="Quick tools"><i data-lucide="sparkles"></i></button>
               <button class="send-btn" id="sendBtn" aria-label="Send"><i data-lucide="arrow-up"></i></button>
             </div>
           </div>
           <div class="composer-meta">
-            <span><kbd>/</kbd> commands</span>
-            <span>•</span>
-            <span><kbd>⇧</kbd> + <kbd>↵</kbd> new line</span>
-            <span>•</span>
-            <span>drag & drop or paste media</span>
+            <span><kbd>/</kbd> commands</span><span>•</span><span><kbd>⇧</kbd>+<kbd>↵</kbd> new line</span><span>•</span><span>paste or drag media</span><span>•</span><button class="link-btn" id="showPromptsLink">prompts</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Settings Drawer -->
+    <!-- Profile Drawer -->
+    <div class="drawer hidden" id="profileView" role="dialog" aria-modal="true">
+      <div class="drawer-backdrop" id="profileBackdrop"></div>
+      <div class="drawer-panel">
+        <div class="drawer-head"><h2><i data-lucide="user"></i> Profile</h2><button class="icon-btn" id="closeProfile"><i data-lucide="x"></i></button></div>
+        <div class="drawer-body">
+          <div class="profile-card">
+            <img id="profileLargeAvatar" src="https://i.pravatar.cc/200?img=32" alt="" />
+            <button class="ghost-btn sm" id="changeAvatar"><i data-lucide="camera"></i> Change</button>
+            <input type="file" id="avatarInput" hidden accept="image/*" />
+          </div>
+          <div class="form">
+            <label>Name<input id="profileNameInput" value="Alex Rivera" /></label>
+            <label>Email<input id="profileEmail" value="alex@local.dev" /></label>
+            <label>Role<select id="profileRoleSelect"><option>Admin</option><option>Developer</option><option>Viewer</option></select></label>
+            <label>Theme<select id="themeSelect"><option value="light">Light</option><option value="dark">Dark (preview)</option></select></label>
+          </div>
+          <div class="panel-card">
+            <h3>Preferences</h3>
+            <div class="row"><div><strong>Stream responses</strong><p>Token-by-token animation</p></div><label class="switch"><input id="streamToggle" checked type="checkbox"><span></span></label></div>
+            <div class="row"><div><strong>Live speech TTS</strong><p>Speak assistant replies</p></div><label class="switch"><input id="ttsToggle" type="checkbox"><span></span></label></div>
+          </div>
+          <button class="primary-btn full" id="saveProfile">Save profile</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Marketplace Drawer -->
+    <div class="drawer hidden" id="marketplaceView" role="dialog" aria-modal="true">
+      <div class="drawer-backdrop" id="marketplaceBackdrop"></div>
+      <div class="drawer-panel wide">
+        <div class="drawer-head"><h2><i data-lucide="store"></i> MCP Marketplace</h2><button class="icon-btn" id="closeMarketplace"><i data-lucide="x"></i></button></div>
+        <div class="drawer-body">
+          <div class="search-row"><i data-lucide="search"></i><input id="marketSearch" placeholder="Search integrations…" /><select id="marketFilter" style="border:none;background:transparent;font-size:12px"><option value="all">All</option><option value="db">Databases</option><option value="cloud">Cloud</option><option value="fs">Filesystem</option></select></div>
+          <div class="market-grid" id="marketGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prompt Library -->
+    <div class="drawer hidden" id="promptsView" role="dialog" aria-modal="true">
+      <div class="drawer-backdrop" id="promptsBackdrop"></div>
+      <div class="drawer-panel wide">
+        <div class="drawer-head"><h2><i data-lucide="lightbulb"></i> Prompt Library</h2><button class="icon-btn" id="closePrompts"><i data-lucide="x"></i></button></div>
+        <div class="drawer-body">
+          <div class="prompt-cats" id="promptCats"></div>
+          <div class="prompt-grid" id="promptGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MCP Servers Drawer -->
     <div class="drawer hidden" id="settingsView" role="dialog" aria-modal="true">
       <div class="drawer-backdrop" id="settingsBackdrop"></div>
       <div class="drawer-panel">
-        <div class="drawer-head">
-          <h2><i data-lucide="server"></i> Manage MCP Servers</h2>
-          <button class="icon-btn" id="closeSettings"><i data-lucide="x"></i></button>
-        </div>
+        <div class="drawer-head"><h2><i data-lucide="server"></i> MCP Servers</h2><button class="icon-btn" id="closeSettings"><i data-lucide="x"></i></button></div>
         <div class="drawer-body">
-          <div class="search-row">
-            <i data-lucide="search"></i><input id="serverSearch" placeholder="Search servers…" />
-          </div>
+          <div class="search-row"><i data-lucide="search"></i><input id="serverSearch" placeholder="Search servers…" /></div>
           <div class="servers" id="serversList"></div>
-          <div class="panel-card">
-            <h3>Transport & Security</h3>
-            <div class="row"><div><strong>TLS 1.3 enforced</strong><p>All MCP traffic is encrypted</p></div><label class="switch"><input checked disabled type="checkbox"><span></span></label></div>
-            <div class="row"><div><strong>Auto-reconnect</strong><p>Retry on disconnect</p></div><label class="switch"><input id="autoReconnect" checked type="checkbox"><span></span></label></div>
-          </div>
-          <div class="drawer-foot">
-            <button class="primary-btn" id="addServerBtn"><i data-lucide="plus"></i> Add server</button>
-          </div>
+          <div class="panel-card"><h3>Transport</h3><div class="row"><div><strong>TLS 1.3</strong><p>Encrypted tunnel</p></div><label class="switch"><input checked disabled type="checkbox"><span></span></label></div><div class="row"><div><strong>Auto-reconnect</strong><p>Retry on disconnect</p></div><label class="switch"><input id="autoReconnect" checked type="checkbox"><span></span></label></div></div>
+          <button class="primary-btn" id="addServerBtn"><i data-lucide="plus"></i> Add server</button>
         </div>
       </div>
     </div>
 
-    <!-- Add/Edit Modal -->
+    <!-- Modals -->
     <div class="modal hidden" id="serverModal" role="dialog" aria-modal="true">
       <div class="modal-backdrop" id="serverModalBackdrop"></div>
       <div class="modal-card">
-        <div class="modal-head">
-          <h3 id="serverModalTitle">Add MCP Server</h3>
-          <button class="icon-btn" id="closeServerModal"><i data-lucide="x"></i></button>
-        </div>
+        <div class="modal-head"><h3 id="serverModalTitle">Add MCP Server</h3><button class="icon-btn" id="closeServerModal"><i data-lucide="x"></i></button></div>
         <form id="serverForm" class="form">
           <label>Name<input id="srvName" placeholder="postgres-mcp" required /></label>
           <label>Transport<select id="srvTransport"><option value="sse">SSE</option><option value="stdio">STDIO</option><option value="http">HTTP</option></select></label>
-          <label>Endpoint / Command<input id="srvEndpoint" placeholder="wss://…/sse or npx …" required /></label>
-          <label>Tools (comma-separated)<input id="srvTools" placeholder="query, list_tables" /></label>
-          <div class="form-actions"><button type="button" class="ghost-btn" id="cancelServer">Cancel</button><button class="primary-btn" type="submit">Save server</button></div>
+          <label>Endpoint<input id="srvEndpoint" placeholder="wss://…/sse" required /></label>
+          <label>Tools<input id="srvTools" placeholder="query, list_tables" /></label>
+          <div class="form-actions"><button type="button" class="ghost-btn" id="cancelServer">Cancel</button><button class="primary-btn" type="submit">Save</button></div>
         </form>
       </div>
     </div>
 
-    <!-- Quick Tools Sheet -->
     <div class="sheet hidden" id="toolsModal" role="dialog" aria-modal="true">
       <div class="sheet-backdrop" id="toolsBackdrop"></div>
       <div class="sheet-panel">
         <div class="sheet-head"><h3>Quick tools</h3><button class="icon-btn" id="closeModal"><i data-lucide="x"></i></button></div>
         <div class="sheet-grid">
-          <button class="tool" data-tool="postgres"><span class="ic pg"><i data-lucide="database"></i></span><b>postgres-mcp</b><p>SQL • list tables</p></button>
+          <button class="tool" data-tool="postgres"><span class="ic pg"><i data-lucide="database"></i></span><b>postgres-mcp</b><p>SQL • list</p></button>
           <button class="tool" data-tool="aws"><span class="ic aws"><i data-lucide="cloud"></i></span><b>aws-us-east</b><p>S3 • EC2</p></button>
           <button class="tool" data-tool="fs"><span class="ic fs"><i data-lucide="folder-open"></i></span><b>local-fs</b><p>read / list</p></button>
-          <button class="tool" data-tool="upload"><span class="ic up"><i data-lucide="image"></i></span><b>Upload media</b><p>images, pdf, csv</p></button>
+          <button class="tool" data-tool="upload"><span class="ic up"><i data-lucide="image"></i></span><b>Upload</b><p>media</p></button>
         </div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="editMsgModal" role="dialog" aria-modal="true">
+      <div class="modal-backdrop" id="editMsgBackdrop"></div>
+      <div class="modal-card">
+        <div class="modal-head"><h3>Edit message</h3><button class="icon-btn" id="closeEditMsg"><i data-lucide="x"></i></button></div>
+        <div class="form" style="padding:16px"><textarea id="editMsgInput" rows="3" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font-family:var(--font)"></textarea><div class="form-actions"><button class="ghost-btn" id="cancelEdit">Cancel</button><button class="primary-btn" id="saveEdit">Save & resend</button></div></div>
       </div>
     </div>
 
