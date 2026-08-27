@@ -15,6 +15,13 @@ const composerInner = $('#composerInner');
 const topNodes = $('#nodesInline'); // removed from header - may be null
 const composerModePill = $('#composerModePill');
 const composerModeLabel = $('#composerModeLabel');
+const composerModeWrap = $('#composerModeWrap');
+const composerModeMenu = $('#composerModeMenu');
+const composerModeList = $('#composerModeList');
+const composerModeIcon = $('#composerModeIcon');
+const composerModeTemp = $('#composerModeTemp');
+const composerModeCount = $('#composerModeCount');
+const composerManageModes = $('#composerManageModes');
 const sidebarList = $('#sidebarServerList');
 const sidebarCount = $('#sidebarCount');
 const activeCount2 = $('#activeCount2');
@@ -575,7 +582,8 @@ function getMode(id){ return MODES.find(m=>m.id===id) || MODES[0]; }
 function getActiveMode(){ return getMode(selectedMode); }
 function renderModes(){
   const active = getActiveMode();
-  // topbar pills — show first 5 + overflow
+  // topbar pills — legacy header (removed, keep composer-only). Guard for null.
+  if(agentModesEl){
   const visible = MODES.slice(0,5);
   const overflow = MODES.length - visible.length;
   agentModesEl.innerHTML = visible.map(m=>{
@@ -583,6 +591,7 @@ function renderModes(){
     return `<button class="mode-pill ${isActive?'active':''} ${m.color?'colored':''}" data-mode="${m.id}" style="${isActive?`background:${m.color};border-color:${m.color};color:#fff`:`border-color:${m.color}20;color:${m.color}`}" title="${esc(m.desc)}"><i data-lucide="${m.icon}" style="width:12px;height:12px"></i> ${esc(m.name)}</button>`;
   }).join('') + (overflow>0? `<span style="font-size:11px;color:var(--muted);padding:6px">+${overflow}</span>`:``) + ` <span style="margin-left:4px;font-size:11px;color:var(--faint);font-family:var(--mono);display:none" class="hide-mobile">${active ? esc(active.prompt.slice(0,24))+'…' : ''}</span>`;
   refreshIcons();
+  }
   // update composer placeholder per mode
   if(inputEl){
     const placeholders = {
@@ -614,15 +623,21 @@ function renderModes(){
   } else {
     $$('.node-pill').forEach(el=>{ el.style.opacity=''; el.title=''; });
   }
-  // inline composer pill
+  // inline composer pill — enhanced
   if(composerModeLabel) composerModeLabel.textContent = active.name;
   if(composerModePill){
-    composerModePill.style.borderColor = active.color + '30';
+    composerModePill.style.borderColor = active.color + '40';
     composerModePill.style.color = active.color;
-    // keep icon
-    const iconEl = composerModePill.querySelector('[data-lucide]');
-    if(iconEl) iconEl.setAttribute('data-lucide', active.icon);
+    composerModePill.setAttribute('aria-label', `Agent mode: ${active.name} — ${active.desc}`);
+    if(composerModeIcon){
+      composerModeIcon.style.background = active.color;
+      const iconEl = composerModeIcon.querySelector('[data-lucide]');
+      if(iconEl) iconEl.setAttribute('data-lucide', active.icon);
+    }
   }
+  if(composerModeTemp) composerModeTemp.textContent = String(active.temp ?? 0.7);
+  if(composerModeCount) composerModeCount.textContent = `${MODES.length} modes`;
+  renderComposerModeMenu();
   refreshIcons();
   // update active card in drawer
   if(activeModeName) activeModeName.textContent = active.name;
@@ -685,8 +700,51 @@ agentModesEl?.addEventListener('click', e=>{
   }
   renderModes(); renderModesGrid(); toast(`Mode: ${m.name} — ${m.desc}`);
 });
+// Composer mode popover — quick switch without leaving input
+function renderComposerModeMenu(){
+  if(!composerModeList) return;
+  composerModeList.innerHTML = MODES.map(m=>{
+    const isActive = selectedMode===m.id;
+    return `<button class="composer-mode-option ${isActive?'active':''}" role="menuitem" data-composer-mode="${m.id}" title="${esc(m.desc)}">
+      <span class="mi" style="background:${m.color}"><i data-lucide="${m.icon}" style="width:16px;height:16px"></i></span>
+      <span style="flex:1;min-width:0;text-align:left"><b>${esc(m.name)} ${m.builtin?'<span style="font-size:10px;background:#f1f5f9;border:1px solid var(--line);padding:1px 5px;border-radius:999px;color:var(--muted)">built-in</span>':''}</b><p>${esc(m.desc)}</p></span>
+      <span class="check">${isActive?'<i data-lucide="check" style="width:12px;height:12px"></i>':''}</span>
+    </button>`;
+  }).join('');
+  refreshIcons();
+}
+function toggleComposerModeMenu(force){
+  if(!composerModeMenu || !composerModePill) return;
+  const willOpen = typeof force==='boolean' ? force : composerModeMenu.classList.contains('hidden');
+  if(willOpen){
+    renderComposerModeMenu();
+    composerModeMenu.classList.remove('hidden');
+    composerModePill.setAttribute('aria-expanded','true');
+    refreshIcons();
+  } else {
+    composerModeMenu.classList.add('hidden');
+    composerModePill.setAttribute('aria-expanded','false');
+  }
+}
+function closeComposerModeMenu(){ toggleComposerModeMenu(false); }
 manageModesBtn?.addEventListener('click', openModesView);
-composerModePill?.addEventListener('click', openModesView);
+composerModePill?.addEventListener('click', (e)=>{ e.stopPropagation(); toggleComposerModeMenu(); });
+composerManageModes?.addEventListener('click', (e)=>{ e.stopPropagation(); closeComposerModeMenu(); openModesView(); });
+composerModeList?.addEventListener('click', (e)=>{
+  const b=e.target.closest('[data-composer-mode]'); if(!b) return;
+  const id=b.dataset.composerMode;
+  if(id===selectedMode){ closeComposerModeMenu(); return; }
+  selectedMode=id; localStorage.setItem('agentMode', selectedMode);
+  const m=getMode(selectedMode);
+  if(m.provider){
+    const p=PROVIDERS.find(x=>x.id===m.provider);
+    if(p && p.enabled){ selectedProvider=p.id; localStorage.setItem('provider', selectedProvider); if(m.model){ selectedModel=m.model; localStorage.setItem('model', selectedModel); } renderProviders(); }
+  }
+  renderModes(); renderModesGrid(); closeComposerModeMenu(); toast(`Mode: ${m.name} — ${m.desc}`);
+  inputEl?.focus();
+});
+document.addEventListener('click', (e)=>{ if(!e.target.closest('#composerModeWrap') && !e.target.closest('#composerModeMenu')) closeComposerModeMenu(); });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeComposerModeMenu(); });
 modesBackdrop?.addEventListener('click', ()=> modesView?.classList.add('hidden'));
 closeModes?.addEventListener('click', ()=> modesView?.classList.add('hidden'));
 modeSearch?.addEventListener('input', renderModesGrid);

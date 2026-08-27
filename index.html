@@ -196,7 +196,14 @@
             <textarea id="promptInput" placeholder="Ask MCP to run a tool…  •  type “/” for commands" rows="1"></textarea>
             <div class="composer-tools">
               <button class="icon-btn sm" id="todoToggle" title="Todo checklist"><i data-lucide="list-todo"></i></button>
-              <button class="composer-mode-pill" id="composerModePill" title="Agent mode — click to switch" aria-haspopup="dialog"><i data-lucide="bot" style="width:14px;height:14px"></i><span id="composerModeLabel">Chat</span><i data-lucide="chevron-down" style="width:12px;height:12px;opacity:.6"></i></button>
+              <div class="composer-mode-wrap" id="composerModeWrap" style="position:relative">
+                <button class="composer-mode-pill" id="composerModePill" title="Agent mode — click to switch" aria-haspopup="dialog" aria-expanded="false"><span class="composer-mode-icon" id="composerModeIcon" style="width:20px;height:20px;border-radius:999px;display:grid;place-items:center;background:var(--primary);color:#fff;flex-shrink:0"><i data-lucide="bot" style="width:12px;height:12px"></i></span><span id="composerModeLabel">Chat</span><i data-lucide="chevron-down" style="width:12px;height:12px;opacity:.55"></i></button>
+                <div class="composer-mode-popover hidden" id="composerModeMenu" role="menu" aria-label="Agent modes">
+                  <div class="composer-mode-head"><span><i data-lucide="bot" style="width:14px;height:14px"></i> Agent mode</span><button class="ghost-btn sm" id="composerManageModes" style="padding:4px 8px;font-size:11px">Manage <i data-lucide="settings-2" style="width:11px;height:11px"></i></button></div>
+                  <div class="composer-mode-list" id="composerModeList"></div>
+                  <div class="composer-mode-foot"><span style="font-size:11px;color:var(--muted)"><kbd style="font-size:10px">/</kbd> commands • temp <span id="composerModeTemp">0.7</span></span><span style="margin-left:auto;font-size:11px;color:var(--faint)" id="composerModeCount">8 modes</span></div>
+                </div>
+              </div>
               <span class="char" id="charCount"></span>
               <button class="send-btn" id="sendBtn" aria-label="Send"><i data-lucide="arrow-up"></i></button>
             </div>
