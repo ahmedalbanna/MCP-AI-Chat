@@ -1,6 +1,8 @@
 /* MCP Terminal — Ultimate */
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
+const topbarEl = document.querySelector('.topbar');
+const scrollFab = $('#scrollFab');
 const messagesEl = $('#messages');
 const inputEl = $('#promptInput');
 const sendBtn = $('#sendBtn');
@@ -268,11 +270,20 @@ const safeSet = (key, val) => { try{ localStorage.setItem(key, val); } catch(e){
 const refreshIcons=()=>{ try{ if(window.lucide && window.lucide.createIcons) window.lucide.createIcons(); }catch(e){ /* icon load may fail if CDN blocked */ } };
 const toast=(m,d=2200)=>{ const el = (typeof toastEl !== 'undefined' ? toastEl : document.getElementById('toast')); if(!el) return; el.textContent=m; el.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.add('hidden'),d); };
 const esc=s=> String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const scrollBottom=()=>{ const el = (typeof messagesEl !== 'undefined' ? messagesEl : document.getElementById('messages')); if(el) el.scrollTop=el.scrollHeight; };
+const scrollBottom=()=>{ const el = (typeof messagesEl !== 'undefined' ? messagesEl : document.getElementById('messages')); if(el) el.scrollTo({top:el.scrollHeight, behavior:'smooth'}); };
+const atBottom=()=>{ const el=messagesEl; if(!el) return true; return el.scrollHeight - el.scrollTop - el.clientHeight < 80; };
+const updateScrollFab=()=>{ if(!messagesEl || !scrollFab) return; const show = !atBottom() && messagesEl.scrollHeight > messagesEl.clientHeight + 100; scrollFab.classList.toggle('visible', show); if(topbarEl) topbarEl.classList.toggle('scrolled', messagesEl.scrollTop > 6); };
 const uid=()=> Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const on = (el, evt, fn, opts) => { if(el) el.addEventListener(evt, fn, opts); };
 window.addEventListener('error', e=>{ console.warn('[mcp] unhandled', e.message); if(toastEl) toast('Error: '+ (e.message||'unknown').slice(0,60)); });
 window.addEventListener('unhandledrejection', e=>{ console.warn('[mcp] unhandled rejection', e.reason); if(toastEl) toast('Async error: '+ String(e.reason).slice(0,60)); });
+// UX: scroll FAB + topbar shadow + Cmd/K search
+messagesEl?.addEventListener('scroll', updateScrollFab, {passive:true});
+scrollFab?.addEventListener('click', scrollBottom);
+document.addEventListener('keydown', e=>{
+  if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); const s=document.getElementById('sidebarSearch'); if(s){ s.focus(); s.select(); toast('Search chats & servers'); } }
+  if(e.key==='?' && !e.metaKey && !e.ctrlKey && e.target===document.body){ e.preventDefault(); toast('Tips: / commands • ⇧+Enter newline • ⌘K search'); }
+});
 
 // Providers — extended
 let PROVIDERS = safeParse('mcp_providers', [
@@ -779,8 +790,8 @@ function renderChats(){
       </div>
     `).join('')}
     </div>
-  `).join('') || `<p style="font-size:12px;color:#94a3b8;padding:8px">No chats</p>`;
-  refreshIcons();
+  `).join('') || `<div style="text-align:center;padding:20px 12px;background:#fff;border:1px dashed var(--line);border-radius:12px"><i data-lucide="inbox" style="width:20px;height:20px;color:#cbd5e1;margin:0 auto;display:block"></i><p style="font-size:12px;color:var(--muted);margin:8px 0 0">${q?'No matches':'No chats yet'}</p><button class="ghost-btn sm" style="margin-top:8px" onclick="document.getElementById('newChatBtn').click()">New chat</button></div>`;
+  refreshIcons(); updateScrollFab();
 }
 chatListEl?.addEventListener('click', e=>{
   const item=e.target.closest('.chat-item'); if(!item) return;
@@ -1490,8 +1501,8 @@ function renderMessages(){
         </div>
       </div>`;
     }
-  }).join('') || `<div style="text-align:center;color:#94a3b8;padding:40px"><i data-lucide="message-square" style="width:32px;height:32px;margin:0 auto;display:block;color:#cbd5e1"></i><p style="margin:8px 0 0">No messages yet</p><p style="font-size:12px">Try a prompt below or type “/”</p></div>`;
-  refreshIcons(); scrollBottom();
+  }).join('') || `<div class="chat-empty"><div class="chat-empty-icon"><i data-lucide="sparkles" style="width:26px;height:26px"></i></div><h3>Start a conversation</h3><p>Ask MCP to run a tool, query your database, or explore files. Try an example below or type <code>/</code> for commands.</p><div class="chat-empty-actions"><button class="ghost-btn sm" onclick="document.getElementById('promptInput').value='/sql SELECT * FROM users LIMIT 5'; document.getElementById('promptInput').dispatchEvent(new Event('input'))"><i data-lucide="database" style="width:12px;height:12px"></i> Try SQL</button><button class="ghost-btn sm" onclick="document.getElementById('promptInput').value='/s3 list buckets'; document.getElementById('promptInput').dispatchEvent(new Event('input'))"><i data-lucide="cloud" style="width:12px;height:12px"></i> List S3</button><button class="ghost-btn sm" onclick="document.getElementById('promptInput').value='/fs list /data'; document.getElementById('promptInput').dispatchEvent(new Event('input'))"><i data-lucide="folder-open" style="width:12px;height:12px"></i> Browse FS</button></div></div>`;
+  refreshIcons(); scrollBottom(); updateScrollFab();
 }
 function clearCurrentChat(){
   pushHistory();
@@ -2299,7 +2310,7 @@ async function initApp(){
     if(!hasOnboarded){ openOnboarding(); }
     else { showAuth(); }
   }
-  renderProviders(); renderModes(); renderChats(); renderMessages(); renderServers(); initHealthPoll(); renderPromptStrip(); renderMarket(); renderPromptCats(); renderPromptGrid(); renderProfilesList(); refreshIcons(); scrollBottom(); updateUndoRedo();
+  renderProviders(); renderModes(); renderChats(); renderMessages(); renderServers(); initHealthPoll(); renderPromptStrip(); renderMarket(); renderPromptCats(); renderPromptGrid(); renderProfilesList(); refreshIcons(); scrollBottom(); updateScrollFab(); updateUndoRedo();
   if(profileNameInput && !profileNameInput.value) profileNameInput.value=currentUser ? currentUser.name : (localStorage.getItem('profileName')||'Alex Rivera');
   if(profileEmail && !profileEmail.value) profileEmail.value=currentUser ? currentUser.email : (localStorage.getItem('profileEmail')||'alex@local.dev');
   // restore theme
