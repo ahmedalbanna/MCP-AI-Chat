@@ -513,17 +513,14 @@ class ServerLifecycleTest {
     }
 
     @Test
-    fun `add custom server rejects plain http for non-loopback host`() = runTest {
-        try {
-            repository.addCustomServer(
-                name = "Insecure",
-                description = "desc",
-                endpointUrl = "http://insecure.example.com",
-                authHeader = "",
-            )
-            throw AssertionError("Expected IllegalArgumentException for plain http")
-        } catch (e: IllegalArgumentException) {
-            assertTrue(e.message?.contains("https") == true)
-        }
+    fun `add custom server allows plain http for non-loopback host but flags insecure`() = runTest {
+        val server = repository.addCustomServer(
+            name = "Insecure",
+            description = "desc",
+            endpointUrl = "http://insecure.example.com",
+            authHeader = "",
+        )
+        assertNotNull(server)
+        assertTrue(com.aistudio.mcpchat.data.repository.McpRepository.isInsecureEndpoint(server.endpointUrl))
     }
 }

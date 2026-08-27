@@ -28,7 +28,17 @@ class McpRepository(
     private val logDao = database.mcpLogDao()
 
     companion object {
-        private val loopbackHosts = setOf("localhost", "127.0.0.1", "[::1]", "::1")
+        private val loopbackHosts = setOf("localhost", "127.0.0.1", "[::1]", "::1", "10.0.2.2")
+
+        fun isInsecureEndpoint(endpointUrl: String): Boolean {
+            return try {
+                val url = URL(endpointUrl)
+                url.protocol.equals("http", ignoreCase = true) &&
+                    url.host.lowercase() !in loopbackHosts
+            } catch (_: Exception) {
+                false
+            }
+        }
     }
 
     val serversFlow: Flow<List<McpServer>> = serverDao.getAllServers().map { entities ->
@@ -153,13 +163,9 @@ class McpRepository(
             "URL must use http or https scheme"
         }
         require(!url.host.isNullOrBlank()) { "URL must have a valid host" }
-        // Credentials sent over plain HTTP are exposed in transit; only allow
-        // loopback endpoints (local development servers) to opt out of TLS.
-        if (url.protocol == "http") {
-            require(url.host.lowercase() in loopbackHosts) {
-                "URL must use https (http is only allowed for localhost)"
-            }
-        }
+        // Plain HTTP is allowed but flagged as insecure — callers must confirm
+        // via isInsecureEndpoint() before persisting. Loopback / emulator hosts
+        // (localhost, 127.0.0.1, ::1, 10.0.2.2) are exempt from the warning.
     }
 
     private fun McpServerEntity.toModel(): McpServer {

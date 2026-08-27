@@ -26,6 +26,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -103,14 +104,26 @@ class McpRepositoryTest {
     }
 
     @Test
-    fun `addCustomServer rejects plain http for non-loopback host`() = runTest {
+    fun `addCustomServer allows plain http for non-loopback host but flags insecure`() = runTest {
+        coEvery { httpClient.discoverTools(any()) } returns emptyList()
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 100)
+
         createRepository()
-        try {
-            repository.addCustomServer("Test", "desc", "http://test.com/mcp")
-            throw AssertionError("Expected IllegalArgumentException for plain http")
-        } catch (e: IllegalArgumentException) {
-            assertTrue(e.message!!.contains("https"))
-        }
+        val server = repository.addCustomServer("Test", "desc", "http://test.com/mcp")
+        assertNotNull(server)
+        assertTrue(McpRepository.isInsecureEndpoint("http://test.com/mcp"))
+        assertTrue(McpRepository.isInsecureEndpoint(server.endpointUrl))
+    }
+
+    @Test
+    fun `isInsecureEndpoint correctly classifies http vs https and loopback`() {
+        assertTrue(McpRepository.isInsecureEndpoint("http://example.com/mcp"))
+        assertTrue(McpRepository.isInsecureEndpoint("http://192.168.1.10:3000/mcp"))
+        assertFalse(McpRepository.isInsecureEndpoint("https://example.com/mcp"))
+        assertFalse(McpRepository.isInsecureEndpoint("http://localhost:3000/mcp"))
+        assertFalse(McpRepository.isInsecureEndpoint("http://127.0.0.1:3000/mcp"))
+        assertFalse(McpRepository.isInsecureEndpoint("http://10.0.2.2:3000/mcp"))
+        assertFalse(McpRepository.isInsecureEndpoint("https://10.0.2.2:3000/mcp"))
     }
 
     @Test

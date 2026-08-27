@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -75,6 +76,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.ServerStatus
+import com.aistudio.mcpchat.data.repository.McpRepository
 import com.aistudio.mcpchat.ui.theme.AmberWarning
 import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.Dimens
@@ -479,6 +481,35 @@ fun ServerCardItem(
                     )
                 }
 
+                if (McpRepository.isInsecureEndpoint(server.endpointUrl)) {
+                    Spacer(modifier = Modifier.height(Spacing.xs))
+                    Surface(
+                        color = AmberWarning.copy(alpha = 0.14f),
+                        shape = RoundedCornerShape(Dimens.cornerRadiusSm),
+                        border = BorderStroke(Dimens.borderWidth, AmberWarning.copy(alpha = 0.35f)),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 6.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = AmberWarning,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(modifier = Modifier.width(Spacing.xs))
+                            Text(
+                                text = "Not Secure — plain HTTP, data can be intercepted",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AmberWarning,
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(Spacing.sectionGap))
 
                 Row(
@@ -636,6 +667,8 @@ fun AddServerSheetContent(onDismiss: () -> Unit, onAdd: (name: String, descripti
     var description by remember { mutableStateOf("") }
     var endpointUrl by remember { mutableStateOf("") }
     var authHeader by remember { mutableStateOf("") }
+    var showInsecureConfirm by remember { mutableStateOf(false) }
+    val isInsecureInput = McpRepository.isInsecureEndpoint(endpointUrl)
 
     Column(
         modifier = Modifier
@@ -728,6 +761,41 @@ fun AddServerSheetContent(onDismiss: () -> Unit, onAdd: (name: String, descripti
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            if (isInsecureInput) {
+                Surface(
+                    color = AmberWarning.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(Dimens.cornerRadiusMd),
+                    border = BorderStroke(Dimens.borderWidth, AmberWarning.copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(Spacing.sm),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = AmberWarning,
+                            modifier = Modifier.size(Dimens.iconSizeMd),
+                        )
+                        Spacer(modifier = Modifier.width(Spacing.sm))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Not Secure MCP",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AmberWarning,
+                            )
+                            Text(
+                                text = "This server uses plain HTTP. Tokens and tool data can be intercepted. Only connect if you trust the network.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(Spacing.xl))
@@ -745,7 +813,11 @@ fun AddServerSheetContent(onDismiss: () -> Unit, onAdd: (name: String, descripti
             Button(
                 onClick = {
                     if (name.isNotBlank() && endpointUrl.isNotBlank()) {
-                        onAdd(name, description, endpointUrl, authHeader)
+                        if (isInsecureInput) {
+                            showInsecureConfirm = true
+                        } else {
+                            onAdd(name, description, endpointUrl, authHeader)
+                        }
                     }
                 },
                 enabled = name.isNotBlank() && endpointUrl.isNotBlank(),
@@ -757,5 +829,32 @@ fun AddServerSheetContent(onDismiss: () -> Unit, onAdd: (name: String, descripti
         }
 
         Spacer(modifier = Modifier.height(Spacing.xl))
+
+        if (showInsecureConfirm) {
+            AlertDialog(
+                onDismissRequest = { showInsecureConfirm = false },
+                icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = AmberWarning) },
+                title = { Text("Not Secure MCP — Continue?") },
+                text = {
+                    Text(
+                        "You are about to connect to \"$endpointUrl\" over plain HTTP.\n\n" +
+                            "Auth headers and tool payloads will be sent without encryption and can be intercepted on the network. " +
+                            "Only proceed if you trust this server and network.",
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showInsecureConfirm = false
+                            onAdd(name, description, endpointUrl, authHeader)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AmberWarning),
+                    ) { Text("Accept & Connect") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showInsecureConfirm = false }) { Text("Cancel") }
+                },
+            )
+        }
     }
 }
