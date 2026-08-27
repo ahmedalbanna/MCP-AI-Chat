@@ -120,6 +120,8 @@ import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
 import com.aistudio.mcpchat.ui.theme.RoseError
 import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.ChatViewModel
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -160,12 +162,12 @@ fun ChatScreen(
 
     LaunchedEffect(messages.size, inProgressToolCalls.size) {
         if (!userHasScrolledUp && messages.isNotEmpty()) {
-            kotlinx.coroutines.delay(80)
             val count = listState.layoutInfo.totalItemsCount
-            if (count > 0) listState.animateScrollToItem(count - 1)
+            if (count > 0) listState.scrollToItem(count - 1)
         }
     }
 
+    @OptIn(FlowPreview::class)
     LaunchedEffect(listState) {
         snapshotFlow {
             Triple(
@@ -173,7 +175,7 @@ fun ChatScreen(
                 listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0,
                 listState.layoutInfo.totalItemsCount,
             )
-        }.collect { (firstVisible, lastVisible, total) ->
+        }.debounce(100).collect { (firstVisible, lastVisible, total) ->
             userHasScrolledUp = total > 0 && lastVisible < total - 3 && firstVisible > 0
         }
     }
@@ -1234,6 +1236,7 @@ fun QuickActionChip(label: String, icon: ImageVector? = null, onClick: () -> Uni
         shape = RoundedCornerShape(Dimens.cornerRadiusXl),
         border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
         modifier = Modifier
+            .minimumInteractiveComponentSize()
             .semantics {
                 role = Role.Button
                 contentDescription = label

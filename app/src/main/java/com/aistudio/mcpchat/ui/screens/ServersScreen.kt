@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -166,11 +168,9 @@ fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier)
             onRefresh = {
                 coroutineScope.launch {
                     isRefreshing = true
-                    // Parallel sync – launch all together then await
-                    val jobs = servers.map { server ->
-                        launch { viewModel.syncTools(server) }
+                    for (server in servers) {
+                        viewModel.syncToolsSuspend(server)
                     }
-                    jobs.forEach { it.join() }
                     delay(500)
                     isRefreshing = false
                 }
@@ -705,7 +705,7 @@ fun AddServerSheetContent(onDismiss: () -> Unit, onAdd: (name: String, descripti
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         ) {
             QuickActionChip("Local (10.0.2.2:3000)") {
                 name = "Localhost Dev MCP"

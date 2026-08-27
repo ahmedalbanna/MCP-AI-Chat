@@ -12,6 +12,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -32,12 +34,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.AiProviderType
 import com.aistudio.mcpchat.ui.theme.Spacing
@@ -77,7 +81,7 @@ fun ProviderSettingsSheetContent(
         )
         Spacer(Modifier.height(Spacing.md))
 
-        uiState.configs.forEach { config ->
+        uiState.configs.forEachIndexed { index, config ->
             ProviderRow(
                 config = config,
                 isActive = config.id == uiState.activeId,
@@ -85,7 +89,9 @@ fun ProviderSettingsSheetContent(
                 onEdit = { onStartEdit(config) },
                 onDelete = { onDelete(config.id) },
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            if (index < uiState.configs.lastIndex) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            }
         }
 
         Spacer(Modifier.height(Spacing.md))
@@ -191,7 +197,7 @@ private fun DraftEditor(draft: ProviderDraft, onChange: ((ProviderDraft) -> Prov
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            var typeMenuExpanded by remember { mutableStateOf(false) }
+            var typeMenuExpanded by rememberSaveable { mutableStateOf(false) }
             val protocolOptions = listOf(
                 AiProviderType.GOOGLE.name,
                 AiProviderType.ANTHROPIC.name,
@@ -244,17 +250,26 @@ private fun DraftEditor(draft: ProviderDraft, onChange: ((ProviderDraft) -> Prov
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            var apiKeyVisible by rememberSaveable { mutableStateOf(false) }
             OutlinedTextField(
                 value = draft.apiKey,
                 onValueChange = { key: String ->
                     onChange { current: ProviderDraft -> current.copy(apiKey = key) }
                 },
                 label = { Text(if (isGoogle) "API key" else "API key (blank ok for local runtimes)") },
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (apiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                 ),
                 singleLine = true,
+                trailingIcon = {
+                    IconButton(onClick = { apiKeyVisible = !apiKeyVisible }) {
+                        Icon(
+                            imageVector = if (apiKeyVisible) androidx.compose.material.icons.Icons.Default.VisibilityOff else androidx.compose.material.icons.Icons.Default.Visibility,
+                            contentDescription = if (apiKeyVisible) "Hide API key" else "Show API key",
+                        )
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
             )
 

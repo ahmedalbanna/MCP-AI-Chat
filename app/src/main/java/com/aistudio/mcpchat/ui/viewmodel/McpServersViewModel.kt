@@ -70,42 +70,46 @@ class McpServersViewModel @Inject constructor(
         }
     }
 
+    suspend fun pingServerSuspend(server: McpServer) {
+        _isTesting.value = server.id
+        try {
+            val updated = repository.pingServer(server)
+            _feedbackMessage.value = FeedbackMessage(
+                "Ping to ${server.name}: ${updated.status} (${updated.latencyMs}ms)",
+            )
+        } catch (e: Exception) {
+            _feedbackMessage.value = FeedbackMessage(
+                "Failed to ping ${server.name}: ${e.message}",
+                isError = true,
+            )
+        } finally {
+            _isTesting.value = null
+        }
+    }
+
     fun pingServer(server: McpServer) {
-        viewModelScope.launch {
-            _isTesting.value = server.id
-            try {
-                val updated = repository.pingServer(server)
-                _feedbackMessage.value = FeedbackMessage(
-                    "Ping to ${server.name}: ${updated.status} (${updated.latencyMs}ms)",
-                )
-            } catch (e: Exception) {
-                _feedbackMessage.value = FeedbackMessage(
-                    "Failed to ping ${server.name}: ${e.message}",
-                    isError = true,
-                )
-            } finally {
-                _isTesting.value = null
-            }
+        viewModelScope.launch { pingServerSuspend(server) }
+    }
+
+    suspend fun syncToolsSuspend(server: McpServer) {
+        _isTesting.value = server.id
+        try {
+            val discovered = repository.syncServerTools(server)
+            _feedbackMessage.value = FeedbackMessage(
+                "Discovered ${discovered.size} tools from ${server.name}",
+            )
+        } catch (e: Exception) {
+            _feedbackMessage.value = FeedbackMessage(
+                "Sync failed: ${e.message}",
+                isError = true,
+            )
+        } finally {
+            _isTesting.value = null
         }
     }
 
     fun syncTools(server: McpServer) {
-        viewModelScope.launch {
-            _isTesting.value = server.id
-            try {
-                val discovered = repository.syncServerTools(server)
-                _feedbackMessage.value = FeedbackMessage(
-                    "Discovered ${discovered.size} tools from ${server.name}",
-                )
-            } catch (e: Exception) {
-                _feedbackMessage.value = FeedbackMessage(
-                    "Sync failed: ${e.message}",
-                    isError = true,
-                )
-            } finally {
-                _isTesting.value = null
-            }
-        }
+        viewModelScope.launch { syncToolsSuspend(server) }
     }
 
     fun addCustomServer(name: String, description: String, endpointUrl: String, authHeader: String) {

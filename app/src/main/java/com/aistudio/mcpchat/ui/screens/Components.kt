@@ -464,14 +464,16 @@ fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
                             fontSize = 14.sp,
                             modifier = Modifier.padding(end = Spacing.sm),
                         )
+                        val annotated = remember(bulletText) { parseInlineMarkdown(bulletText) }
                         InlineMarkdownText(
-                            annotatedString = parseInlineMarkdown(bulletText),
+                            annotatedString = annotated,
                             modifier = Modifier,
                         )
                     }
                 } else if (line.isNotBlank()) {
+                    val annotated = remember(line) { parseInlineMarkdown(line) }
                     InlineMarkdownText(
-                        annotatedString = parseInlineMarkdown(line),
+                        annotatedString = annotated,
                         modifier = Modifier.padding(vertical = Spacing.xxs),
                     )
                 } else {

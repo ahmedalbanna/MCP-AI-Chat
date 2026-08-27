@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.IOException
 import javax.inject.Inject
@@ -68,6 +70,8 @@ class ChatViewModel @Inject constructor(
 
     private val _uiError = MutableStateFlow<UiError?>(null)
     val uiError: StateFlow<UiError?> = _uiError.asStateFlow()
+
+    private var generateJob: Job? = null
 
     val sessions: StateFlow<List<ChatSessionEntity>> = chatRepository.allSessionsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -191,7 +195,8 @@ class ChatViewModel @Inject constructor(
         val sessionId = _currentSessionId.value ?: return
         if (prompt.isBlank() || _isGenerating.value) return
 
-        viewModelScope.launch {
+        generateJob?.cancel()
+        generateJob = viewModelScope.launch {
             _isGenerating.value = true
             _errorMessage.value = null
             _uiError.value = null
@@ -205,6 +210,8 @@ class ChatViewModel @Inject constructor(
                         _inProgressToolCalls.value = toolCalls
                     },
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: ChatException) {
                 val error = when (e) {
                     is ChatException.ApiKeyMissing ->
@@ -234,6 +241,8 @@ class ChatViewModel @Inject constructor(
     }
 
     fun cancelGeneration() {
+        generateJob?.cancel()
+        generateJob = null
         _isGenerating.value = false
         _inProgressToolCalls.value = emptyList()
     }
