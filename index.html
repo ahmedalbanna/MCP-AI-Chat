@@ -8,85 +8,58 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
-  <div class="app-shell">
+  <div class="app-shell" id="appShell">
     <!-- Header -->
     <header class="app-header">
       <div class="brand">
         <div class="brand-icon" aria-hidden="true">
-          <!-- network / nodes icon -->
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0b63f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="2.2"></circle>
-            <circle cx="6.5" cy="6.5" r="1.8"></circle>
-            <circle cx="17.5" cy="6.5" r="1.8"></circle>
-            <circle cx="6.5" cy="17.5" r="1.8"></circle>
-            <circle cx="17.5" cy="17.5" r="1.8"></circle>
-            <path d="M7.8 7.8L10.3 10.3M16.2 7.8L13.7 10.3M7.8 16.2L10.3 13.7M16.2 16.2L13.7 13.7"></path>
-          </svg>
+          <i data-lucide="network" class="lucide-brand"></i>
         </div>
         <div class="brand-text">
           <h1 class="brand-title">MCP Terminal</h1>
           <p class="brand-subtitle">REMOTE PROTOCOL ACTIVE</p>
         </div>
       </div>
-      <button class="icon-btn settings-btn" aria-label="Settings">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"></path>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 1-2 0 1.65 1.65 0 0 0-1-.6 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 6.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 1 0-2c.26-.26.44-.6.6-1A1.65 1.65 0 0 0 6.27 9.18l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 10.92 6.6c.4-.16.74-.34 1-.6a1.65 1.65 0 0 1 2 0c.26.26.6.44 1 .6A1.65 1.65 0 0 0 16.74 6.27l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 10.92c-.16.4-.34.74-.6 1a1.65 1.65 0 0 1 0 2c.26.26.44.6.6 1Z"></path>
-        </svg>
-      </button>
+      <div class="header-actions">
+        <button class="icon-btn" id="serversBtn" aria-label="MCP Servers">
+          <i data-lucide="server"></i>
+        </button>
+        <button class="icon-btn settings-btn" id="settingsBtn" aria-label="Settings">
+          <i data-lucide="settings"></i>
+        </button>
+      </div>
     </header>
 
     <!-- Nodes Bar -->
     <nav class="nodes-bar" aria-label="MCP Nodes">
       <span class="nodes-label">NODES:</span>
       <ul class="nodes-list" id="nodesList">
-        <li class="node-pill active" data-node="aws-us-east">
-          <span class="dot dot-blue"></span> aws-us-east
-        </li>
-        <li class="node-pill active" data-node="postgres-mcp">
-          <span class="dot dot-green"></span> postgres-mcp
-        </li>
-        <li class="node-pill" data-node="local-fs">
-          <span class="dot dot-gray"></span> local-fs
-        </li>
+        <!-- rendered by JS -->
       </ul>
+      <button class="add-node-mini" id="addNodeMini" aria-label="Add MCP server"><i data-lucide="plus" style="width:14px;height:14px"></i></button>
     </nav>
 
     <!-- Main Chat -->
     <main class="chat-main" id="chatMain">
       <div class="tunnel-banner" id="tunnelBanner">
         <div class="tunnel-icon" aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="4" y="3" width="16" height="6" rx="1.5"></rect>
-            <rect x="4" y="12" width="16" height="6" rx="1.5"></rect>
-            <rect x="4" y="20" width="16" height="1.8" rx="0.9" opacity="0.6"></rect>
-            <path d="M8 9h8M8 15h8" opacity="0.5"></path>
-          </svg>
+          <i data-lucide="shield-check" style="width:20px;height:20px;color:#9ca3af"></i>
         </div>
-        <p class="tunnel-text">Secure MCP tunnel established via TLS 1.3</p>
+        <p class="tunnel-text" id="tunnelText">Secure MCP tunnel established via TLS 1.3 • <span id="activeCount">2</span> nodes connected</p>
       </div>
 
       <div class="messages" id="messages" aria-live="polite" aria-atomic="false">
-        <!-- User message (from screenshot) -->
         <div class="message-row user-row">
           <div class="bubble user-bubble">
             Query the remote PostgreSQL database for the last 5 user registrations and format as a table.
           </div>
         </div>
-
-        <!-- Assistant message -->
         <div class="message-row assistant-row">
           <div class="avatar" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="7" width="18" height="10" rx="2"></rect>
-              <path d="M8 7V5a4 4 0 0 1 8 0v2"></path>
-              <circle cx="9" cy="12" r="1" fill="white" stroke="none"></circle>
-              <circle cx="15" cy="12" r="1" fill="white" stroke="none"></circle>
-              <path d="M12 15c-1.2 0-2.2-.6-2.6-1.5M14.6 13.5C14.2 14.4 13.2 15 12 15c-1.2 0-2.2-.6-2.6-1.5" opacity="0.9"></path>
-              <path d="M7 11H5M19 11h-2" opacity="0.8"></path>
-            </svg>
+            <i data-lucide="bot" style="width:16px;height:16px;color:white"></i>
           </div>
           <div class="assistant-card">
             <div class="card-header">
@@ -98,13 +71,7 @@
               <p class="card-line muted">Parsing metadata...</p>
               <div class="table-wrap">
                 <table class="mono-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>USERNAME</th>
-                      <th>REGISTERED</th>
-                    </tr>
-                  </thead>
+                  <thead><tr><th>ID</th><th>USERNAME</th><th>REGISTERED</th></tr></thead>
                   <tbody>
                     <tr><td>101</td><td>k_morgan</td><td>2023-10-21</td></tr>
                     <tr><td>102</td><td>j_doe</td><td>2023-10-21</td></tr>
@@ -121,60 +88,130 @@
     </main>
 
     <!-- Composer -->
-    <footer class="composer">
-      <div class="composer-inner">
-        <button class="attach-btn" aria-label="Attach or add tool" id="attachBtn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="9"></circle>
-            <path d="M12 8v8M8 12h8"></path>
-          </svg>
+    <footer class="composer" id="composer">
+      <!-- attachments preview -->
+      <div class="attach-preview hidden" id="attachPreview"></div>
+
+      <!-- slash commands menu -->
+      <div class="slash-menu hidden" id="slashMenu" role="listbox" aria-label="Slash commands">
+        <!-- injected by JS -->
+      </div>
+
+      <div class="composer-inner" id="composerInner">
+        <button class="attach-btn" aria-label="Upload media" id="attachBtn">
+          <i data-lucide="plus"></i>
         </button>
-        <input
-          type="text"
+        <input type="file" id="mediaInput" hidden multiple accept="image/*,video/*,audio/*,.pdf,.csv,.json,.txt,.md" />
+        <textarea
           id="promptInput"
           class="prompt-input"
-          placeholder="Ask MCP to run a tool..."
+          placeholder="Ask MCP to run a tool...  •  type '/' for commands"
+          rows="1"
           autocomplete="off"
           aria-label="Ask MCP to run a tool"
-        />
-        <button class="send-btn" id="sendBtn" aria-label="Send message">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 19V5M5 12l7-7 7 7"></path>
-          </svg>
-        </button>
+        ></textarea>
+        <div class="composer-actions">
+          <span class="char-count" id="charCount"></span>
+          <button class="send-btn" id="sendBtn" aria-label="Send message">
+            <i data-lucide="arrow-up"></i>
+          </button>
+        </div>
       </div>
       <div class="composer-hint" id="composerHint">
-        <span>Try: "list files in /data" • "query users" • "show aws s3 buckets"</span>
+        <span><kbd>/</kbd> commands • <kbd>⇧</kbd>+<kbd>Enter</kbd> new line • drag & drop media</span>
       </div>
     </footer>
-  </div>
 
-  <!-- Tools picker modal -->
-  <div class="tools-modal hidden" id="toolsModal" role="dialog" aria-modal="true" aria-label="MCP Tools">
-    <div class="tools-modal-backdrop" id="toolsBackdrop"></div>
-    <div class="tools-modal-panel">
-      <div class="tools-modal-header">
-        <h3>Available MCP Tools</h3>
-        <button class="icon-btn close-modal" id="closeModal" aria-label="Close">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
+    <!-- Settings View (MCP Server Management) -->
+    <div class="settings-view hidden" id="settingsView" role="dialog" aria-modal="true" aria-label="MCP Servers Settings">
+      <div class="settings-header">
+        <button class="icon-btn" id="closeSettings" aria-label="Back to chat"><i data-lucide="arrow-left"></i></button>
+        <h2>MCP Servers</h2>
+        <button class="primary-btn small" id="addServerBtn"><i data-lucide="plus" style="width:14px;height:14px"></i> Add server</button>
       </div>
-      <div class="tools-grid">
-        <button class="tool-option" data-tool="postgres">
-          <span class="tool-icon tool-postgres">◈</span>
-          <span class="tool-name">postgres-mcp</span>
-          <span class="tool-desc">SELECT, list tables, describe schema</span>
-        </button>
-        <button class="tool-option" data-tool="aws">
-          <span class="tool-icon tool-aws">⬢</span>
-          <span class="tool-name">aws-us-east</span>
-          <span class="tool-desc">S3 list, EC2 status, CloudWatch logs</span>
-        </button>
-        <button class="tool-option" data-tool="fs">
-          <span class="tool-icon tool-fs">▣</span>
-          <span class="tool-name">local-fs</span>
-          <span class="tool-desc">Read, write, list local files</span>
-        </button>
+      <div class="settings-body">
+        <div class="settings-search">
+          <i data-lucide="search" style="width:16px;height:16px;color:#9ca3af"></i>
+          <input type="text" id="serverSearch" placeholder="Search servers..." />
+        </div>
+
+        <div class="servers-list" id="serversList">
+          <!-- rendered by JS -->
+        </div>
+
+        <div class="settings-section">
+          <h3>Transport & Security</h3>
+          <div class="setting-row">
+            <div><strong>TLS 1.3</strong><p>Encrypted tunnel for all MCP nodes</p></div>
+            <label class="switch"><input type="checkbox" checked disabled><span class="slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div><strong>Auto-reconnect</strong><p>Reconnect on connection loss</p></div>
+            <label class="switch"><input type="checkbox" id="autoReconnect" checked><span class="slider"></span></label>
+          </div>
+        </div>
+
+        <p class="settings-footnote">Manage MCP servers • toggle connect/disconnect • add custom stdio / SSE / HTTP endpoints. Config stored locally (mock).</p>
+      </div>
+    </div>
+
+    <!-- Add/Edit Server Modal -->
+    <div class="server-modal hidden" id="serverModal" role="dialog" aria-modal="true">
+      <div class="server-modal-backdrop" id="serverModalBackdrop"></div>
+      <div class="server-modal-panel">
+        <div class="server-modal-header">
+          <h3 id="serverModalTitle">Add MCP Server</h3>
+          <button class="icon-btn" id="closeServerModal"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+        </div>
+        <form id="serverForm" class="server-form">
+          <label>Name <input type="text" id="srvName" placeholder="postgres-mcp" required /></label>
+          <label>Transport
+            <select id="srvTransport">
+              <option value="sse">SSE (Server-Sent Events)</option>
+              <option value="stdio">STDIO</option>
+              <option value="http">HTTP Streamable</option>
+            </select>
+          </label>
+          <label>Endpoint / Command <input type="text" id="srvEndpoint" placeholder="wss://mcp.example.com/sse  or  npx @modelcontextprotocol/server-postgres" required /></label>
+          <label>Tools <input type="text" id="srvTools" placeholder="query, list_tables, describe_schema" /></label>
+          <div class="form-actions">
+            <button type="button" class="ghost-btn" id="cancelServer">Cancel</button>
+            <button type="submit" class="primary-btn">Save server</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Tools picker modal (quick) -->
+    <div class="tools-modal hidden" id="toolsModal" role="dialog" aria-modal="true" aria-label="MCP Tools">
+      <div class="tools-modal-backdrop" id="toolsBackdrop"></div>
+      <div class="tools-modal-panel">
+        <div class="tools-modal-header">
+          <h3>Quick Tools</h3>
+          <button class="icon-btn close-modal" id="closeModal" aria-label="Close"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+        </div>
+        <div class="tools-grid">
+          <button class="tool-option" data-tool="postgres">
+            <span class="tool-icon tool-postgres"><i data-lucide="database" style="width:18px;height:18px"></i></span>
+            <span class="tool-name">postgres-mcp</span>
+            <span class="tool-desc">SELECT, list tables, describe schema</span>
+          </button>
+          <button class="tool-option" data-tool="aws">
+            <span class="tool-icon tool-aws"><i data-lucide="cloud" style="width:18px;height:18px"></i></span>
+            <span class="tool-name">aws-us-east</span>
+            <span class="tool-desc">S3 list, EC2 status, CloudWatch logs</span>
+          </button>
+          <button class="tool-option" data-tool="fs">
+            <span class="tool-icon tool-fs"><i data-lucide="folder-open" style="width:18px;height:18px"></i></span>
+            <span class="tool-name">local-fs</span>
+            <span class="tool-desc">Read, write, list local files</span>
+          </button>
+          <button class="tool-option" data-tool="upload">
+            <span class="tool-icon" style="background:#8b5cf6"><i data-lucide="image" style="width:18px;height:18px"></i></span>
+            <span class="tool-name">Upload media</span>
+            <span class="tool-desc">Images, video, PDF, CSV</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
