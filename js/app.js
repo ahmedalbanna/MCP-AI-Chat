@@ -32,6 +32,30 @@ const convMenu = $('#convMenu');
 const speechBar = $('#speechBar');
 const micBtn = $('#micBtn');
 const stopSpeech = $('#stopSpeech');
+const liveBtn = $('#liveBtn');
+const liveOverlay = $('#liveOverlay');
+const liveBackdrop = $('#liveBackdrop');
+const closeLiveEl = $('#closeLive');
+const liveTranscript = $('#liveTranscript');
+const liveInterim = $('#liveInterim');
+const liveWave = $('#liveWave');
+const liveWaveWrap = $('#liveWaveWrap');
+const liveStatusText = $('#liveStatusText');
+const liveHintText = $('#liveHintText');
+const liveHistory = $('#liveHistory');
+const liveTimer = $('#liveTimer');
+const liveModel = $('#liveModel');
+const liveMicBtn = $('#liveMicBtn');
+const liveMuteBtn = $('#liveMuteBtn');
+const liveSpeakerBtn = $('#liveSpeakerBtn');
+const livePauseBtn = $('#livePauseBtn');
+const endLiveBtn = $('#endLiveBtn');
+const liveSettingsBtn = $('#liveSettingsBtn');
+const liveSettings = $('#liveSettings');
+const liveVoiceSelect = $('#liveVoiceSelect');
+const liveLangSelect = $('#liveLangSelect');
+const liveAutoSend = $('#liveAutoSend');
+const liveSpeakBack = $('#liveSpeakBack');
 const todoDraft = $('#todoDraft');
 const todoList = $('#todoList');
 const todoInput = $('#todoInput');
@@ -850,25 +874,215 @@ inputEl.addEventListener('keydown', e=>{
 });
 document.addEventListener('click', e=>{ if(!slashMenu.contains(e.target) && e.target!==inputEl) hideSlash(); });
 
-// Speech
+// Speech — single + Live Conversation (complete)
+let liveActive=false, liveMuted=false, livePaused=false, liveSpeaker=true;
+let liveRecognition=null, liveFinal='', liveInterimText='', livePauseTimer=null, liveStartTime=null, liveTimerInt=null;
+let speakingUtterance=null;
 function initSpeech(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR){ micBtn.title='Speech not supported in this browser (mock)'; return; }
+  if(!SR){
+    micBtn.title='Speech not supported — mock mode';
+    liveBtn.title='Live (mock) — click to start';
+    if(liveVoiceSelect) populateVoices();
+    return;
+  }
   recognition=new SR();
-  recognition.continuous=true; recognition.interimResults=true; recognition.lang='en-US';
-  recognition.onstart=()=>{ isRecording=true; speechBar.classList.remove('hidden'); micBtn.classList.add('active'); };
-  recognition.onend=()=>{ isRecording=false; speechBar.classList.add('hidden'); micBtn.classList.remove('active'); };
+  recognition.continuous=true; recognition.interimResults=true; recognition.lang= liveLangSelect?.value || 'en-US';
+  recognition.onstart=()=>{ isRecording=true; speechBar.classList.remove('hidden'); micBtn.classList.add('active'); liveStatusText && (liveStatusText.textContent='Listening…'); };
+  recognition.onend=()=>{ if(!liveActive){ isRecording=false; speechBar.classList.add('hidden'); micBtn.classList.remove('active'); } else if(liveActive && !liveMuted && !livePaused){ try{ recognition.start(); }catch{} }};
   recognition.onresult=(e)=>{
-    let final='';
-    for(let i=e.resultIndex;i<e.results.length;i++){ const r=e.results[i]; if(r.isFinal) final+=r[0].transcript; }
-    if(final){ inputEl.value=(inputEl.value+' '+final).trim(); autoResize(); syncComposer(); }
+    let interim='', final='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const r=e.results[i];
+      if(r.isFinal) final+=r[0].transcript+' ';
+      else interim+=r[0].transcript;
+    }
+    if(liveActive){
+      // live mode: show interim, handle auto-send
+      if(interim){
+        liveInterim.textContent=interim;
+        liveInterim.style.opacity='1';
+        // interrupt TTS if speaking
+        if(speechSynthesis.speaking && !liveMuted){ speechSynthesis.cancel(); setLiveWave('listening'); liveStatusText.textContent='Listening… (interrupted)'; }
+      }
+      if(final){
+        final=final.trim();
+        liveInterim.textContent='';
+        // append to transcript
+        if(liveTranscript){
+          if(liveTranscript.querySelector('.live-hint')) liveTranscript.innerHTML='';
+          const div=document.createElement('div');
+          div.className='live-bubble user';
+          div.innerHTML=`${esc(final)}<div class="meta">You • ${new Date().toLocaleTimeString()}</div>`;
+          liveTranscript.appendChild(div);
+          liveTranscript.scrollTop=liveTranscript.scrollHeight;
+          // also add to liveHistory
+          addLiveHistory('user', final);
+          // show wave thinking
+          setLiveWave('thinking'); liveStatusText.textContent='Thinking…';
+          // auto-send after short pause if enabled
+          if(liveAutoSend?.checked){
+            clearTimeout(livePauseTimer);
+            livePauseTimer=setTimeout(()=> { handleLiveSend(final); }, 650);
+          } else {
+            // put into input for manual send
+            inputEl.value=(inputEl.value+' '+final).trim(); autoResize(); syncComposer();
+          }
+        } else {
+          inputEl.value=(inputEl.value+' '+final).trim(); autoResize(); syncComposer();
+        }
+      }
+    } else {
+      // single mode
+      if(interim) liveInterim && (liveInterim.textContent=interim);
+      if(final){ inputEl.value=(inputEl.value+' '+final).trim(); autoResize(); syncComposer(); if(liveInterim) liveInterim.textContent=''; }
+    }
   };
-  recognition.onerror=()=>{ isRecording=false; speechBar.classList.add('hidden'); micBtn.classList.remove('active'); toast('Mic error'); };
+  recognition.onerror=()=>{ isRecording=false; speechBar.classList.add('hidden'); micBtn.classList.remove('active'); if(liveActive) setLiveWave('paused'); toast('Mic error'); };
+  if(liveLangSelect) liveLangSelect.addEventListener('change', ()=>{ recognition.lang=liveLangSelect.value; toast('Language: '+liveLangSelect.value); });
 }
 initSpeech();
+function populateVoices(){
+  if(!('speechSynthesis' in window) || !liveVoiceSelect) return;
+  const voices=speechSynthesis.getVoices();
+  if(!voices.length) { setTimeout(populateVoices, 300); return; }
+  liveVoiceSelect.innerHTML='<option>System default</option>'+voices.map(v=>`<option value="${esc(v.name)}">${esc(v.name)} (${v.lang})</option>`).join('');
+}
+if('speechSynthesis' in window){
+  speechSynthesis.onvoiceschanged=populateVoices;
+  populateVoices();
+}
+function setLiveWave(state){
+  if(!liveWave) return;
+  liveWave.className='live-wave '+state;
+  if(state==='listening') liveWaveWrap.style.opacity='1';
+  if(state==='speaking') liveWaveWrap.style.opacity='1';
+  if(state==='thinking'){ liveWave.className='live-wave paused'; liveWaveWrap.style.opacity='.9'; }
+  if(state==='paused'){ liveWave.className='live-wave paused'; }
+}
+function openLive(){
+  liveActive=true; liveMuted=false; livePaused=false;
+  liveOverlay.classList.remove('hidden');
+  liveBtn.classList.add('live-active');
+  liveBtn.title='Live active — click to end';
+  liveTranscript.innerHTML=`<div class="live-hint"><i data-lucide="mic" style="width:28px;height:28px;color:var(--primary)"></i><p>Live listening — speak naturally<br><small>Pause to send • I’ll respond with voice</small></p></div>`;
+  liveHistory.innerHTML='';
+  liveInterim.textContent='';
+  liveStatusText.textContent='Listening…';
+  setLiveWave('listening');
+  liveStartTime=Date.now();
+  liveTimerInt=setInterval(()=>{
+    const s=Math.floor((Date.now()-liveStartTime)/1000);
+    const m=String(Math.floor(s/60)).padStart(2,'0'), sec=String(s%60).padStart(2,'0');
+    if(liveTimer) liveTimer.textContent=`${m}:${sec}`;
+  },1000);
+  if(liveModel) liveModel.textContent=`${selectedModel} • ${selectedMode}`;
+  refreshIcons();
+  // start recognition
+  if(recognition){
+    try{ recognition.lang=liveLangSelect?.value||'en-US'; recognition.start(); }catch{ isRecording=true; }
+  } else {
+    // mock live: simulate listening
+    isRecording=true; toast('Live (mock) started — try speaking');
+    // mock interim simulation? keep simple
+  }
+  toast('Live conversation started — hands-free');
+}
+function closeLive(){
+  liveActive=false; isRecording=false;
+  liveOverlay.classList.add('hidden');
+  liveBtn.classList.remove('live-active');
+  liveBtn.title='Live conversation — talk hands-free';
+  setLiveWave('paused');
+  clearInterval(liveTimerInt);
+  clearTimeout(livePauseTimer);
+  liveInterim.textContent='';
+  if(recognition){ try{ recognition.stop(); }catch{} }
+  if(speechSynthesis.speaking) speechSynthesis.cancel();
+  speechBar.classList.add('hidden'); micBtn.classList.remove('active');
+  toast('Live ended');
+}
+function toggleLive(){ liveActive ? closeLive() : openLive(); }
+function addLiveHistory(role, text){
+  if(!liveHistory) return;
+  const div=document.createElement('div');
+  div.className=`live-bubble ${role}`;
+  const who= role==='user' ? 'You' : `${selectedModel}`;
+  div.innerHTML=`${esc(text)}<div class="meta">${esc(who)} • ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>`;
+  liveHistory.appendChild(div);
+  liveHistory.scrollTop=liveHistory.scrollHeight;
+}
+async function handleLiveSend(finalText){
+  if(!finalText.trim()) return;
+  // add to main chat as well
+  const curTodos = todos.length? [...todos] : [];
+  // clear interim
+  liveInterim.textContent='';
+  setLiveWave('thinking'); liveStatusText.textContent='Thinking…';
+  // send via existing flow but capture assistant response to speak
+  const chat=getActiveChat();
+  if(!chat){ toast('Create a chat first'); setLiveWave('listening'); liveStatusText.textContent='Listening…'; return; }
+  // use sendAndStream but we need to intercept for live
+  const prevLen=chat.messages.length;
+  await sendAndStream(finalText, [], curTodos, detect(finalText), false);
+  // get last assistant message
+  const last=chat.messages[chat.messages.length-1];
+  let speakText = last?.text || (last?.html==='pg' ? 'Retrieved 5 records from remote_db.users' : last?.html==='aws' ? 'Found 3 buckets in us-east-1' : last?.html==='fs' ? 'Listed 5 entries in data' : 'Done');
+  if(last?.tasks) speakText += ' — tasks updated';
+  // add to live history
+  addLiveHistory('assistant', speakText.slice(0,180));
+  // speak if enabled
+  if(liveSpeakBack?.checked && 'speechSynthesis' in window && liveSpeaker){
+    speakLive(speakText);
+  } else {
+    setLiveWave('listening'); liveStatusText.textContent='Listening…';
+  }
+  // update live transcript area to show assistant snippet
+  if(liveTranscript && last){
+    const div=document.createElement('div');
+    div.className='live-bubble assistant';
+    div.innerHTML=`${esc(speakText.slice(0,160))}<div class="meta">${esc(selectedModel)} • now</div>`;
+    liveTranscript.appendChild(div);
+    liveTranscript.scrollTop=liveTranscript.scrollHeight;
+  }
+}
+function speakLive(text){
+  if(!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const utter=new SpeechSynthesisUtterance(text);
+  const voices=speechSynthesis.getVoices();
+  const chosen= liveVoiceSelect?.value;
+  if(chosen && chosen!=='System default'){
+    const v=voices.find(x=>x.name===chosen);
+    if(v) utter.voice=v;
+  }
+  utter.rate=1; utter.pitch=1;
+  utter.onstart=()=>{ setLiveWave('speaking'); liveStatusText.textContent='Speaking… (speak to interrupt)'; };
+  utter.onend=()=>{ if(liveActive && !livePaused && !liveMuted){ setLiveWave('listening'); liveStatusText.textContent='Listening…'; try{ if(recognition && liveActive) recognition.start(); }catch{} } };
+  utter.onerror=()=>{ setLiveWave('listening'); liveStatusText.textContent='Listening…'; };
+  speakingUtterance=utter;
+  setLiveWave('speaking'); liveStatusText.textContent='Speaking…';
+  speechSynthesis.speak(utter);
+}
 function toggleSpeech(){
+  if(liveActive){
+    // in live, mic toggle is mute
+    liveMuted=!liveMuted;
+    if(liveMuted){
+      if(recognition && isRecording) try{ recognition.stop(); }catch{}
+      setLiveWave('paused'); liveStatusText.textContent='Muted — tap to unmute';
+      liveMicBtn.classList.add('muted'); liveMuteBtn.style.background='#fef2f2'; liveMuteBtn.style.color='var(--bad)';
+      toast('Mic muted');
+    } else {
+      setLiveWave('listening'); liveStatusText.textContent='Listening…';
+      liveMicBtn.classList.remove('muted'); liveMuteBtn.style.background='#fff'; liveMuteBtn.style.color='';
+      if(recognition) try{ recognition.start(); }catch{}
+      toast('Mic unmuted');
+    }
+    return;
+  }
+  // single mode
   if(!recognition){
-    // mock
     if(!isRecording){ isRecording=true; speechBar.classList.remove('hidden'); micBtn.classList.add('active'); toast('Listening (mock)… say something'); setTimeout(()=>{ if(isRecording){ inputEl.value=(inputEl.value+' list S3 buckets').trim(); autoResize(); syncComposer(); stopSpeechClick(); }}, 1800); }
     else stopSpeechClick();
     return;
@@ -879,6 +1093,54 @@ function toggleSpeech(){
 function stopSpeechClick(){ if(recognition && isRecording) recognition.stop(); isRecording=false; speechBar.classList.add('hidden'); micBtn.classList.remove('active'); }
 micBtn.addEventListener('click', toggleSpeech);
 stopSpeech.addEventListener('click', stopSpeechClick);
+// Live controls
+liveBtn?.addEventListener('click', toggleLive);
+liveBackdrop?.addEventListener('click', closeLive);
+closeLiveEl?.addEventListener('click', closeLive);
+endLiveBtn?.addEventListener('click', closeLive);
+liveMicBtn?.addEventListener('click', ()=>{
+  if(!liveActive) return openLive();
+  liveMuted=!liveMuted;
+  if(liveMuted){
+    liveMicBtn.classList.add('muted'); liveMicBtn.innerHTML='<i data-lucide="mic-off"></i>';
+    liveMuteBtn.style.background='#fef2f2';
+    setLiveWave('paused'); liveStatusText.textContent='Muted';
+    if(recognition && isRecording) try{ recognition.stop(); }catch{}
+    if(speechSynthesis.speaking) speechSynthesis.cancel();
+  } else {
+    liveMicBtn.classList.remove('muted'); liveMicBtn.innerHTML='<i data-lucide="mic"></i>';
+    liveMuteBtn.style.background='#fff';
+    setLiveWave('listening'); liveStatusText.textContent='Listening…';
+    if(recognition) try{ recognition.start(); }catch{}
+  }
+  refreshIcons();
+});
+liveMuteBtn?.addEventListener('click', ()=> liveMicBtn.click());
+liveSpeakerBtn?.addEventListener('click', ()=>{
+  liveSpeaker=!liveSpeaker;
+  liveSpeakerBtn.style.background= liveSpeaker ? '#fff' : '#f1f5f9';
+  liveSpeakerBtn.style.color= liveSpeaker ? '' : 'var(--faint)';
+  if(!liveSpeaker && speechSynthesis.speaking) speechSynthesis.cancel();
+  toast(liveSpeaker?'Speaker on':'Speaker off');
+});
+livePauseBtn?.addEventListener('click', ()=>{
+  livePaused=!livePaused;
+  if(livePaused){
+    livePauseBtn.innerHTML='<i data-lucide="play" style="width:12px;height:12px"></i> Resume';
+    setLiveWave('paused'); liveStatusText.textContent='Paused';
+    if(recognition && isRecording) try{ recognition.stop(); }catch{}
+    if(speechSynthesis.speaking) speechSynthesis.pause();
+  } else {
+    livePauseBtn.innerHTML='<i data-lucide="pause" style="width:12px;height:12px"></i> Pause';
+    setLiveWave('listening'); liveStatusText.textContent='Listening…';
+    if(speechSynthesis.paused) speechSynthesis.resume();
+    else if(recognition) try{ recognition.start(); }catch{}
+  }
+  refreshIcons();
+});
+liveSettingsBtn?.addEventListener('click', ()=> liveSettings.classList.toggle('hidden'));
+liveVoiceSelect?.addEventListener('change', ()=> toast('Voice: '+liveVoiceSelect.value));
+liveLangSelect?.addEventListener('change', ()=>{ if(recognition) recognition.lang=liveLangSelect.value; })
 
 // Drag & paste
 ['dragenter','dragover'].forEach(ev=> document.addEventListener(ev, e=>{ e.preventDefault(); if(ev==='dragenter') dropOverlay.classList.remove('hidden'); composerInner.classList.add('drag'); }));
