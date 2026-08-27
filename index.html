@@ -27,9 +27,13 @@
         </div>
         <button class="primary-btn full" id="newChatBtn"><i data-lucide="plus"></i> New conversation</button>
         <div class="provider-mini">
-          <label>AI Provider</label>
+redesign css          <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between">
+            <label style="margin:0">AI Provider</label>
+            <button class="icon-btn xs" id="providerSettingsBtn" title="Provider settings" style="width:26px;height:26px"><i data-lucide="settings-2" style="width:14px;height:14px"></i></button>
+          </div>
           <select id="providerSelect"></select>
           <select id="modelSelect"></select>
+          <div class="provider-status" id="providerStatus" style="grid-column:1/-1;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)"><span class="dot" style="width:6px;height:6px;background:var(--ok);border-radius:50%;box-shadow:0 0 6px rgba(22,163,74,.4)"></span><span id="providerStatusText">Ready • 0.2s latency</span><span style="margin-left:auto;font-family:var(--mono);background:#f1f5f9;padding:2px 6px;border-radius:6px" id="providerTemp">0.7 temp</span></div>
         </div>
       </div>
 
@@ -85,10 +89,12 @@
           <button class="icon-btn" id="menuBtn"><i data-lucide="menu"></i></button>
           <div class="crumb"><span id="crumbTitle">MCP Chat</span><span class="live"><span class="dot"></span> Live</span></div>
           <div class="agent-modes" id="agentModes"></div>
+          <div class="provider-pill" id="providerPill" title="AI Provider settings" role="button" tabindex="0" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;box-shadow:var(--shadow-xs)"><i data-lucide="sparkles" style="width:14px;height:14px;color:var(--primary)"></i><span id="providerPillName">Claude 3.5</span><span style="color:var(--faint);font-weight:500" id="providerPillMeta">Anthropic</span><i data-lucide="chevron-down" style="width:12px;height:12px;color:var(--faint)"></i></div>
         </div>
         <div class="topbar-right">
           <div class="nodes-inline" id="nodesInline"></div>
           <div class="divider"></div>
+          <button class="icon-btn" id="providerTopBtn" title="AI Providers"><i data-lucide="cpu"></i></button>
           <button class="icon-btn" id="promptLibraryBtn" title="Prompt suggestions"><i data-lucide="lightbulb"></i></button>
           <button class="icon-btn" id="marketplaceBtn" title="Marketplace"><i data-lucide="store"></i></button>
           <button class="icon-btn" id="serversBtn" title="MCP servers"><i data-lucide="sliders-horizontal"></i></button>
@@ -176,6 +182,22 @@
       </div>
     </div>
 
+    <!-- AI Provider Settings Drawer -->
+    <div class="drawer hidden" id="providerView" role="dialog" aria-modal="true">
+      <div class="drawer-backdrop" id="providerBackdrop"></div>
+      <div class="drawer-panel wide">
+        <div class="drawer-head"><h2><i data-lucide="cpu"></i> AI Providers</h2><div style="display:flex;gap:8px"><button class="ghost-btn sm" id="importProviderBtn"><i data-lucide="upload" style="width:12px;height:12px"></i> Import</button><input type="file" id="importProviderFile" hidden accept=".json" /><button class="primary-btn sm" id="addProviderBtn"><i data-lucide="plus" style="width:12px;height:12px"></i> Add provider</button><button class="icon-btn" id="closeProvider"><i data-lucide="x"></i></button></div></div>
+        <div class="drawer-body">
+          <div class="panel-card" style="background:linear-gradient(180deg,#eff6ff,#fff)"><h3>Active Configuration</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><span class="status on" id="activeProviderStatus"><span style="width:6px;height:6px;background:var(--ok);border-radius:50%"></span> <span id="activeProviderName">Anthropic • claude-3.5-sonnet</span></span><span id="activeProviderLatency" style="font-size:11px;color:var(--muted);font-family:var(--mono)">~210ms • streaming</span><button class="ghost-btn sm" id="testActiveProvider" style="margin-left:auto"><i data-lucide="zap" style="width:12px;height:12px"></i> Test</button><button class="ghost-btn sm" id="exportProvidersBtn"><i data-lucide="download" style="width:12px;height:12px"></i> Export</button></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"><label style="font-size:12px;font-weight:600">Default fallback<input id="fallbackProvider" style="margin-top:4px;width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px" placeholder="openai / gpt-4o-mini" /></label><label style="font-size:12px;font-weight:600">Global temperature <span id="globalTempVal" style="color:var(--primary)">0.7</span><input type="range" id="globalTemp" min="0" max="1" step="0.1" value="0.7" style="width:100%" /></label></div>
+          </div>
+          <div class="search-row"><i data-lucide="search"></i><input id="providerSearch" placeholder="Search providers, models…" /></div>
+          <div id="providerList" style="display:flex;flex-direction:column;gap:10px"></div>
+          <div class="panel-card"><h3>Usage & Billing</h3><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center"><div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px"><div style="font-size:18px;font-weight:800" id="usageTokens">12.4k</div><div style="font-size:11px;color:var(--muted)">Tokens today</div></div><div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px"><div style="font-size:18px;font-weight:800" id="usageCost">$0.42</div><div style="font-size:11px;color:var(--muted)">Est. cost</div></div><div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px"><div style="font-size:18px;font-weight:800" id="usageReq">37</div><div style="font-size:11px;color:var(--muted)">Requests</div></div></div></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Marketplace Drawer -->
     <div class="drawer hidden" id="marketplaceView" role="dialog" aria-modal="true">
       <div class="drawer-backdrop" id="marketplaceBackdrop"></div>
@@ -225,6 +247,28 @@
           <label>Endpoint<input id="srvEndpoint" placeholder="wss://…/sse" required /></label>
           <label>Tools<input id="srvTools" placeholder="query, list_tables" /></label>
           <div class="form-actions"><button type="button" class="ghost-btn" id="cancelServer">Cancel</button><button class="primary-btn" type="submit">Save</button></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="providerModal" role="dialog" aria-modal="true">
+      <div class="modal-backdrop" id="providerModalBackdrop"></div>
+      <div class="modal-card" style="width:480px">
+        <div class="modal-head"><h3 id="providerModalTitle">Add AI Provider</h3><button class="icon-btn" id="closeProviderModal"><i data-lucide="x"></i></button></div>
+        <form id="providerForm" class="form" style="padding:16px">
+          <label>Provider name<input id="provName" placeholder="OpenAI" required /></label>
+          <label>Provider ID <small style="color:var(--muted);font-weight:400"> (lowercase, no spaces)</small><input id="provId" placeholder="openai" required pattern="[a-z0-9-]+" /></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label>API Key<input id="provKey" type="password" placeholder="sk-..." /><span style="font-size:11px;color:var(--muted)">Stored locally, never sent</span></label>
+            <label>Base URL<input id="provBase" placeholder="https://api.openai.com/v1" /></label>
+          </div>
+          <label>Models (comma-separated)<input id="provModels" placeholder="gpt-4o, gpt-4o-mini, o1-preview" required /></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Temperature <span id="provTempVal" style="color:var(--primary)">0.7</span><input type="range" id="provTemp" min="0" max="1" step="0.1" value="0.7" /></label>
+            <label>Max tokens<input id="provMax" type="number" placeholder="4096" value="4096" /></label>
+          </div>
+          <div class="panel-card" style="padding:10px"><div class="row" style="padding:6px 0"><div><strong>Streaming</strong><p>Token-by-token</p></div><label class="switch"><input id="provStream" checked type="checkbox"><span></span></label></div><div class="row" style="padding:6px 0"><div><strong>Enabled</strong><p>Available in selector</p></div><label class="switch"><input id="provEnabled" checked type="checkbox"><span></span></label></div></div>
+          <div class="form-actions"><button type="button" class="ghost-btn" id="cancelProvider">Cancel</button><button type="button" class="ghost-btn" id="testProviderBtn"><i data-lucide="plug" style="width:12px;height:12px"></i> Test</button><button type="submit" class="primary-btn">Save provider</button></div>
         </form>
       </div>
     </div>

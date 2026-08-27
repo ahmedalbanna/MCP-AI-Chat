@@ -123,22 +123,25 @@ let isRecording = false;
 let recognition = null;
 let history = { undo: [], redo: [] };
 
-// Providers
-const PROVIDERS = [
-  { id:'openai', name:'OpenAI', models:['gpt-4o','gpt-4o-mini','o1-preview']},
-  { id:'anthropic', name:'Anthropic', models:['claude-3.5-sonnet','claude-3-opus']},
-  { id:'google', name:'Google', models:['gemini-1.5-pro','gemini-1.5-flash']},
-  { id:'local', name:'Local', models:['llama-3.1-70B','mistral-large']},
+// Providers — extended
+let PROVIDERS = JSON.parse(localStorage.getItem('mcp_providers')||'null') || [
+  { id:'openai', name:'OpenAI', models:['gpt-4o','gpt-4o-mini','o1-preview'], apiKey:'', baseUrl:'https://api.openai.com/v1', temp:0.7, maxTokens:4096, enabled:true, streaming:true, latency:142 },
+  { id:'anthropic', name:'Anthropic', models:['claude-3.5-sonnet','claude-3-opus'], apiKey:'', baseUrl:'https://api.anthropic.com', temp:0.7, maxTokens:8192, enabled:true, streaming:true, latency:210 },
+  { id:'google', name:'Google', models:['gemini-1.5-pro','gemini-1.5-flash'], apiKey:'', baseUrl:'https://generativelanguage.googleapis.com', temp:0.8, maxTokens:8192, enabled:true, streaming:true, latency:180 },
+  { id:'local', name:'Local', models:['llama-3.1-70B','mistral-large'], apiKey:'', baseUrl:'http://localhost:11434', temp:0.6, maxTokens:4096, enabled:false, streaming:false, latency:45 },
 ];
 let selectedProvider = localStorage.getItem('provider') || 'anthropic';
 let selectedModel = localStorage.getItem('model') || 'claude-3.5-sonnet';
 let selectedMode = localStorage.getItem('agentMode') || 'Chat';
+let fallbackProvider = localStorage.getItem('fallbackProvider') || 'openai';
+let globalTemp = parseFloat(localStorage.getItem('globalTemp')||'0.7');
 const MODES = [
   {id:'Chat', icon:'message-circle', desc:'General chat'},
   {id:'Code', icon:'code-2', desc:'Code assistant'},
   {id:'Research', icon:'search', desc:'Deep research'},
   {id:'Planning', icon:'map', desc:'Planning'},
 ];
+const saveProviders = ()=> localStorage.setItem('mcp_providers', JSON.stringify(PROVIDERS));
 
 // Chats
 let chats = JSON.parse(localStorage.getItem('mcp_chats')||'null') || [
@@ -205,22 +208,190 @@ const esc=s=> s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&
 const scrollBottom=()=>{ messagesEl.scrollTop=messagesEl.scrollHeight; };
 const uid=()=> Math.random().toString(36).slice(2,9);
 
-// Providers render
+// Providers render — complete
 function renderProviders(){
-  providerSelect.innerHTML = PROVIDERS.map(p=>`<option value="${p.id}" ${p.id===selectedProvider?'selected':''}>${p.name}</option>`).join('');
+  const enabledProviders = PROVIDERS.filter(p=>p.enabled);
+  // if selected is disabled, fallback
+  if(!enabledProviders.find(p=>p.id===selectedProvider)){
+    const fallback = enabledProviders[0];
+    if(fallback){ selectedProvider=fallback.id; selectedModel=fallback.models[0]; }
+  }
+  providerSelect.innerHTML = PROVIDERS.filter(p=>p.enabled).map(p=>`<option value="${p.id}" ${p.id===selectedProvider?'selected':''}>${p.name}</option>`).join('') || `<option>No providers enabled</option>`;
   const prov = PROVIDERS.find(p=>p.id===selectedProvider);
-  modelSelect.innerHTML = prov.models.map(m=>`<option ${m===selectedModel?'selected':''}>${m}</option>`).join('');
-  profileRole.textContent = `${$('#profileRoleSelect')?.value || 'Admin'} • ${selectedModel} • ${selectedMode} mode`;
+  if(prov){
+    modelSelect.innerHTML = prov.models.map(m=>`<option ${m===selectedModel?'selected':''}>${m}</option>`).join('');
+    modelSelect.disabled=false;
+    // pills
+    const pillName=$('#providerPillName'), pillMeta=$('#providerPillMeta');
+    if(pillName) pillName.textContent = selectedModel;
+    if(pillMeta) pillMeta.textContent = prov.name;
+    // status
+    const statusText=$('#providerStatusText'), tempEl=$('#providerTemp');
+    if(statusText) statusText.textContent = prov.apiKey ? `Ready • ${prov.latency}ms` : `No API key • ${prov.latency}ms`;
+    if(tempEl) tempEl.textContent = `${prov.temp} temp`;
+    // top status
+    const activeName=$('#activeProviderName');
+    if(activeName) activeName.textContent = `${prov.name} • ${selectedModel}`;
+    const lat=$('#activeProviderLatency');
+    if(lat) lat.textContent = prov.apiKey ? `~${prov.latency}ms • streaming ${prov.streaming?'on':'off'}` : `No key • ${prov.latency}ms`;
+    const activeStatus=$('#activeProviderStatus');
+    if(activeStatus) activeStatus.className = `status ${prov.apiKey?'on':'off'}`;
+  } else {
+    modelSelect.innerHTML=`<option>No model</option>`;
+    modelSelect.disabled=true;
+  }
+  // global temp
+  const gv=$('#globalTempVal');
+  if(gv) gv.textContent = String(globalTemp);
+  const gt=$('#globalTemp');
+  if(gt) gt.value = String(globalTemp);
+  // fallback
+  const fb=$('#fallbackProvider');
+  if(fb) fb.value = fallbackProvider;
+  // profile
+  if(profileRole) profileRole.textContent = `${$('#profileRoleSelect')?.value || 'Admin'} • ${selectedModel} • ${selectedMode} mode`;
+  // usage mock
+  const tok=$('#usageTokens'), cost=$('#usageCost'), req=$('#usageReq');
+  if(tok) tok.textContent = (Math.floor(Math.random()*5+10))+'k';
+  if(cost) cost.textContent = '$'+(Math.random()*1.2).toFixed(2);
+  if(req) req.textContent = String(Math.floor(Math.random()*20+20));
+  refreshIcons();
 }
 providerSelect.addEventListener('change', e=>{
   selectedProvider=e.target.value;
   const prov=PROVIDERS.find(p=>p.id===selectedProvider);
+  if(!prov || !prov.enabled) return;
   selectedModel=prov.models[0];
   localStorage.setItem('provider', selectedProvider);
   localStorage.setItem('model', selectedModel);
-  renderProviders(); toast(`Provider: ${prov.name}`);
+  renderProviders(); renderProviderList(); toast(`Provider: ${prov.name} • ${selectedModel}`);
 });
-modelSelect.addEventListener('change', e=>{ selectedModel=e.target.value; localStorage.setItem('model', selectedModel); toast(`Model: ${selectedModel}`); renderProviders(); });
+modelSelect.addEventListener('change', e=>{ selectedModel=e.target.value; localStorage.setItem('model', selectedModel); toast(`Model: ${selectedModel}`); renderProviders(); renderMessages(); });
+
+// Provider list drawer
+const providerView=$('#providerView'), providerBackdrop=$('#providerBackdrop'), closeProvider=$('#closeProvider'), providerList=$('#providerList'), providerSearch=$('#providerSearch'), addProviderBtn=$('#addProviderBtn'), providerSettingsBtn=$('#providerSettingsBtn'), providerPill=$('#providerPill'), providerTopBtn=$('#providerTopBtn'), testActiveProvider=$('#testActiveProvider'), exportProvidersBtn=$('#exportProvidersBtn'), importProviderBtn=$('#importProviderBtn'), importProviderFile=$('#importProviderFile'), fallbackProviderEl=$('#fallbackProvider'), globalTempEl=$('#globalTemp'), providerModal=$('#providerModal'), providerModalBackdrop=$('#providerModalBackdrop'), closeProviderModal=$('#closeProviderModal'), providerForm=$('#providerForm'), provName=$('#provName'), provId=$('#provId'), provKey=$('#provKey'), provBase=$('#provBase'), provModels=$('#provModels'), provTemp=$('#provTemp'), provTempVal=$('#provTempVal'), provMax=$('#provMax'), provStream=$('#provStream'), provEnabled=$('#provEnabled'), testProviderBtn=$('#testProviderBtn'), cancelProvider=$('#cancelProvider');
+let editingProviderId=null;
+function renderProviderList(){
+  const q=(providerSearch?.value||'').toLowerCase();
+  let list=PROVIDERS;
+  if(q) list=list.filter(p=> p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q) || p.models.join(' ').toLowerCase().includes(q));
+  providerList.innerHTML = list.map(p=>{
+    const isActive=p.id===selectedProvider;
+    const hasKey=!!p.apiKey;
+    const logoClass = p.id==='openai'?'openai' : p.id==='anthropic'?'anthropic' : p.id==='google'?'google' : p.id==='local'?'local':'custom';
+    return `<div class="provider-card ${isActive?'active':''}" data-id="${p.id}">
+      <div class="provider-card-head">
+        <div class="provider-logo ${logoClass}">${p.name.slice(0,2).toUpperCase()}</div>
+        <div class="provider-meta"><b>${esc(p.name)} ${isActive?'<span style="background:var(--primary);color:#fff;font-size:10px;padding:2px 6px;border-radius:999px;margin-left:6px">ACTIVE</span>':''} ${!p.enabled?'<span style="background:#f1f5f9;color:#64748b;font-size:10px;padding:2px 6px;border-radius:999px;border:1px solid #e2e8f0">DISABLED</span>':''}</b><p>${esc(p.id)} • ${esc(p.baseUrl)} • ${p.models.length} models</p>
+          <div class="provider-badges">${p.models.map(m=>`<span class="mono-badge ${m===selectedModel && isActive?'active':''}">${esc(m)}</span>`).join('')}</div>
+        </div>
+        <label class="switch" title="Enable"><input type="checkbox" ${p.enabled?'checked':''} data-provider-toggle="${p.id}"><span></span></label>
+      </div>
+      <div class="provider-key"><i data-lucide="key" style="width:12px;height:12px"></i><span>${hasKey ? 'sk-••••••••'+p.apiKey.slice(-4) : 'No API key — add to enable'}</span><span style="margin-left:auto;font-size:11px;color:${hasKey?'var(--ok)':'var(--warn)'}">${hasKey?'Saved':'Missing'}</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:11px;color:var(--muted);font-family:var(--mono)">temp ${p.temp} • max ${p.maxTokens} • ${p.streaming?'streaming':'no-stream'}</span>
+        <span style="margin-left:auto;display:flex;gap:6px">
+          <button class="ghost-btn sm" data-provider-test="${p.id}"><i data-lucide="plug" style="width:12px;height:12px"></i> Test</button>
+          <button class="ghost-btn sm" data-provider-use="${p.id}"><i data-lucide="check" style="width:12px;height:12px"></i> Use</button>
+          <button class="icon-btn sm" data-provider-edit="${p.id}" title="Edit"><i data-lucide="pencil" style="width:12px;height:12px"></i></button>
+          <button class="icon-btn sm" data-provider-del="${p.id}" title="Delete" style="color:var(--bad)"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>
+        </span>
+      </div>
+    </div>`;
+  }).join('') || `<p style="text-align:center;color:#94a3b8;padding:16px;background:#fff;border:1px dashed var(--line);border-radius:12px">No providers found<br><small>Try a different search or add a provider</small></p>`;
+  refreshIcons();
+}
+function openProviderView(){ providerView.classList.remove('hidden'); renderProviderList(); renderProviders(); refreshIcons(); }
+function closeProviderView(){ providerView.classList.add('hidden'); }
+providerSettingsBtn?.addEventListener('click', openProviderView);
+providerPill?.addEventListener('click', openProviderView);
+providerTopBtn?.addEventListener('click', openProviderView);
+providerPill?.addEventListener('keydown', e=>{ if(e.key==='Enter') openProviderView(); });
+closeProvider?.addEventListener('click', closeProviderView);
+providerBackdrop?.addEventListener('click', closeProviderView);
+providerSearch?.addEventListener('input', renderProviderList);
+fallbackProviderEl?.addEventListener('change', e=>{ fallbackProvider=e.target.value; localStorage.setItem('fallbackProvider', fallbackProvider); toast(`Fallback: ${fallbackProvider}`); });
+globalTempEl?.addEventListener('input', e=>{ globalTemp=parseFloat(e.target.value); localStorage.setItem('globalTemp', String(globalTemp)); renderProviders(); // also update active provider temp if needed
+});
+provTemp?.addEventListener('input', e=>{ if(provTempVal) provTempVal.textContent=e.target.value; });
+testActiveProvider?.addEventListener('click', async ()=>{
+  const prov=PROVIDERS.find(p=>p.id===selectedProvider);
+  if(!prov) return;
+  testActiveProvider.innerHTML=`<i data-lucide="loader-2" style="width:12px;height:12px" class="spin"></i> Testing…`;
+  refreshIcons();
+  await new Promise(r=>setTimeout(r, 900));
+  const ok=!!prov.apiKey;
+  toast(ok ? `${prov.name} connected ✓ (${prov.latency}ms)` : `${prov.name}: missing API key`, 2600);
+  testActiveProvider.innerHTML=`<i data-lucide="zap" style="width:12px;height:12px"></i> Test`;
+  refreshIcons();
+});
+exportProvidersBtn?.addEventListener('click', ()=>{
+  const data=JSON.stringify(PROVIDERS, null, 2);
+  const blob=new Blob([data],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='mcp-providers.json'; a.click(); URL.revokeObjectURL(url); toast('Providers exported');
+});
+importProviderBtn?.addEventListener('click', ()=> importProviderFile.click());
+importProviderFile?.addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=()=>{ try{ const arr=JSON.parse(r.result); if(Array.isArray(arr) && arr[0]?.id){ PROVIDERS=arr; saveProviders(); renderProviders(); renderProviderList(); toast('Providers imported'); } else toast('Invalid file'); } catch{ toast('Invalid JSON'); } }; r.readAsText(f); e.target.value='';
+});
+providerList?.addEventListener('click', e=>{
+  const test=e.target.closest('[data-provider-test]'); if(test){ const p=PROVIDERS.find(x=>x.id===test.dataset.providerTest); toast(p.apiKey?`Testing ${p.name}…`:'No API key', 1600); setTimeout(()=> toast(p.apiKey? `${p.name} ✓ ${p.latency}ms` : `${p.name}: add API key first`), 800); return; }
+  const use=e.target.closest('[data-provider-use]'); if(use){ selectedProvider=use.dataset.providerUse; const pr=PROVIDERS.find(x=>x.id===selectedProvider); selectedModel=pr.models[0]; localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); renderProviders(); renderProviderList(); renderMessages(); toast(`Switched to ${pr.name}`); return; }
+  const edit=e.target.closest('[data-provider-edit]'); if(edit){ const p=PROVIDERS.find(x=>x.id===edit.dataset.providerEdit); if(p){ editingProviderId=p.id; $('#providerModalTitle').textContent='Edit Provider'; provName.value=p.name; provId.value=p.id; provId.disabled=true; provKey.value=p.apiKey; provBase.value=p.baseUrl; provModels.value=p.models.join(', '); provTemp.value=String(p.temp); if(provTempVal) provTempVal.textContent=String(p.temp); provMax.value=String(p.maxTokens); provStream.checked=p.streaming; provEnabled.checked=p.enabled; providerModal.classList.remove('hidden'); refreshIcons(); } return; }
+  const del=e.target.closest('[data-provider-del]'); if(del){ const id=del.dataset.providerDel; if(PROVIDERS.length<=1) return toast('Keep at least one provider'); if(confirm('Delete provider?')){ PROVIDERS=PROVIDERS.filter(p=>p.id!==id); if(selectedProvider===id){ selectedProvider=PROVIDERS[0].id; selectedModel=PROVIDERS[0].models[0]; localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); } saveProviders(); renderProviders(); renderProviderList(); renderMessages(); toast('Provider deleted'); } return; }
+});
+providerList?.addEventListener('change', e=>{
+  const t=e.target.closest('[data-provider-toggle]'); if(t){ const p=PROVIDERS.find(x=>x.id===t.dataset.providerToggle); p.enabled=t.checked; saveProviders(); renderProviders(); renderProviderList(); toast(`${p.name} ${p.enabled?'enabled':'disabled'}`); }
+});
+addProviderBtn?.addEventListener('click', ()=>{
+  editingProviderId=null;
+  $('#providerModalTitle').textContent='Add AI Provider';
+  provName.value=''; provId.value=''; provId.disabled=false; provKey.value=''; provBase.value='https://api.example.com/v1'; provModels.value=''; provTemp.value='0.7'; if(provTempVal) provTempVal.textContent='0.7'; provMax.value='4096'; provStream.checked=true; provEnabled.checked=true;
+  providerModal.classList.remove('hidden'); refreshIcons();
+});
+closeProviderModal?.addEventListener('click', ()=> providerModal.classList.add('hidden'));
+providerModalBackdrop?.addEventListener('click', ()=> providerModal.classList.add('hidden'));
+cancelProvider?.addEventListener('click', ()=> providerModal.classList.add('hidden'));
+testProviderBtn?.addEventListener('click', async ()=>{
+  const fake={id:provId.value, name:provName.value, apiKey:provKey.value};
+  testProviderBtn.innerHTML=`<i data-lucide="loader-2" style="width:12px;height:12px"></i> Testing…`; refreshIcons();
+  await new Promise(r=>setTimeout(r, 800));
+  toast(fake.apiKey? `Test ok for ${fake.name} ✓` : 'Missing API key — test failed (mock)', 2300);
+  testProviderBtn.innerHTML=`<i data-lucide="plug" style="width:12px;height:12px"></i> Test`; refreshIcons();
+});
+providerForm?.addEventListener('submit', e=>{
+  e.preventDefault();
+  const id=provId.value.trim().toLowerCase(), name=provName.value.trim();
+  if(!id||!name) return toast('Name and ID required');
+  if(!editingProviderId && PROVIDERS.find(p=>p.id===id)) return toast('ID already exists');
+  const data={
+    id, name,
+    apiKey:provKey.value.trim(),
+    baseUrl:provBase.value.trim()||'https://api.example.com/v1',
+    models: provModels.value.split(',').map(s=>s.trim()).filter(Boolean),
+    temp: parseFloat(provTemp.value)||0.7,
+    maxTokens: parseInt(provMax.value)||4096,
+    streaming: !!provStream.checked,
+    enabled: !!provEnabled.checked,
+    latency: Math.floor(Math.random()*120+80)
+  };
+  if(!data.models.length) return toast('Add at least one model');
+  if(editingProviderId){
+    const idx=PROVIDERS.findIndex(p=>p.id===editingProviderId);
+    // if id changed, handle
+    data.id=editingProviderId; // keep original id to avoid breaking selectedProvider
+    // allow name change but keep id
+    PROVIDERS[idx]={...PROVIDERS[idx], ...data, id:editingProviderId};
+    toast(`${name} updated`);
+  } else {
+    PROVIDERS.push(data);
+    toast(`${name} added`);
+  }
+  saveProviders(); renderProviders(); renderProviderList(); providerModal.classList.add('hidden');
+  if(data.enabled){ selectedProvider=data.id; selectedModel=data.models[0]; localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); renderProviders(); renderMessages(); }
+});
 
 // Modes
 function renderModes(){
