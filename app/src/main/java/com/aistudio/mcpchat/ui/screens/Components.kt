@@ -576,6 +576,7 @@ private fun parseInlineMarkdown(text: String): androidx.compose.ui.text.Annotate
     }
 }
 
+@Suppress("DEPRECATION")
 @Composable
 private fun InlineMarkdownText(annotatedString: androidx.compose.ui.text.AnnotatedString, modifier: Modifier = Modifier) {
     val uriHandler = LocalUriHandler.current
