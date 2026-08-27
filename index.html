@@ -11,6 +11,76 @@
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
+  <!-- Splash -->
+  <div id="splash" class="splash" aria-hidden="false">
+    <div class="splash-inner">
+      <div class="splash-mark"><i data-lucide="network"></i></div>
+      <h1>MCP Terminal</h1>
+      <p>Remote Protocol Active • TLS 1.3</p>
+      <div class="splash-bar"><span id="splashProgress"></span></div>
+      <small id="splashStatus">Initializing secure tunnel…</small>
+    </div>
+  </div>
+
+  <!-- Onboarding -->
+  <div id="onboarding" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Onboarding">
+    <div class="onboarding-backdrop" id="onboardingBackdrop"></div>
+    <div class="onboarding-card">
+      <div class="onboarding-progress"><span id="onProgress"></span></div>
+      <div id="onStep"></div>
+      <div class="onboarding-actions">
+        <button class="ghost-btn sm" id="onSkip">Skip</button>
+        <div style="display:flex;gap:8px">
+          <button class="ghost-btn sm" id="onPrev" style="display:none">Back</button>
+          <button class="primary-btn sm" id="onNext">Next <i data-lucide="arrow-right" style="width:14px;height:14px"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth -->
+  <div id="authView" class="auth hidden" role="dialog" aria-modal="true" aria-label="Authentication">
+    <div class="auth-backdrop" id="authBackdrop"></div>
+    <div class="auth-card">
+      <div class="auth-head">
+        <div class="brand-mark" style="width:48px;height:48px;border-radius:14px"><i data-lucide="network"></i></div>
+        <h2>Welcome to MCP Terminal</h2>
+        <p>Sign in to sync workspaces • or continue as guest</p>
+      </div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">Login</button>
+        <button class="auth-tab" data-tab="signup">Sign up</button>
+        <button class="auth-tab" data-tab="guest">Guest</button>
+      </div>
+      <form id="loginForm" class="auth-form">
+        <label>Email<input id="loginEmail" type="email" placeholder="alex@local.dev" required /></label>
+        <label>Password<input id="loginPass" type="password" placeholder="••••••••" required /></label>
+        <label style="flex-direction:row;align-items:center;gap:8px;font-weight:500"><input type="checkbox" id="rememberMe" checked /> Remember me</label>
+        <button type="submit" class="primary-btn full">Login <i data-lucide="log-in" style="width:14px;height:14px"></i></button>
+        <p class="auth-hint">Demo: any email + password length ≥6 works (mock)</p>
+      </form>
+      <form id="signupForm" class="auth-form hidden">
+        <label>Name<input id="signupName" placeholder="Alex Rivera" required /></label>
+        <label>Email<input id="signupEmail" type="email" placeholder="alex@local.dev" required /></label>
+        <label>Password<input id="signupPass" type="password" placeholder="••••••••" required minlength="6" /></label>
+        <label>Confirm<input id="signupPass2" type="password" placeholder="••••••••" required /></label>
+        <button type="submit" class="primary-btn full">Create account <i data-lucide="user-plus" style="width:14px;height:14px"></i></button>
+      </form>
+      <div id="guestForm" class="auth-form hidden" style="text-align:center">
+        <div style="background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:left">
+          <b style="font-size:13px;display:flex;align-items:center;gap:6px"><i data-lucide="user" style="width:14px;height:14px"></i> Guest mode</b>
+          <p style="font-size:12px;color:var(--muted);line-height:1.5;margin:6px 0 0">No account needed. Chats stored locally. You can create an account later and keep your data.</p>
+          <ul style="font-size:11px;color:var(--muted);margin:8px 0 0;padding-left:16px;line-height:1.6"><li>✓ Full MCP access</li><li>✓ Local workspaces</li><li>• No cloud sync</li></ul>
+        </div>
+        <button class="primary-btn full" id="guestBtn" style="margin-top:12px">Continue as Guest <i data-lucide="arrow-right" style="width:14px;height:14px"></i></button>
+        <p class="auth-hint">You can switch accounts anytime via profile</p>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+        <button class="ghost-btn sm" id="authDemoLogin"><i data-lucide="zap" style="width:12px;height:12px"></i> Demo login</button>
+      </div>
+    </div>
+  </div>
+
   <div class="app">
     <!-- Sidebar : Workspace + MCP -->
     <aside class="sidebar" id="sidebar" aria-label="Workspace">
@@ -161,13 +231,28 @@
     <div class="drawer hidden" id="profileView" role="dialog" aria-modal="true">
       <div class="drawer-backdrop" id="profileBackdrop"></div>
       <div class="drawer-panel">
-        <div class="drawer-head"><h2><i data-lucide="user"></i> Profile</h2><button class="icon-btn" id="closeProfile"><i data-lucide="x"></i></button></div>
+        <div class="drawer-head"><h2><i data-lucide="user"></i> Profiles</h2><button class="icon-btn" id="closeProfile"><i data-lucide="x"></i></button></div>
         <div class="drawer-body">
-          <div class="profile-card">
-            <img id="profileLargeAvatar" src="https://i.pravatar.cc/200?img=32" alt="" />
-            <button class="ghost-btn sm" id="changeAvatar"><i data-lucide="camera"></i> Change</button>
-            <input type="file" id="avatarInput" hidden accept="image/*" />
+          <div id="profileHeader" class="profile-card" style="align-items:flex-start;text-align:left">
+            <div style="display:flex;gap:12px;align-items:center;width:100%">
+              <img id="profileLargeAvatar" src="https://i.pravatar.cc/200?img=32" alt="" style="width:56px;height:56px;border-width:2px" />
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:6px"><strong id="profileHeaderName">Alex Rivera</strong><span id="profileGuestBadge" class="hidden" style="background:#f59e0b;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px">GUEST</span><span id="profileRoleBadge" style="background:var(--primary-ghost);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;border:1px solid #dbeafe">Admin</span></div>
+                <div id="profileHeaderEmail" style="font-size:12px;color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">alex@local.dev</div>
+                <div id="profileHeaderMeta" style="font-size:11px;color:var(--faint)">Signed in • local</div>
+              </div>
+              <button class="ghost-btn sm" id="logoutBtn" style="color:var(--bad);border-color:#fecaca"><i data-lucide="log-out" style="width:12px;height:12px"></i> Logout</button>
+            </div>
+            <div style="display:flex;gap:6px;width:100%">
+              <button class="ghost-btn sm" id="changeAvatar"><i data-lucide="camera" style="width:12px;height:12px"></i> Change avatar</button>
+              <input type="file" id="avatarInput" hidden accept="image/*" />
+              <button class="ghost-btn sm" id="switchProfileBtn"><i data-lucide="users" style="width:12px;height:12px"></i> Switch</button>
+              <button class="ghost-btn sm" id="manageProfilesBtn"><i data-lucide="settings" style="width:12px;height:12px"></i> Manage</button>
+            </div>
           </div>
+
+          <div id="profilesList" style="display:flex;flex-direction:column;gap:8px"></div>
+
           <div class="form">
             <label>Name<input id="profileNameInput" value="Alex Rivera" /></label>
             <label>Email<input id="profileEmail" value="alex@local.dev" /></label>
@@ -178,8 +263,13 @@
             <h3>Preferences</h3>
             <div class="row"><div><strong>Stream responses</strong><p>Token-by-token animation</p></div><label class="switch"><input id="streamToggle" checked type="checkbox"><span></span></label></div>
             <div class="row"><div><strong>Live speech TTS</strong><p>Speak assistant replies</p></div><label class="switch"><input id="ttsToggle" type="checkbox"><span></span></label></div>
+            <div class="row"><div><strong>Show onboarding</strong><p>On next launch</p></div><button class="ghost-btn sm" id="showOnboardingBtn">Show</button></div>
           </div>
-          <button class="primary-btn full" id="saveProfile">Save profile</button>
+          <div style="display:flex;gap:8px">
+            <button class="primary-btn full" id="saveProfile">Save profile</button>
+            <button class="ghost-btn" id="addProfileBtn"><i data-lucide="user-plus" style="width:14px;height:14px"></i> New</button>
+          </div>
+          <p style="font-size:11px;color:var(--faint);text-align:center;line-height:1.5">Guest chats are local only. Create an account to enable sync (mock).</p>
         </div>
       </div>
     </div>

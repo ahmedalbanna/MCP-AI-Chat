@@ -100,6 +100,41 @@ const todoProgress = $('#todoProgress');
 const todoToggle = $('#todoToggle');
 const clearTodo = $('#clearTodo');
 const addTodoBtn = $('#addTodoBtn');
+const splash = $('#splash');
+const splashProgress = $('#splashProgress');
+const splashStatus = $('#splashStatus');
+const onboarding = $('#onboarding');
+const onboardingBackdrop = $('#onboardingBackdrop');
+const onStep = $('#onStep');
+const onProgress = $('#onProgress');
+const onPrev = $('#onPrev');
+const onNext = $('#onNext');
+const onSkip = $('#onSkip');
+const authView = $('#authView');
+const authBackdrop = $('#authBackdrop');
+const loginForm = $('#loginForm');
+const signupForm = $('#signupForm');
+const guestForm = $('#guestForm');
+const guestBtn = $('#guestBtn');
+const authDemoLogin = $('#authDemoLogin');
+const loginEmail = $('#loginEmail');
+const loginPass = $('#loginPass');
+const rememberMe = $('#rememberMe');
+const signupName = $('#signupName');
+const signupEmail = $('#signupEmail');
+const signupPass = $('#signupPass');
+const signupPass2 = $('#signupPass2');
+const profileHeaderName = $('#profileHeaderName');
+const profileHeaderEmail = $('#profileHeaderEmail');
+const profileHeaderMeta = $('#profileHeaderMeta');
+const profileGuestBadge = $('#profileGuestBadge');
+const profileRoleBadge = $('#profileRoleBadge');
+const logoutBtn = $('#logoutBtn');
+const switchProfileBtn = $('#switchProfileBtn');
+const manageProfilesBtn = $('#manageProfilesBtn');
+const profilesList = $('#profilesList');
+const addProfileBtn = $('#addProfileBtn');
+const showOnboardingBtn = $('#showOnboardingBtn');
 
 // drawers
 const settingsView = $('#settingsView');
@@ -1820,12 +1855,28 @@ avatarInput.addEventListener('change', e=>{
   profileAvatar.src=url; profileLargeAvatar.src=url; toast('Avatar updated');
 });
 saveProfileBtn.addEventListener('click', ()=>{
-  profileName.textContent=profileNameInput.value;
-  const role=$('#profileRoleSelect').value;
-  profileRole.textContent=`${role} • ${selectedModel} • ${selectedMode} mode`;
-  localStorage.setItem('profileName', profileNameInput.value);
-  localStorage.setItem('profileEmail', profileEmail.value);
-  profileView.classList.add('hidden'); toast('Profile saved');
+  const newName=profileNameInput.value.trim()||'User';
+  const newEmail=profileEmail.value.trim()||'user@local.dev';
+  const role=$('#profileRoleSelect')?.value||'Admin';
+  // update currentUser if exists
+  if(currentUser){
+    currentUser.name=newName;
+    currentUser.email=newEmail;
+    currentUser.role=role;
+    // also update in users array
+    const idx=users.findIndex(u=>u.id===currentUser.id);
+    if(idx>=0) users[idx]= {...users[idx], name:newName, email:newEmail, role};
+    saveUsers();
+    setCurrentUser(currentUser);
+  } else {
+    profileName.textContent=newName;
+    profileRole.textContent=`${role} • ${selectedModel} • ${getActiveMode().name} mode`;
+    localStorage.setItem('profileName', newName);
+    localStorage.setItem('profileEmail', newEmail);
+  }
+  // also update server detail etc.
+  profileView.classList.add('hidden'); toast('Profile saved ✓');
+  renderProviders(); renderModes();
 });
 themeSelect.addEventListener('change', e=>{
   if(e.target.value==='dark'){ document.documentElement.style.filter='invert(1) hue-rotate(180deg)'; document.body.style.background='#0f172a'; toast('Dark preview — invert filter'); }
@@ -2011,7 +2062,210 @@ document.addEventListener('keydown', e=>{
 sendBtn.addEventListener('click', ()=> doSend());
 attachBtn.addEventListener('click', ()=> mediaInput.click());
 
-// Init
-renderProviders(); renderModes(); renderChats(); renderMessages(); renderServers(); renderPromptStrip(); renderMarket(); renderPromptCats(); renderPromptGrid(); refreshIcons(); scrollBottom(); updateUndoRedo();
-if(profileNameInput) profileNameInput.value=localStorage.getItem('profileName')||'Alex Rivera';
-if(profileEmail) profileEmail.value=localStorage.getItem('profileEmail')||'alex@local.dev';
+// ——— Auth, Splash & Onboarding ———
+const ONBOARD_STEPS = [
+  {icon:'network', color:'#2563eb', title:'Welcome to MCP Terminal', desc:'Connect AI models to tools and local resources via the Model Context Protocol — securely, locally, fast.', bullets:['TLS 1.3 secure tunnel','MCP nodes: Postgres, S3, FS & more','One chat, many tools']},
+  {icon:'cpu', color:'#7c3aed', title:'AI Providers', desc:'Bring your own key — OpenAI, Anthropic, Google or local LLM. Switch instantly, per-mode overrides.', bullets:['Multiple providers & models','Per-mode provider & temp','Streaming & fallback']},
+  {icon:'store', color:'#ff9900', title:'MCP Marketplace & Servers', desc:'Discover verified MCP servers, install with one click, connect / disconnect, health checks & logs.', bullets:['Browse 10+ verified servers','SSE / STDIO / HTTP','Env vars, timeout & retries']},
+  {icon:'bot', color:'#16a34a', title:'Agent Modes & Live', desc:'Modes shape tone & tools. Live speech gives hands-free conversation with turn-taking and TTS.', bullets:['8 modes: Chat, Code, Research…','Custom modes & prompts','Live mic — interrupt anytime']},
+];
+let onIndex = 0;
+function renderOnStep(){
+  const s=ONBOARD_STEPS[onIndex];
+  onStep.innerHTML = `
+    <div class="on-step">
+      <div class="on-icon" style="background:${s.color}"><i data-lucide="${s.icon}" style="width:24px;height:24px"></i></div>
+      <h3 class="on-title">${esc(s.title)}</h3>
+      <p class="on-desc">${esc(s.desc)}</p>
+      <ul class="on-bullets">${s.bullets.map(b=>`<li><i data-lucide="check" style="width:14px;height:14px"></i> ${esc(b)}</li>`).join('')}</ul>
+      <div class="on-dots">${ONBOARD_STEPS.map((_,i)=>`<span class="${i===onIndex?'active':''}"></span>`).join('')}</div>
+    </div>`;
+  onProgress.style.width = `${((onIndex+1)/ONBOARD_STEPS.length)*100}%`;
+  onPrev.style.display = onIndex===0?'none':'inline-flex';
+  onNext.innerHTML = onIndex===ONBOARD_STEPS.length-1 ? `Get started <i data-lucide="arrow-right" style="width:14px;height:14px"></i>` : `Next <i data-lucide="arrow-right" style="width:14px;height:14px"></i>`;
+  refreshIcons();
+}
+function openOnboarding(){ onIndex=0; renderOnStep(); onboarding.classList.remove('hidden'); refreshIcons(); }
+function closeOnboarding(){ onboarding.classList.add('hidden'); localStorage.setItem('mcp_onboarded','1'); }
+onNext?.addEventListener('click', ()=>{ if(onIndex < ONBOARD_STEPS.length-1){ onIndex++; renderOnStep(); } else { closeOnboarding(); if(!currentUser) showAuth(); } });
+onPrev?.addEventListener('click', ()=>{ if(onIndex>0){ onIndex--; renderOnStep(); }});
+onSkip?.addEventListener('click', ()=>{ closeOnboarding(); if(!currentUser) showAuth(); });
+onboardingBackdrop?.addEventListener('click', ()=>{ closeOnboarding(); if(!currentUser) showAuth(); });
+showOnboardingBtn?.addEventListener('click', openOnboarding);
+
+// Users / Auth
+let users = JSON.parse(localStorage.getItem('mcp_users')||'null') || [
+  {id:'u_alex', name:'Alex Rivera', email:'alex@local.dev', pass:'demo123', avatar:'https://i.pravatar.cc/100?img=32', role:'Admin', isGuest:false},
+  {id:'u_sara', name:'Sara Chen', email:'sara@local.dev', pass:'demo123', avatar:'https://i.pravatar.cc/100?img=15', role:'Developer', isGuest:false},
+];
+let currentUserId = localStorage.getItem('mcp_currentUserId') || null;
+let currentUser = users.find(u=>u.id===currentUserId) || null;
+const saveUsers = ()=> { localStorage.setItem('mcp_users', JSON.stringify(users)); if(currentUser) localStorage.setItem('mcp_currentUserId', currentUser.id); else localStorage.removeItem('mcp_currentUserId'); };
+function showAuth(){ authView.classList.remove('hidden'); refreshIcons(); }
+function hideAuth(){ authView.classList.add('hidden'); }
+function renderAuthTabs(tab){
+  document.querySelectorAll('.auth-tab').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
+  loginForm.classList.toggle('hidden', tab!=='login');
+  signupForm.classList.toggle('hidden', tab!=='signup');
+  guestForm.classList.toggle('hidden', tab!=='guest');
+}
+document.querySelectorAll('.auth-tab').forEach(b=> b.addEventListener('click', ()=> renderAuthTabs(b.dataset.tab)));
+renderAuthTabs('login');
+function setCurrentUser(user){
+  currentUser=user; currentUserId=user.id;
+  saveUsers();
+  // update profile UI
+  profileName.textContent=user.name;
+  profileHeaderName.textContent=user.name;
+  profileHeaderEmail.textContent=user.email + (user.isGuest?' • guest':'');
+  profileHeaderMeta.textContent=user.isGuest?'Guest • local only':'Signed in • local';
+  profileGuestBadge.classList.toggle('hidden', !user.isGuest);
+  profileRoleBadge.textContent=user.role||'Admin';
+  profileAvatar.src=user.avatar;
+  profileLargeAvatar.src=user.avatar;
+  profileNameInput.value=user.name;
+  profileEmail.value=user.email;
+  if(document.getElementById('profileRoleSelect')) document.getElementById('profileRoleSelect').value=user.role||'Admin';
+  // persist role badge in top
+  if(profileRole) profileRole.textContent=`${user.role||'Admin'} • ${selectedModel} • ${getActiveMode().name} mode`;
+  // per-user chats key (optional: keep global for demo but could namespace)
+  // For demo, keep chats global but personalize greeting
+  renderProfilesList();
+  hideAuth();
+  closeOnboarding();
+  toast(`Welcome, ${user.name}${user.isGuest?' (guest)':''} ✓`);
+  renderMessages();
+}
+function renderProfilesList(){
+  if(!profilesList) return;
+  profilesList.innerHTML = users.map(u=>`
+    <div class="profile-row ${u.id===currentUserId?'active':''}" data-switch="${u.id}" style="display:flex;gap:10px;align-items:center;padding:10px;background:${u.id===currentUserId?'var(--primary-ghost)':'#fff'};border:1px solid ${u.id===currentUserId?'#dbeafe':'var(--line)'};border-radius:12px;cursor:pointer">
+      <img src="${u.avatar}" style="width:36px;height:36px;border-radius:50%;object-fit:cover" />
+      <div style="flex:1;min-width:0"><b style="font-size:13px">${esc(u.name)} ${u.isGuest?'<span style="background:#f59e0b;color:#fff;font-size:10px;padding:2px 6px;border-radius:999px">GUEST</span>':''}</b><div style="font-size:11px;color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(u.email)}</div></div>
+      <span style="font-size:11px;color:var(--muted)">${u.role||''}</span>
+      ${u.id===currentUserId?'<span style="background:var(--ok);color:#fff;padding:3px 7px;border-radius:999px;font-size:10px;font-weight:700">ACTIVE</span>':''}
+    </div>
+  `).join('') || `<p style="font-size:11px;color:var(--faint);text-align:center">No profiles</p>`;
+  refreshIcons();
+}
+profilesList?.addEventListener('click', e=>{
+  const row=e.target.closest('[data-switch]'); if(!row) return;
+  const u=users.find(x=>x.id===row.dataset.switch);
+  if(u && u.id!==currentUserId){ setCurrentUser(u); profileView.classList.add('hidden'); }
+});
+switchProfileBtn?.addEventListener('click', ()=>{
+  profileView.classList.add('hidden');
+  showAuth(); renderAuthTabs('login');
+});
+manageProfilesBtn?.addEventListener('click', ()=>{ renderProfilesList(); toast('Select a profile to switch'); });
+addProfileBtn?.addEventListener('click', ()=>{
+  // create new empty profile and switch to signup
+  profileView.classList.add('hidden');
+  showAuth(); renderAuthTabs('signup');
+  signupName.value=''; signupEmail.value=''; signupPass.value=''; signupPass2.value='';
+});
+logoutBtn?.addEventListener('click', ()=>{
+  if(!currentUser) return;
+  if(confirm(`Logout ${currentUser.name}? ${currentUser.isGuest?'Guest data will be lost.':''}`)){
+    if(currentUser.isGuest){
+      // remove guest user
+      users=users.filter(u=>u.id!==currentUser.id);
+      saveUsers();
+    }
+    currentUser=null; currentUserId=null;
+    localStorage.removeItem('mcp_currentUserId');
+    profileView.classList.add('hidden');
+    showAuth(); renderAuthTabs('login');
+    toast('Logged out');
+    renderProfilesList();
+  }
+});
+// Auth form handlers
+loginForm?.addEventListener('submit', e=>{
+  e.preventDefault();
+  const email=loginEmail.value.trim().toLowerCase(), pass=loginPass.value.trim();
+  const u=users.find(x=>x.email.toLowerCase()===email);
+  if(!u) return toast('No account with that email — try Sign up or Guest', 2600);
+  if(u.pass!==pass) return toast('Wrong password (demo: any ≥6 chars, original is demo123 if not changed)', 2600);
+  // success
+  setCurrentUser(u);
+  // remember me handling: if unchecked, session only (for demo keep)
+  if(!rememberMe.checked) toast('Session only — will clear on close (mock)');
+});
+signupForm?.addEventListener('submit', e=>{
+  e.preventDefault();
+  const name=signupName.value.trim(), email=signupEmail.value.trim().toLowerCase(), pass=signupPass.value, pass2=signupPass2.value;
+  if(!name||!email||!pass) return toast('Fill all fields');
+  if(pass.length<6) return toast('Password ≥6 chars');
+  if(pass!==pass2) return toast('Passwords do not match');
+  if(users.find(u=>u.email.toLowerCase()===email)) return toast('Email already exists — try Login');
+  const newUser={id:'u_'+Date.now(), name, email, pass, avatar:`https://i.pravatar.cc/100?img=${Math.floor(Math.random()*70)}`, role:'Developer', isGuest:false};
+  users.push(newUser); saveUsers();
+  setCurrentUser(newUser);
+  toast('Account created ✓');
+});
+guestBtn?.addEventListener('click', ()=>{
+  const guest={id:'guest_'+Date.now(), name:'Guest User', email:'guest@local', avatar:`https://i.pravatar.cc/100?img=${Math.floor(Math.random()*70)}`, role:'Viewer', isGuest:true, pass:''};
+  users.push(guest); saveUsers();
+  setCurrentUser(guest);
+});
+authDemoLogin?.addEventListener('click', ()=>{
+  // demo login as Alex
+  const demo=users.find(u=>u.email==='alex@local.dev') || users[0];
+  if(demo){ setCurrentUser(demo); }
+});
+authBackdrop?.addEventListener('click', ()=>{
+  if(currentUser) hideAuth(); // only allow close if already logged in
+});
+// Splash
+function runSplash(){
+  if(!splash) return Promise.resolve();
+  splash.classList.remove('hidden');
+  const statuses=['Initializing secure tunnel…','Loading MCP nodes…','Syncing providers…','Ready'];
+  let idx=0;
+  const iv=setInterval(()=>{
+    if(idx < statuses.length && splashStatus) splashStatus.textContent=statuses[idx++];
+  }, 380);
+  if(splashProgress) splashProgress.style.width='100%';
+  return new Promise(res=>{
+    setTimeout(()=>{
+      clearInterval(iv);
+      splash.classList.add('hidden');
+      splash.setAttribute('aria-hidden','true');
+      res();
+    }, 1600);
+  });
+}
+// Init — with splash/onboarding/auth gate
+async function initApp(){
+  await runSplash();
+  // update profile header initially
+  if(currentUser){
+    setCurrentUser(currentUser); // refresh UI (will hide auth)
+    // check onboarding
+    if(!localStorage.getItem('mcp_onboarded')){
+      openOnboarding();
+    } else {
+      hideAuth();
+    }
+  } else {
+    // no user
+    if(!localStorage.getItem('mcp_onboarded')){
+      openOnboarding();
+      // after onboarding, show auth
+      const origClose=closeOnboarding;
+      // monkey patch close to also show auth if needed (already handled in onNext)
+    } else {
+      showAuth();
+    }
+  }
+  renderProviders(); renderModes(); renderChats(); renderMessages(); renderServers(); renderPromptStrip(); renderMarket(); renderPromptCats(); renderPromptGrid(); renderProfilesList(); refreshIcons(); scrollBottom(); updateUndoRedo();
+  if(profileNameInput) profileNameInput.value=currentUser ? currentUser.name : (localStorage.getItem('profileName')||'Alex Rivera');
+  if(profileEmail) profileEmail.value=currentUser ? currentUser.email : (localStorage.getItem('profileEmail')||'alex@local.dev');
+}
+initApp();
+
+// keep original init for fallback (but we replaced)
+ // renderProviders(); renderModes(); renderChats(); renderMessages(); renderServers(); renderPromptStrip(); renderMarket(); renderPromptCats(); renderPromptGrid(); refreshIcons(); scrollBottom(); updateUndoRedo();
+ // if(profileNameInput) profileNameInput.value=localStorage.getItem('profileName')||'Alex Rivera';
+ // if(profileEmail) profileEmail.value=localStorage.getItem('profileEmail')||'alex@local.dev';
