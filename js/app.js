@@ -89,7 +89,7 @@ const streamToggle = $('#streamToggle');
 const ttsToggle = $('#ttsToggle');
 const saveProfileBtn = $('#saveProfile');
 
-// modals
+// modals — enhanced
 const serverModal = $('#serverModal');
 const closeServerModalBtn = $('#closeServerModal');
 const serverForm = $('#serverForm');
@@ -97,9 +97,37 @@ const srvName = $('#srvName');
 const srvTransport = $('#srvTransport');
 const srvEndpoint = $('#srvEndpoint');
 const srvTools = $('#srvTools');
+const srvDesc = $('#srvDesc');
+const srvTimeout = $('#srvTimeout');
+const srvRetries = $('#srvRetries');
+const srvTemplate = $('#srvTemplate');
+const srvAuto = $('#srvAuto');
+const srvHealth = $('#srvHealth');
+const envList = $('#envList');
+const addEnvBtn = $('#addEnvBtn');
+const testServerBtn = $('#testServerBtn');
+const srvEndpointHint = $('#srvEndpointHint');
 const serverModalTitle = $('#serverModalTitle');
 const serverModalBackdrop = $('#serverModalBackdrop');
 const cancelServer = $('#cancelServer');
+const serverDetailModal = $('#serverDetailModal');
+const serverDetailBackdrop = $('#serverDetailBackdrop');
+const serverDetailContent = $('#serverDetailContent');
+const srvStatTotal = $('#srvStatTotal');
+const srvStatConnected = $('#srvStatConnected');
+const srvStatLatency = $('#srvStatLatency');
+const serverTabs = $('#serverTabs');
+const serverSort = $('#serverSort');
+const bulkConnect = $('#bulkConnect');
+const bulkDisconnect = $('#bulkDisconnect');
+const testAllServers = $('#testAllServers');
+const serverCountInfo = $('#serverCountInfo');
+const exportServersBtn = $('#exportServersBtn');
+const importServersBtn = $('#importServersBtn');
+const importServersFile = $('#importServersFile');
+const healthPoll = $('#healthPoll');
+let activeServerTab = localStorage.getItem('serverTab') || 'all';
+let envDraft = [];
 const toolsModal = $('#toolsModal');
 const toolsBackdrop = $('#toolsBackdrop');
 const closeModalBtn = $('#closeModal');
@@ -169,13 +197,26 @@ let chats = JSON.parse(localStorage.getItem('mcp_chats')||'null') || [
 if(!localStorage.getItem('mcp_chats')) localStorage.setItem('mcp_chats', JSON.stringify(chats));
 activeChatId = localStorage.getItem('activeChat') || chats[0].id;
 
-// Servers
+// Servers — enhanced with health, env, timeout etc.
 const DEFAULT_SERVERS = [
-  {id:'srv1', name:'aws-us-east', transport:'sse', endpoint:'wss://aws.mcp.local/sse', tools:'s3_list, ec2_status', status:'connected', color:'aws'},
-  {id:'srv2', name:'postgres-mcp', transport:'stdio', endpoint:'npx @modelcontextprotocol/server-postgres', tools:'query, list_tables', status:'connected', color:'pg'},
-  {id:'srv3', name:'local-fs', transport:'stdio', endpoint:'npx @modelcontextprotocol/server-filesystem /data', tools:'read, write, list', status:'disconnected', color:'fs'},
+  {id:'srv1', name:'aws-us-east', transport:'sse', endpoint:'wss://aws.mcp.local/sse', tools:'s3_list, ec2_status', status:'connected', color:'aws', desc:'AWS S3 + EC2 in us-east-1', timeout:10000, retries:2, env:[], latency:142, health:'ok', lastSeen:Date.now(), autoConnect:true, healthCheck:true},
+  {id:'srv2', name:'postgres-mcp', transport:'stdio', endpoint:'npx @modelcontextprotocol/server-postgres', tools:'query, list_tables, describe_schema', status:'connected', color:'pg', desc:'Postgres — remote_db', timeout:10000, retries:2, env:[{k:'DATABASE_URL', v:'postgres://...'}], latency:68, health:'ok', lastSeen:Date.now(), autoConnect:true, healthCheck:true},
+  {id:'srv3', name:'local-fs', transport:'stdio', endpoint:'npx @modelcontextprotocol/server-filesystem /data', tools:'read, write, list', status:'disconnected', color:'fs', desc:'Local filesystem /data sandbox', timeout:8000, retries:1, env:[], latency:12, health:'off', lastSeen:Date.now()-3600000, autoConnect:false, healthCheck:true},
 ];
 let servers = JSON.parse(localStorage.getItem('mcp_servers')||'null') || DEFAULT_SERVERS;
+// migrate old servers missing fields
+servers = servers.map(s=> ({
+  desc: s.desc||'',
+  timeout: s.timeout||10000,
+  retries: s.retries??2,
+  env: Array.isArray(s.env)? s.env : (s.env && typeof s.env==='object' ? Object.entries(s.env).map(([k,v])=>({k,v})) : []),
+  latency: s.latency||Math.floor(Math.random()*120+40),
+  health: s.health|| (s.status==='connected'?'ok':'off'),
+  lastSeen: s.lastSeen||Date.now(),
+  autoConnect: s.autoConnect?? (s.status==='connected'),
+  healthCheck: s.healthCheck??true,
+  ...s
+}));
 const saveServers=()=> localStorage.setItem('mcp_servers', JSON.stringify(servers));
 const saveChats=()=> localStorage.setItem('mcp_chats', JSON.stringify(chats));
 
@@ -496,32 +537,196 @@ importFile.addEventListener('change', e=>{
 });
 archiveToggle.addEventListener('click', ()=>{ showArchived=!showArchived; archiveToggle.style.background=showArchived?'#0f172a':''; archiveToggle.style.color=showArchived?'#fff':''; renderChats(); toast(showArchived?'Showing archived':'Hiding archived'); });
 
-// Servers render
+// Servers render — enhanced
+let serverHealthTimer=null;
+function getHealthClass(s){
+  if(s.status!=='connected') return 'off';
+  if(s.health==='ok') return 'ok';
+  if(s.health==='warn') return 'warn';
+  if(s.health==='bad') return 'bad';
+  return 'ok';
+}
+function getLatencyClass(lat){
+  if(lat<100) return 'ok';
+  if(lat<250) return 'slow';
+  return 'bad';
+}
 function renderServers(){
-  const q=(serverSearch.value||'').toLowerCase();
-  const sq=(sidebarSearch.value||'').toLowerCase();
-  topNodes.innerHTML = servers.map(s=>{
+  const q=(serverSearch?.value||'').toLowerCase();
+  const sq=(sidebarSearch?.value||'').toLowerCase();
+  const sort=serverSort?.value||'name';
+  // top nodes — always show all, but sorted
+  topNodes.innerHTML = [...servers].sort((a,b)=> a.name.localeCompare(b.name)).map(s=>{
     const on=s.status==='connected';
     return `<button class="node-pill ${on?'connected':'disconnected'}" data-id="${s.id}"><span class="d" style="background:${on ? (s.color==='aws'?'#ff9900': s.color==='pg'?'#16a34a':'#2563eb') : '#cbd5e1'}"></span> ${esc(s.name)}</button>`;
   }).join('');
-  const sideFiltered = servers.filter(s=> !sq || s.name.toLowerCase().includes(sq));
+  // sidebar — filtered
+  const sideFiltered = servers.filter(s=> !sq || s.name.toLowerCase().includes(q) || s.tools.toLowerCase().includes(sq) || s.endpoint.toLowerCase().includes(sq));
   sidebarList.innerHTML = sideFiltered.map(s=>{
     const on=s.status==='connected', busy=s.status==='connecting';
-    return `<li class="server-item ${s.status}" data-id="${s.id}"><span class="server-ic ${s.color}"><i data-lucide="${s.color==='pg'?'database': s.color==='aws'?'cloud': s.color==='fs'?'folder-open':'server'}" style="width:16px;height:16px"></i></span><span class="server-meta"><strong>${esc(s.name)}</strong><span>${esc(s.transport)} • ${esc(s.endpoint.slice(0,28))}</span></span><span class="chip-dot ${on?'on':busy?'':'off'}"></span></li>`;
+    const latCls=getLatencyClass(s.latency||0);
+    return `<li class="server-item ${s.status}" data-id="${s.id}" title="${esc(s.desc||s.endpoint)}"><span class="server-ic ${s.color}"><i data-lucide="${s.color==='pg'?'database': s.color==='aws'?'cloud': s.color==='fs'?'folder-open':'server'}" style="width:16px;height:16px"></i></span><span class="server-meta"><strong>${esc(s.name)}</strong><span>${esc(s.transport)} • ${esc(s.endpoint.slice(0,28))} ${s.env?.length?`• ${s.env.length} env`:''}</span></span><span class="health ${getHealthClass(s)}" title="${s.health}"></span><span class="chip-dot ${on?'on':busy?'':'off'}" style="display:none"></span></li>`;
   }).join('') || `<li style="font-size:12px;color:#94a3b8;padding:8px">No matches</li>`;
-  const filteredDrawer = servers.filter(s=> !q || s.name.toLowerCase().includes(q));
-  serversList.innerHTML = filteredDrawer.map(s=>{
+  // drawer — filtered by tab + search + sort
+  let filtered = servers.filter(s=>{
+    const matchSearch = !q || s.name.toLowerCase().includes(q) || s.tools.toLowerCase().includes(q) || s.endpoint.toLowerCase().includes(q) || (s.desc||'').toLowerCase().includes(q);
+    const matchTab = activeServerTab==='all' || (activeServerTab==='connected'&&s.status==='connected') || (activeServerTab==='disconnected'&&s.status!=='connected') || (activeServerTab===s.transport);
+    return matchSearch && matchTab;
+  });
+  if(sort==='name') filtered.sort((a,b)=> a.name.localeCompare(b.name));
+  else if(sort==='status') filtered.sort((a,b)=> (a.status==='connected'?0:1) - (b.status==='connected'?0:1) || a.name.localeCompare(b.name));
+  else if(sort==='recent') filtered.sort((a,b)=> (b.lastSeen||0)-(a.lastSeen||0));
+  else if(sort==='latency') filtered.sort((a,b)=> (a.latency||999)-(b.latency||999));
+  // tabs ui
+  if(serverTabs){
+    serverTabs.querySelectorAll('button').forEach(b=> b.classList.toggle('active', b.dataset.stab===activeServerTab));
+    serverTabs.querySelectorAll('button').forEach(b=>{
+      if(b.dataset.stab===activeServerTab){ b.style.background='var(--text)'; b.style.color='#fff'; b.style.borderColor='var(--text)'; }
+      else { b.style.background='#fff'; b.style.color='var(--muted)'; b.style.borderColor='var(--line)'; }
+    });
+  }
+  serversList.innerHTML = filtered.map(s=>{
     const ic=s.color, iname=s.color==='pg'?'database': s.color==='aws'?'cloud': s.color==='fs'?'folder-open':'server';
     const label=s.status==='connected'?'Connected': s.status==='connecting'?'Connecting':'Disconnected';
     const cls=s.status==='connected'?'on': s.status==='connecting'?'busy':'off';
-    return `<div class="server-card" data-id="${s.id}"><div class="server-card-top"><span class="ic ${ic}"><i data-lucide="${iname}" style="width:16px;height:16px"></i></span><span class="meta"><b>${esc(s.name)}</b><p>${esc(s.transport)} • ${esc(s.endpoint)}</p></span><label class="switch"><input type="checkbox" ${s.status==='connected'?'checked':''} data-toggle="${s.id}"><span></span></label></div><div class="server-card-foot"><span class="status ${cls}">${label}</span><span style="flex:1"></span><button class="mini" data-edit="${s.id}"><i data-lucide="pencil" style="width:12px;height:12px"></i> Edit</button><button class="mini danger" data-del="${s.id}"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button></div></div>`;
-  }).join('') || `<p style="text-align:center;color:#94a3b8;padding:12px">No servers</p>`;
+    const healthCls=getHealthClass(s);
+    const tools = s.tools ? s.tools.split(',').map(t=>t.trim()).filter(Boolean) : [];
+    const latCls=getLatencyClass(s.latency||0);
+    const envCount=s.env?.length||0;
+    return `<div class="server-card" data-id="${s.id}" style="${s.status==='connected'?'border-color:#bbf7d0':''}">
+      <div class="server-card-top">
+        <span class="ic ${ic}"><i data-lucide="${iname}" style="width:16px;height:16px"></i></span>
+        <span class="meta" style="flex:1"><b style="display:flex;align-items:center;gap:6px">${esc(s.name)} <span class="health ${healthCls}" title="Health: ${s.health}"></span> ${s.autoConnect?'<span style="font-size:10px;background:#eff6ff;color:var(--primary);border:1px solid #dbeafe;padding:2px 6px;border-radius:999px">AUTO</span>':''}</b>
+          <p>${esc(s.transport)} • ${esc(s.endpoint)}${s.desc?` • ${esc(s.desc)}`:''}</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+            ${tools.slice(0,3).map(t=>`<span class="tools">${esc(t)}</span>`).join('')}${tools.length>3?`<span class="tools">+${tools.length-3}</span>`:''}
+            ${envCount?`<span class="tools" title="Env vars">${envCount} env</span>`:''}
+            <span class="latency ${latCls}">${s.latency||'?'}ms</span>
+            <span style="font-size:11px;color:var(--faint);font-family:var(--mono)">${s.lastSeen? new Date(s.lastSeen).toLocaleTimeString():''}</span>
+          </div>
+        </span>
+        <label class="switch"><input type="checkbox" ${s.status==='connected'?'checked':''} data-toggle="${s.id}"><span></span></label>
+      </div>
+      <div class="server-card-foot">
+        <span class="status ${cls}"><span class="health ${healthCls}" style="width:6px;height:6px"></span> ${label}</span>
+        <span style="flex:1"></span>
+        <button class="mini" data-test="${s.id}"><i data-lucide="activity" style="width:12px;height:12px"></i> Test</button>
+        <button class="mini" data-logs="${s.id}"><i data-lucide="scroll-text" style="width:12px;height:12px"></i> Logs</button>
+        <button class="mini" data-edit="${s.id}"><i data-lucide="pencil" style="width:12px;height:12px"></i></button>
+        <button class="mini" data-dup="${s.id}"><i data-lucide="copy" style="width:12px;height:12px"></i></button>
+        <button class="mini danger" data-del="${s.id}"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>
+      </div>
+    </div>`;
+  }).join('') || `<div style="text-align:center;padding:24px;background:#fff;border:1px dashed var(--line);border-radius:12px"><i data-lucide="search-x" style="width:24px;height:24px;color:#cbd5e1"></i><p style="margin:8px 0 0;font-weight:700">No servers match</p><p style="font-size:12px;color:var(--muted)">Try another search or add a new server</p></div>`;
+  // stats
   const connected=servers.filter(s=>s.status==='connected').length;
-  sidebarCount.textContent=servers.length;
-  if(activeCount2) activeCount2.textContent=connected;
+  const avgLat = servers.length? Math.round(servers.reduce((a,s)=>a+(s.latency||0),0)/servers.length):0;
+  if(srvStatTotal) srvStatTotal.textContent=String(servers.length);
+  if(srvStatConnected) srvStatConnected.textContent=String(connected);
+  if(srvStatLatency) srvStatLatency.textContent= avgLat ? avgLat+'ms' : '—';
+  if(sidebarCount) sidebarCount.textContent=String(servers.length);
+  if(activeCount2) activeCount2.textContent=String(connected);
   if(tunnelBar) tunnelBar.style.width=`${servers.length?Math.round(connected/servers.length*100):0}%`;
   if(tunnelStatus) tunnelStatus.innerHTML=connected? `Secure MCP tunnel • <strong>${connected}</strong> connected` : `No MCP nodes connected`;
+  if(serverCountInfo) serverCountInfo.textContent=`${filtered.length} of ${servers.length} servers`;
   refreshIcons();
+  // health polling indicator
+  if(healthPoll && !healthPoll.checked && serverHealthTimer){ clearInterval(serverHealthTimer); serverHealthTimer=null; }
+  else if(healthPoll && healthPoll.checked && !serverHealthTimer){
+    serverHealthTimer=setInterval(()=> doHealthCheck(false), 30000);
+  }
+}
+function doHealthCheck(showToast=true){
+  // mock: randomize latency/health for connected servers
+  let changed=false;
+  servers.forEach(s=>{
+    if(s.status==='connected' && s.healthCheck){
+      const prev=s.health;
+      const roll=Math.random();
+      if(roll>0.85) s.health='warn';
+      else if(roll>0.97) s.health='bad';
+      else s.health='ok';
+      s.latency = Math.floor(40 + Math.random()*180);
+      s.lastSeen=Date.now();
+      if(prev!==s.health) changed=true;
+    }
+  });
+  if(changed || showToast){
+    saveServers(); renderServers();
+    if(showToast) toast('Health check complete ✓');
+  } else {
+    saveServers(); renderServers();
+  }
+}
+function openServerDetail(id){
+  const s=servers.find(x=>x.id===id); if(!s) return;
+  const tools=s.tools.split(',').map(t=>t.trim()).filter(Boolean);
+  const env=s.env||[];
+  serverDetailContent.innerHTML=`
+    <div class="server-detail-hero">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.12);display:grid;place-items:center"><i data-lucide="${s.color==='pg'?'database': s.color==='aws'?'cloud':'folder-open'}" style="width:20px;height:20px;color:#fff"></i></div>
+        <div><h3 style="margin:0;font-size:16px;font-weight:800">${esc(s.name)}</h3><p style="margin:4px 0 0;font-size:12px;opacity:.8">${esc(s.transport)} • ${esc(s.endpoint)} • ${s.status}</p></div>
+        <button class="icon-btn" id="closeServerDetail" style="margin-left:auto;background:rgba(255,255,255,.12);color:#fff"><i data-lucide="x"></i></button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <span style="background:rgba(34,197,94,.14);color:#86efac;border:1px solid rgba(34,197,94,.2);padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700">${s.health==='ok'?'✓ Healthy': s.health==='warn'?'⚠ Degraded':'● '+s.health} • ${s.latency}ms</span>
+        <span style="background:rgba(255,255,255,.12);padding:4px 8px;border-radius:999px;font-size:11px;font-family:var(--mono)">timeout ${s.timeout}ms • retries ${s.retries}</span>
+        ${s.autoConnect?'<span style="background:#eff6ff;color:var(--primary);padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700">Auto-connect</span>':''}
+      </div>
+    </div>
+    <div class="server-detail-body">
+      ${s.desc?`<p style="margin:0;font-size:13px;color:var(--muted);line-height:1.6">${esc(s.desc)}</p>`:''}
+      <div>
+        <h4 style="margin:0 0 8px;font-size:11px;letter-spacing:.06em;color:var(--muted)">TOOLS (${tools.length})</h4>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${tools.map(t=>`<span class="tools" style="background:#fff">${esc(t)}</span>`).join('') || '<span style="font-size:12px;color:var(--faint)">Auto-discover on connect</span>'}</div>
+      </div>
+      ${env.length?`<div><h4 style="margin:0 0 8px;font-size:11px;letter-spacing:.06em;color:var(--muted)">ENVIRONMENT</h4><div style="display:flex;flex-direction:column;gap:6px">${env.map(e=>`<div style="display:flex;gap:8px;align-items:center;background:#f8fafc;border:1px solid var(--line);padding:8px 10px;border-radius:8px;font-family:var(--mono);font-size:11px"><span style="color:var(--muted)">${esc(e.k)}=</span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.v)}</span></div>`).join('')}</div></div>`:''}
+      <div>
+        <h4 style="margin:0 0 8px;font-size:11px;letter-spacing:.06em;color:var(--muted)">LOGS (mock)</h4>
+        <div class="log-box">
+          <div class="muted">[${new Date(s.lastSeen).toLocaleTimeString()}] → handshake ${s.transport} ${esc(s.endpoint)}</div>
+          <div class="${s.status==='connected'?'ok':'err'}">[${new Date().toLocaleTimeString()}] ${s.status==='connected'?'✓ Connected • tools: '+tools.slice(0,2).join(', '):'○ Disconnected • last error: timeout'}</div>
+          <div class="muted">[${new Date().toLocaleTimeString()}] latency ${s.latency}ms • health ${s.health}</div>
+          <div class="ok">[${new Date().toLocaleTimeString()}] ready for MCP invoke</div>
+        </div>
+      </div>
+      <div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px;font-family:var(--mono);font-size:11px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:700;letter-spacing:.06em;color:var(--muted)">CONFIG</span><button class="ghost-btn sm" id="copyServerConfig" style="padding:4px 8px;font-size:11px"><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button></div>
+        <div style="white-space:pre-wrap;word-break:break-all" id="serverConfigJson">${esc(JSON.stringify({name:s.name, transport:s.transport, endpoint:s.endpoint, tools:s.tools, timeout:s.timeout, retries:s.retries, env:env.reduce((o,e)=> (o[e.k]=e.v,o),{})}, null, 2))}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="primary-btn" id="detailToggle" style="flex:1;justify-content:center"><i data-lucide="${s.status==='connected'?'plug-zap':'plug'}" style="width:14px;height:14px"></i> ${s.status==='connected'?'Disconnect':'Connect'}</button>
+        <button class="ghost-btn" id="detailEdit" style="flex:1;justify-content:center"><i data-lucide="pencil" style="width:14px;height:14px"></i> Edit</button>
+      </div>
+    </div>
+  `;
+  serverDetailModal.classList.remove('hidden'); refreshIcons();
+  $('#closeServerDetail')?.addEventListener('click', ()=> serverDetailModal.classList.add('hidden'));
+  $('#copyServerConfig')?.addEventListener('click', ()=>{ navigator.clipboard.writeText($('#serverConfigJson').textContent); toast('Config copied'); });
+  $('#detailToggle')?.addEventListener('click', async ()=>{ await toggle(s.id); serverDetailModal.classList.add('hidden'); });
+  $('#detailEdit')?.addEventListener('click', ()=>{ serverDetailModal.classList.add('hidden'); openEditServer(s.id); });
+}
+function openEditServer(id){
+  const s=servers.find(x=>x.id===id); if(!s) return;
+  editingId=s.id;
+  serverModalTitle.textContent='Edit MCP Server';
+  srvName.value=s.name; srvTransport.value=s.transport; srvEndpoint.value=s.endpoint; srvTools.value=s.tools; if(srvDesc) srvDesc.value=s.desc||''; if(srvTimeout) srvTimeout.value=String(s.timeout); if(srvRetries) srvRetries.value=String(s.retries); if(srvAuto) srvAuto.checked=!!s.autoConnect; if(srvHealth) srvHealth.checked=!!s.healthCheck;
+  envDraft=[...(s.env||[])];
+  renderEnv(); updateEndpointHint(); serverModal.classList.remove('hidden'); refreshIcons();
+}
+function renderEnv(){
+  if(!envList) return;
+  envList.innerHTML= envDraft.map((e,i)=>`
+    <div class="env-row"><input placeholder="KEY" value="${esc(e.k)}" data-ek="${i}"><input placeholder="value" value="${esc(e.v)}" data-ev="${i}"><button type="button" data-rm-env="${i}"><i data-lucide="x" style="width:12px;height:12px"></i></button></div>
+  `).join('') || `<div style="font-size:12px;color:var(--faint);text-align:center;padding:8px">No env vars — click Add</div>`;
+  refreshIcons();
+}
+function updateEndpointHint(){
+  if(!srvEndpointHint || !srvTransport) return;
+  if(srvTransport.value==='stdio') srvEndpointHint.textContent='STDIO: npx command — e.g. npx @modelcontextprotocol/server-postgres';
+  else if(srvTransport.value==='sse') srvEndpointHint.textContent='SSE: wss:// or https:// URL for Server-Sent Events';
+  else srvEndpointHint.textContent='HTTP: https:// URL for Streamable HTTP';
 }
 
 // Media
@@ -1168,31 +1373,139 @@ settingsBackdrop.addEventListener('click', closeSettingsView);
 closeSettings.addEventListener('click', closeSettingsView);
 serverSearch.addEventListener('input', renderServers);
 sidebarSearch.addEventListener('input', ()=>{ renderChats(); renderServers(); });
-addServerBtn.addEventListener('click', ()=>{ editingId=null; serverModalTitle.textContent='Add MCP Server'; srvName.value=''; srvEndpoint.value=''; srvTools.value=''; srvTransport.value='sse'; serverModal.classList.remove('hidden'); refreshIcons(); });
+serverSort?.addEventListener('change', renderServers);
+serverTabs?.addEventListener('click', e=>{
+  const b=e.target.closest('[data-stab]'); if(!b) return;
+  activeServerTab=b.dataset.stab; localStorage.setItem('serverTab', activeServerTab); renderServers();
+});
+bulkConnect?.addEventListener('click', async ()=>{
+  const toConnect=servers.filter(s=>s.status!=='connected');
+  if(!toConnect.length) return toast('All connected');
+  for(const s of toConnect) await toggle(s.id, true);
+});
+bulkDisconnect?.addEventListener('click', async ()=>{
+  const toDisc=servers.filter(s=>s.status==='connected');
+  if(!toDisc.length) return toast('All disconnected');
+  for(const s of toDisc) await toggle(s.id, false);
+});
+testAllServers?.addEventListener('click', ()=> doHealthCheck(true));
+exportServersBtn?.addEventListener('click', ()=>{
+  const blob=new Blob([JSON.stringify(servers,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='mcp-servers.json'; a.click(); URL.revokeObjectURL(url); toast('Servers exported');
+});
+importServersBtn?.addEventListener('click', ()=> importServersFile.click());
+importServersFile?.addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=()=>{ try{ const arr=JSON.parse(r.result); if(Array.isArray(arr)){ servers=arr.map(s=> ({...s, id: s.id||'srv'+Date.now()+Math.random().toString(36).slice(2), health:s.health||'off', latency:s.latency||0, lastSeen:s.lastSeen||Date.now()})); saveServers(); renderServers(); toast('Servers imported'); } else toast('Invalid file'); } catch{ toast('Invalid JSON'); } }; r.readAsText(f); e.target.value='';
+});
+healthPoll?.addEventListener('change', ()=>{ renderServers(); toast(healthPoll.checked?'Health polling on':'Health polling off'); });
+addServerBtn.addEventListener('click', ()=>{
+  editingId=null;
+  serverModalTitle.textContent='Add MCP Server';
+  srvName.value=''; srvEndpoint.value=''; srvTools.value=''; if(srvDesc) srvDesc.value=''; if(srvTimeout) srvTimeout.value='10000'; if(srvRetries) srvRetries.value='2'; if(srvAuto) srvAuto.checked=true; if(srvHealth) srvHealth.checked=true;
+  srvTransport.value='sse'; if(srvTemplate) srvTemplate.value='';
+  envDraft=[]; renderEnv(); updateEndpointHint();
+  serverModal.classList.remove('hidden'); refreshIcons();
+});
 addServerSidebar.addEventListener('click', ()=> addServerBtn.click());
 closeServerModalBtn.addEventListener('click', ()=> serverModal.classList.add('hidden'));
 cancelServer.addEventListener('click', ()=> serverModal.classList.add('hidden'));
 serverModalBackdrop.addEventListener('click', ()=> serverModal.classList.add('hidden'));
+serverDetailBackdrop?.addEventListener('click', ()=> serverDetailModal.classList.add('hidden'));
+srvTemplate?.addEventListener('change', ()=>{
+  const v=srvTemplate.value;
+  const map={
+    postgres:{transport:'stdio', endpoint:'npx @modelcontextprotocol/server-postgres', tools:'query, list_tables, describe_schema', desc:'Postgres with pgvector'},
+    filesystem:{transport:'stdio', endpoint:'npx @modelcontextprotocol/server-filesystem /data', tools:'read, write, list', desc:'Local filesystem sandbox'},
+    fetch:{transport:'stdio', endpoint:'npx @modelcontextprotocol/server-fetch', tools:'fetch', desc:'HTTP fetch'},
+    github:{transport:'stdio', endpoint:'npx @modelcontextprotocol/server-github', tools:'list_repos, create_pr', desc:'GitHub API'},
+    sse:{transport:'sse', endpoint:'wss://example.mcp.local/sse', tools:'', desc:'SSE remote'},
+    http:{transport:'http', endpoint:'https://example.mcp.local/mcp', tools:'', desc:'HTTP streamable'},
+  };
+  if(map[v]){
+    srvTransport.value=map[v].transport;
+    srvEndpoint.value=map[v].endpoint;
+    srvTools.value=map[v].tools;
+    if(srvDesc) srvDesc.value=map[v].desc;
+    updateEndpointHint();
+  }
+});
+srvTransport?.addEventListener('change', updateEndpointHint);
+addEnvBtn?.addEventListener('click', ()=>{ envDraft.push({k:'',v:''}); renderEnv(); });
+envList?.addEventListener('input', e=>{
+  const ek=e.target.closest('[data-ek]'); if(ek){ envDraft[Number(ek.dataset.ek)].k=ek.value; }
+  const ev=e.target.closest('[data-ev]'); if(ev){ envDraft[Number(ev.dataset.ev)].v=ev.value; }
+});
+envList?.addEventListener('click', e=>{
+  const b=e.target.closest('[data-rm-env]'); if(b){ envDraft.splice(Number(b.dataset.rmEnv),1); renderEnv(); }
+});
+testServerBtn?.addEventListener('click', async ()=>{
+  const ep=srvEndpoint.value.trim();
+  if(!ep) return toast('Enter endpoint first');
+  testServerBtn.innerHTML=`<i data-lucide="loader-2" style="width:12px;height:12px"></i> Testing…`; refreshIcons();
+  await new Promise(r=>setTimeout(r, 900));
+  const ok= ep.startsWith('wss://') || ep.startsWith('https://') || ep.startsWith('npx ');
+  toast(ok? '✓ Connection test passed (mock)':'✗ Test failed — check endpoint', ok?2200:3000);
+  testServerBtn.innerHTML=`<i data-lucide="activity" style="width:12px;height:12px"></i> Test`; refreshIcons();
+});
 serverForm.addEventListener('submit', e=>{
   e.preventDefault();
   const name=srvName.value.trim(), ep=srvEndpoint.value.trim();
-  if(!name||!ep) return;
-  if(editingId){ const s=servers.find(x=>x.id===editingId); s.name=name; s.transport=srvTransport.value; s.endpoint=ep; s.tools=srvTools.value; toast(`${name} updated`); }
-  else { const id='srv'+Date.now(); const col=name.includes('postgres')?'pg': name.includes('aws')?'aws': name.includes('fs')?'fs':'custom'; servers.push({id,name,transport:srvTransport.value,endpoint:ep,tools:srvTools.value,status:'disconnected',color:col}); toast(`${name} added`); }
+  if(!name||!ep) return toast('Name and endpoint required');
+  if(!/^[a-z0-9-]+$/.test(name)) return toast('Name must be lowercase slug (a-z, 0-9, -)');
+  const tools=srvTools.value.trim();
+  const desc=srvDesc?.value.trim()||'';
+  const timeout=parseInt(srvTimeout?.value)||10000;
+  const retries=parseInt(srvRetries?.value)||2;
+  const autoConnect=!!srvAuto?.checked;
+  const healthCheck=!!srvHealth?.checked;
+  // collect env, filter empty keys
+  const env=envDraft.filter(x=>x.k.trim()).map(x=>({k:x.k.trim(), v:x.v}));
+  if(editingId){
+    const s=servers.find(x=>x.id===editingId);
+    s.name=name; s.transport=srvTransport.value; s.endpoint=ep; s.tools=tools; s.desc=desc; s.timeout=timeout; s.retries=retries; s.env=env; s.autoConnect=autoConnect; s.healthCheck=healthCheck;
+    s.color= name.includes('postgres')?'pg': name.includes('aws')?'aws': name.includes('fs')||name.includes('file')?'fs':'custom';
+    toast(`${name} updated`);
+  } else {
+    if(servers.find(s=>s.name===name)) return toast('Name already exists');
+    const id='srv'+Date.now();
+    const col=name.includes('postgres')?'pg': name.includes('aws')?'aws': name.includes('fs')||name.includes('file')?'fs':'custom';
+    servers.push({id,name,transport:srvTransport.value,endpoint:ep,tools,status:'disconnected',color:col, desc, timeout, retries, env, latency:Math.floor(Math.random()*120+40), health:'off', lastSeen:Date.now(), autoConnect, healthCheck});
+    toast(`${name} added`);
+  }
   saveServers(); renderServers(); serverModal.classList.add('hidden');
 });
-topNodes.addEventListener('click', e=>{ const p=e.target.closest('[data-id]'); if(!p) return; toggle(p.dataset.id); });
-sidebarList.addEventListener('click', e=>{ const p=e.target.closest('[data-id]'); if(!p) return; toggle(p.dataset.id); });
+topNodes.addEventListener('click', e=>{ const p=e.target.closest('[data-id]'); if(!p) return; const s=servers.find(x=>x.id===p.dataset.id); if(s) openServerDetail(s.id); else toggle(p.dataset.id); });
+sidebarList.addEventListener('click', e=>{ const p=e.target.closest('[data-id]'); if(!p) return; const s=servers.find(x=>x.id===p.dataset.id); if(s) openServerDetail(s.id); });
 serversList.addEventListener('click', e=>{
-  const del=e.target.closest('[data-del]'); if(del){ servers=servers.filter(s=>s.id!==del.dataset.del); saveServers(); renderServers(); toast('Removed'); return; }
-  const ed=e.target.closest('[data-edit]'); if(ed){ const s=servers.find(x=>x.id===ed.dataset.edit); if(s){ editingId=s.id; serverModalTitle.textContent='Edit MCP Server'; srvName.value=s.name; srvTransport.value=s.transport; srvEndpoint.value=s.endpoint; srvTools.value=s.tools; serverModal.classList.remove('hidden'); refreshIcons(); } return; }
+  const test=e.target.closest('[data-test]'); if(test){ const s=servers.find(x=>x.id===test.dataset.test); toast(`Testing ${s.name}…`); setTimeout(()=>{ s.latency=Math.floor(30+Math.random()*180); s.health= s.latency<100?'ok': s.latency<250?'warn':'bad'; s.lastSeen=Date.now(); saveServers(); renderServers(); toast(`${s.name}: ${s.health} • ${s.latency}ms`); }, 700); return; }
+  const logs=e.target.closest('[data-logs]'); if(logs){ openServerDetail(logs.dataset.logs); return; }
+  const dup=e.target.closest('[data-dup]'); if(dup){ const s=servers.find(x=>x.id===dup.dataset.dup); const copy={...JSON.parse(JSON.stringify(s)), id:'srv'+Date.now(), name:s.name+'-copy', status:'disconnected', health:'off', lastSeen:Date.now()}; servers.push(copy); saveServers(); renderServers(); toast(`Duplicated ${s.name}`); return; }
+  const del=e.target.closest('[data-del]'); if(del){ if(confirm('Delete server?')){ servers=servers.filter(s=>s.id!==del.dataset.del); saveServers(); renderServers(); toast('Removed'); } return; }
+  const ed=e.target.closest('[data-edit]'); if(ed){ openEditServer(ed.dataset.edit); return; }
+  const card=e.target.closest('.server-card'); if(card && !e.target.closest('button') && !e.target.closest('label')){ openServerDetail(card.dataset.id); }
 });
 serversList.addEventListener('change', e=>{ const t=e.target.closest('[data-toggle]'); if(t) toggle(t.dataset.toggle, t.checked); });
 async function toggle(id, force){
   const s=servers.find(x=>x.id===id); if(!s) return;
   const should= typeof force==='boolean' ? force : s.status!=='connected';
-  if(should){ if(s.status==='connected') return; s.status='connecting'; renderServers(); toast(`Connecting ${s.name}…`); await new Promise(r=>setTimeout(r,900)); s.status='connected'; saveServers(); renderServers(); toast(`${s.name} connected ✓`); }
-  else { s.status='disconnected'; saveServers(); renderServers(); toast(`${s.name} disconnected`); }
+  if(should){
+    if(s.status==='connected') return;
+    s.status='connecting'; s.health='off'; renderServers(); toast(`Connecting ${s.name}…`);
+    await new Promise(r=>setTimeout(r, 700 + Math.random()*600));
+    // simulate success/failure based on endpoint
+    const fail = s.endpoint.includes('fail') || Math.random()<0.06;
+    if(fail){
+      s.status='disconnected'; s.health='bad'; s.latency=999; s.lastSeen=Date.now();
+      saveServers(); renderServers(); toast(`${s.name} failed — check endpoint`, 3000);
+    } else {
+      s.status='connected'; s.health='ok'; s.latency=Math.floor(30+Math.random()*120); s.lastSeen=Date.now();
+      saveServers(); renderServers(); toast(`${s.name} connected ✓ • ${s.latency}ms`);
+    }
+  } else {
+    s.status='disconnected'; s.health='off'; s.lastSeen=Date.now();
+    saveServers(); renderServers(); toast(`${s.name} disconnected`);
+  }
 }
 
 // Quick tools sheet
@@ -1215,7 +1528,7 @@ $$('.quick-card, .tool').forEach(b=>{
 menuBtn.addEventListener('click', ()=> sidebar.classList.add('open'));
 sidebarClose.addEventListener('click', ()=> sidebar.classList.remove('open'));
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){ settingsView.classList.add('hidden'); serverModal.classList.add('hidden'); toolsModal.classList.add('hidden'); marketplaceView.classList.add('hidden'); promptsView.classList.add('hidden'); profileView.classList.add('hidden'); editMsgModal.classList.add('hidden'); hideSlash(); sidebar.classList.remove('open'); convMenu.classList.add('hidden'); }
+  if(e.key==='Escape'){ settingsView.classList.add('hidden'); serverModal.classList.add('hidden'); toolsModal.classList.add('hidden'); marketplaceView.classList.add('hidden'); promptsView.classList.add('hidden'); profileView.classList.add('hidden'); providerView.classList.add('hidden'); providerModal.classList.add('hidden'); serverDetailModal.classList.add('hidden'); marketDetailModal.classList.add('hidden'); editMsgModal.classList.add('hidden'); hideSlash(); sidebar.classList.remove('open'); convMenu.classList.add('hidden'); }
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); openSettings(); }
 });
 

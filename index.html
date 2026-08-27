@@ -239,16 +239,37 @@
       </div>
     </div>
 
-    <!-- MCP Servers Drawer -->
+    <!-- MCP Servers Drawer — Enhanced -->
     <div class="drawer hidden" id="settingsView" role="dialog" aria-modal="true">
       <div class="drawer-backdrop" id="settingsBackdrop"></div>
-      <div class="drawer-panel">
-        <div class="drawer-head"><h2><i data-lucide="server"></i> MCP Servers</h2><button class="icon-btn" id="closeSettings"><i data-lucide="x"></i></button></div>
+      <div class="drawer-panel wide" style="width:540px">
+        <div class="drawer-head"><h2><i data-lucide="server"></i> MCP Servers</h2><div style="display:flex;gap:6px;align-items:center"><button class="ghost-btn sm" id="exportServersBtn"><i data-lucide="download" style="width:12px;height:12px"></i> Export</button><input type="file" id="importServersFile" hidden accept=".json" /><button class="ghost-btn sm" id="importServersBtn"><i data-lucide="upload" style="width:12px;height:12px"></i> Import</button><button class="icon-btn" id="closeSettings"><i data-lucide="x"></i></button></div></div>
         <div class="drawer-body">
-          <div class="search-row"><i data-lucide="search"></i><input id="serverSearch" placeholder="Search servers…" /></div>
+          <!-- Stats -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div style="background:linear-gradient(180deg,#fff,#f8fafc);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800" id="srvStatTotal">3</div><div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.06em">TOTAL</div></div>
+            <div style="background:linear-gradient(180deg,#f0fdf4,#fff);border:1px solid #bbf7d0;border-radius:12px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--ok)" id="srvStatConnected">2</div><div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.06em">CONNECTED</div></div>
+            <div style="background:linear-gradient(180deg,#eff6ff,#fff);border:1px solid #dbeafe;border-radius:12px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--primary)" id="srvStatLatency">142ms</div><div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.06em">AVG LATENCY</div></div>
+          </div>
+          <!-- Search + tabs + sort -->
+          <div class="search-row"><i data-lucide="search"></i><input id="serverSearch" placeholder="Search servers, tools, endpoints…" /><select id="serverSort" style="border:none;background:transparent;font-size:12px;border-left:1px solid var(--line);padding-left:8px"><option value="name">Name A-Z</option><option value="status">Status</option><option value="recent">Recent</option><option value="latency">Latency</option></select></div>
+          <div class="market-tabs" id="serverTabs" style="display:flex;gap:6px;overflow:auto">
+            <button class="mono-badge active" data-stab="all" style="cursor:pointer;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;background:var(--text);color:#fff;border-color:var(--text)">All</button>
+            <button class="mono-badge" data-stab="connected" style="cursor:pointer;border-radius:999px;padding:6px 12px;font-size:12px">● Connected</button>
+            <button class="mono-badge" data-stab="disconnected" style="cursor:pointer;border-radius:999px;padding:6px 12px;font-size:12px">○ Disconnected</button>
+            <button class="mono-badge" data-stab="sse" style="cursor:pointer;border-radius:999px;padding:6px 12px;font-size:12px">SSE</button>
+            <button class="mono-badge" data-stab="stdio" style="cursor:pointer;border-radius:999px;padding:6px 12px;font-size:12px">STDIO</button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="ghost-btn sm" id="bulkConnect"><i data-lucide="plug" style="width:12px;height:12px"></i> Connect all</button>
+            <button class="ghost-btn sm" id="bulkDisconnect"><i data-lucide="plug-zap" style="width:12px;height:12px"></i> Disconnect all</button>
+            <button class="ghost-btn sm" id="testAllServers"><i data-lucide="activity" style="width:12px;height:12px"></i> Health check</button>
+            <span style="margin-left:auto;font-size:11px;color:var(--muted);font-family:var(--mono)" id="serverCountInfo">3 servers</span>
+          </div>
           <div class="servers" id="serversList"></div>
-          <div class="panel-card"><h3>Transport</h3><div class="row"><div><strong>TLS 1.3</strong><p>Encrypted tunnel</p></div><label class="switch"><input checked disabled type="checkbox"><span></span></label></div><div class="row"><div><strong>Auto-reconnect</strong><p>Retry on disconnect</p></div><label class="switch"><input id="autoReconnect" checked type="checkbox"><span></span></label></div></div>
-          <button class="primary-btn" id="addServerBtn"><i data-lucide="plus"></i> Add server</button>
+          <div class="panel-card"><h3>Transport & Security</h3><div class="row"><div><strong>TLS 1.3 enforced</strong><p>All nodes use encrypted tunnel</p></div><label class="switch"><input checked disabled type="checkbox"><span></span></label></div><div class="row"><div><strong>Auto-reconnect</strong><p>Retry on disconnect with backoff</p></div><label class="switch"><input id="autoReconnect" checked type="checkbox"><span></span></label></div><div class="row"><div><strong>Health polling</strong><p>Every 30s • timeout 5s</p></div><label class="switch"><input id="healthPoll" checked type="checkbox"><span></span></label></div></div>
+          <button class="primary-btn full" id="addServerBtn"><i data-lucide="plus"></i> Add MCP server</button>
+          <p style="font-size:11px;color:var(--faint);text-align:center;line-height:1.5">Tip: STDIO is local, SSE/HTTP is remote. Use marketplace to discover verified servers.</p>
         </div>
       </div>
     </div>
@@ -256,15 +277,37 @@
     <!-- Modals -->
     <div class="modal hidden" id="serverModal" role="dialog" aria-modal="true">
       <div class="modal-backdrop" id="serverModalBackdrop"></div>
-      <div class="modal-card">
+      <div class="modal-card" style="width:520px;max-height:90vh;overflow:auto">
         <div class="modal-head"><h3 id="serverModalTitle">Add MCP Server</h3><button class="icon-btn" id="closeServerModal"><i data-lucide="x"></i></button></div>
-        <form id="serverForm" class="form">
-          <label>Name<input id="srvName" placeholder="postgres-mcp" required /></label>
-          <label>Transport<select id="srvTransport"><option value="sse">SSE</option><option value="stdio">STDIO</option><option value="http">HTTP</option></select></label>
-          <label>Endpoint<input id="srvEndpoint" placeholder="wss://…/sse" required /></label>
-          <label>Tools<input id="srvTools" placeholder="query, list_tables" /></label>
-          <div class="form-actions"><button type="button" class="ghost-btn" id="cancelServer">Cancel</button><button class="primary-btn" type="submit">Save</button></div>
+        <form id="serverForm" class="form" style="padding:16px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label>Template<select id="srvTemplate"><option value="">Custom…</option><option value="postgres">Postgres (stdio)</option><option value="filesystem">Filesystem (stdio)</option><option value="fetch">Fetch (stdio)</option><option value="github">GitHub (stdio)</option><option value="sse">SSE Remote</option><option value="http">HTTP Streamable</option></select></label>
+            <label>Transport<select id="srvTransport"><option value="sse">SSE</option><option value="stdio">STDIO</option><option value="http">HTTP</option></select></label>
+          </div>
+          <label>Name <span style="font-weight:400;color:var(--muted)">(unique, slug)</span><input id="srvName" placeholder="postgres-mcp" required pattern="[a-z0-9-]+" /><span style="font-size:11px;color:var(--muted)">Lowercase, dash, no spaces — used as node id</span></label>
+          <label>Endpoint / Command<input id="srvEndpoint" placeholder="wss://…/sse or npx @modelcontextprotocol/server-postgres" required /><span id="srvEndpointHint" style="font-size:11px;color:var(--muted)">For STDIO: npx command. For SSE/HTTP: wss:// or https:// URL</span></label>
+          <label>Tools (comma-separated)<input id="srvTools" placeholder="query, list_tables, describe_schema" /><span style="font-size:11px;color:var(--muted)">Leave blank to auto-discover via MCP handshake</span></label>
+          <label>Description<input id="srvDesc" placeholder="Primary Postgres for user data" /></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label>Timeout (ms)<input id="srvTimeout" type="number" placeholder="10000" value="10000" min="1000" step="1000" /></label>
+            <label>Retries<input id="srvRetries" type="number" placeholder="2" value="2" min="0" max="5" /></label>
+          </div>
+          <div style="border:1px solid var(--line);border-radius:12px;padding:12px;background:#f8fafc">
+            <div style="display:flex;align-items:center;justify-content:space-between"><strong style="font-size:12px">Environment variables</strong><button type="button" class="ghost-btn sm" id="addEnvBtn"><i data-lucide="plus" style="width:12px;height:12px"></i> Add</button></div>
+            <div id="envList" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>
+            <p style="font-size:11px;color:var(--muted);margin:8px 0 0">For STDIO only — e.g. DATABASE_URL, GITHUB_TOKEN</p>
+          </div>
+          <div class="panel-card" style="padding:10px"><div class="row" style="padding:6px 0"><div><strong>Auto-connect on start</strong><p>Join tunnel immediately</p></div><label class="switch"><input id="srvAuto" checked type="checkbox"><span></span></label></div><div class="row" style="padding:6px 0"><div><strong>Health check</strong><p>Ping every 30s</p></div><label class="switch"><input id="srvHealth" checked type="checkbox"><span></span></label></div></div>
+          <div class="form-actions"><button type="button" class="ghost-btn" id="cancelServer">Cancel</button><button type="button" class="ghost-btn" id="testServerBtn"><i data-lucide="activity" style="width:12px;height:12px"></i> Test</button><button type="submit" class="primary-btn">Save server</button></div>
         </form>
+      </div>
+    </div>
+
+    <!-- Server Logs / Detail -->
+    <div class="modal hidden" id="serverDetailModal" role="dialog" aria-modal="true">
+      <div class="modal-backdrop" id="serverDetailBackdrop"></div>
+      <div class="modal-card" style="width:540px;max-height:85vh;overflow:auto">
+        <div id="serverDetailContent"></div>
       </div>
     </div>
 
