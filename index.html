@@ -160,13 +160,9 @@
           <div class="crumb"><span id="crumbTitle">MCP Chat</span><span class="live"><span class="dot"></span> Live</span></div>
           <div class="agent-modes" id="agentModes"></div>
           <button class="icon-btn sm" id="manageModesBtn" title="Manage agent modes" style="border:1px solid var(--line);background:#fff"><i data-lucide="sliders-horizontal" style="width:14px;height:14px"></i></button>
-          <div class="provider-pill" id="providerPill" title="AI Provider settings" role="button" tabindex="0" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;box-shadow:var(--shadow-xs)"><i data-lucide="sparkles" style="width:14px;height:14px;color:var(--primary)"></i><span id="providerPillName">Claude 3.5</span><span style="color:var(--faint);font-weight:500" id="providerPillMeta">Anthropic</span><i data-lucide="chevron-down" style="width:12px;height:12px;color:var(--faint)"></i></div>
         </div>
         <div class="topbar-right">
-          <div class="nodes-inline" id="nodesInline"></div>
-          <div class="divider"></div>
           <button class="icon-btn live-dot-btn" id="liveBtn" title="Live conversation — talk hands-free"><i data-lucide="radio"></i><span style="font-size:11px;font-weight:800;letter-spacing:.06em;margin-left:4px" class="hide-mobile">LIVE</span></button>
-          <button class="icon-btn" id="providerTopBtn" title="AI Providers"><i data-lucide="cpu"></i></button>
           <button class="icon-btn" id="promptLibraryBtn" title="Prompt suggestions"><i data-lucide="lightbulb"></i></button>
           <button class="icon-btn" id="marketplaceBtn" title="Marketplace"><i data-lucide="store"></i></button>
           <button class="icon-btn" id="serversBtn" title="MCP servers"><i data-lucide="sliders-horizontal"></i></button>
@@ -215,7 +211,7 @@
             <textarea id="promptInput" placeholder="Ask MCP to run a tool…  •  type “/” for commands" rows="1"></textarea>
             <div class="composer-tools">
               <button class="icon-btn sm" id="todoToggle" title="Todo checklist"><i data-lucide="list-todo"></i></button>
-              <button class="icon-btn sm" id="quickToolsBtn" title="Quick tools"><i data-lucide="sparkles"></i></button>
+              <button class="composer-mode-pill" id="composerModePill" title="Agent mode — click to switch" aria-haspopup="dialog"><i data-lucide="bot" style="width:14px;height:14px"></i><span id="composerModeLabel">Chat</span><i data-lucide="chevron-down" style="width:12px;height:12px;opacity:.6"></i></button>
               <span class="char" id="charCount"></span>
               <button class="send-btn" id="sendBtn" aria-label="Send"><i data-lucide="arrow-up"></i></button>
             </div>

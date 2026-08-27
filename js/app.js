@@ -10,7 +10,9 @@ const attachPreview = $('#attachPreview');
 const slashMenu = $('#slashMenu');
 const charCount = $('#charCount');
 const composerInner = $('#composerInner');
-const topNodes = $('#nodesInline');
+const topNodes = $('#nodesInline'); // removed from header - may be null
+const composerModePill = $('#composerModePill');
+const composerModeLabel = $('#composerModeLabel');
 const sidebarList = $('#sidebarServerList');
 const sidebarCount = $('#sidebarCount');
 const activeCount2 = $('#activeCount2');
@@ -230,7 +232,7 @@ let envDraft = [];
 const toolsModal = $('#toolsModal');
 const toolsBackdrop = $('#toolsBackdrop');
 const closeModalBtn = $('#closeModal');
-const quickToolsBtn = $('#quickToolsBtn');
+const quickToolsBtn = $('#quickToolsBtn'); // legacy - replaced by composerModePill
 const sidebar = $('#sidebar');
 const menuBtn = $('#menuBtn');
 const sidebarClose = $('#sidebarClose');
@@ -378,10 +380,7 @@ function renderProviders(){
   const prov = PROVIDERS.find(p=>p.id===selectedProvider);
   if(prov){
     if(modelSelect){ modelSelect.innerHTML = prov.models.map(m=>`<option ${m===selectedModel?'selected':''}>${m}</option>`).join(''); modelSelect.disabled=false; }
-    // pills
-    const pillName=$('#providerPillName'), pillMeta=$('#providerPillMeta');
-    if(pillName) pillName.textContent = selectedModel;
-    if(pillMeta) pillMeta.textContent = prov.name;
+    // pills (header provider pill removed - keep sidebar status only)
     // status
     const statusText=$('#providerStatusText'), tempEl=$('#providerTemp');
     if(statusText) statusText.textContent = prov.apiKey ? `Ready • ${prov.latency}ms` : `No API key • ${prov.latency}ms`;
@@ -425,7 +424,7 @@ providerSelect?.addEventListener('change', e=>{
 modelSelect?.addEventListener('change', e=>{ selectedModel=e.target.value; localStorage.setItem('model', selectedModel); toast(`Model: ${selectedModel}`); renderProviders(); renderMessages(); });
 
 // Provider list drawer
-const providerView=$('#providerView'), providerBackdrop=$('#providerBackdrop'), closeProvider=$('#closeProvider'), providerList=$('#providerList'), providerSearch=$('#providerSearch'), addProviderBtn=$('#addProviderBtn'), providerSettingsBtn=$('#providerSettingsBtn'), providerPill=$('#providerPill'), providerTopBtn=$('#providerTopBtn'), testActiveProvider=$('#testActiveProvider'), exportProvidersBtn=$('#exportProvidersBtn'), importProviderBtn=$('#importProviderBtn'), importProviderFile=$('#importProviderFile'), fallbackProviderEl=$('#fallbackProvider'), globalTempEl=$('#globalTemp'), providerModal=$('#providerModal'), providerModalBackdrop=$('#providerModalBackdrop'), closeProviderModal=$('#closeProviderModal'), providerForm=$('#providerForm'), provName=$('#provName'), provId=$('#provId'), provKey=$('#provKey'), provBase=$('#provBase'), provModels=$('#provModels'), provTemp=$('#provTemp'), provTempVal=$('#provTempVal'), provMax=$('#provMax'), provStream=$('#provStream'), provEnabled=$('#provEnabled'), testProviderBtn=$('#testProviderBtn'), cancelProvider=$('#cancelProvider');
+const providerView=$('#providerView'), providerBackdrop=$('#providerBackdrop'), closeProvider=$('#closeProvider'), providerList=$('#providerList'), providerSearch=$('#providerSearch'), addProviderBtn=$('#addProviderBtn'), providerSettingsBtn=$('#providerSettingsBtn'), testActiveProvider=$('#testActiveProvider'), exportProvidersBtn=$('#exportProvidersBtn'), importProviderBtn=$('#importProviderBtn'), importProviderFile=$('#importProviderFile'), fallbackProviderEl=$('#fallbackProvider'), globalTempEl=$('#globalTemp'), providerModal=$('#providerModal'), providerModalBackdrop=$('#providerModalBackdrop'), closeProviderModal=$('#closeProviderModal'), providerForm=$('#providerForm'), provName=$('#provName'), provId=$('#provId'), provKey=$('#provKey'), provBase=$('#provBase'), provModels=$('#provModels'), provTemp=$('#provTemp'), provTempVal=$('#provTempVal'), provMax=$('#provMax'), provStream=$('#provStream'), provEnabled=$('#provEnabled'), testProviderBtn=$('#testProviderBtn'), cancelProvider=$('#cancelProvider');
 let editingProviderId=null;
 function renderProviderList(){
   const q=(providerSearch?.value||'').toLowerCase();
@@ -460,9 +459,6 @@ function renderProviderList(){
 function openProviderView(){ providerView?.classList.remove('hidden'); renderProviderList(); renderProviders(); refreshIcons(); }
 function closeProviderView(){ providerView?.classList.add('hidden'); }
 providerSettingsBtn?.addEventListener('click', openProviderView);
-providerPill?.addEventListener('click', openProviderView);
-providerTopBtn?.addEventListener('click', openProviderView);
-providerPill?.addEventListener('keydown', e=>{ if(e.key==='Enter') openProviderView(); });
 closeProvider?.addEventListener('click', closeProviderView);
 providerBackdrop?.addEventListener('click', closeProviderView);
 providerSearch?.addEventListener('input', renderProviderList);
@@ -606,6 +602,16 @@ function renderModes(){
   } else {
     $$('.node-pill').forEach(el=>{ el.style.opacity=''; el.title=''; });
   }
+  // inline composer pill
+  if(composerModeLabel) composerModeLabel.textContent = active.name;
+  if(composerModePill){
+    composerModePill.style.borderColor = active.color + '30';
+    composerModePill.style.color = active.color;
+    // keep icon
+    const iconEl = composerModePill.querySelector('[data-lucide]');
+    if(iconEl) iconEl.setAttribute('data-lucide', active.icon);
+  }
+  refreshIcons();
   // update active card in drawer
   if(activeModeName) activeModeName.textContent = active.name;
   if(activeModeDesc) activeModeDesc.textContent = active.desc;
@@ -668,6 +674,7 @@ agentModesEl?.addEventListener('click', e=>{
   renderModes(); renderModesGrid(); toast(`Mode: ${m.name} — ${m.desc}`);
 });
 manageModesBtn?.addEventListener('click', openModesView);
+composerModePill?.addEventListener('click', openModesView);
 modesBackdrop?.addEventListener('click', ()=> modesView?.classList.add('hidden'));
 closeModes?.addEventListener('click', ()=> modesView?.classList.add('hidden'));
 modeSearch?.addEventListener('input', renderModesGrid);
@@ -840,11 +847,8 @@ function renderServers(){
   const q=(serverSearch?.value||'').toLowerCase();
   const sq=(sidebarSearch?.value||'').toLowerCase();
   const sort=serverSort?.value||'name';
-  // top nodes — always show all, but sorted
-  topNodes.innerHTML = [...servers].sort((a,b)=> a.name.localeCompare(b.name)).map(s=>{
-    const on=s.status==='connected';
-    return `<button class="node-pill ${on?'connected':'disconnected'}" data-id="${s.id}"><span class="d" style="background:${on ? (s.color==='aws'?'#ff9900': s.color==='pg'?'#16a34a':'#2563eb') : '#cbd5e1'}"></span> ${esc(s.name)}</button>`;
-  }).join('');
+  // top nodes — removed from header (clean header)
+  if(topNodes) topNodes.innerHTML = '';
   // sidebar — filtered
   const sideFiltered = servers.filter(s=> !sq || s.name.toLowerCase().includes(sq) || s.tools.toLowerCase().includes(sq) || s.endpoint.toLowerCase().includes(sq) || (s.desc||'').toLowerCase().includes(sq));
   sidebarList.innerHTML = sideFiltered.map(s=>{
@@ -2069,6 +2073,7 @@ async function toggle(id, force){
 // Quick tools sheet
 toolsBackdrop?.addEventListener('click', ()=> toolsModal?.classList.add('hidden'));
 closeModalBtn?.addEventListener('click', ()=> toolsModal?.classList.add('hidden'));
+// quickToolsBtn removed - replaced by composerModePill (kept for sidebar quick-cards)
 quickToolsBtn?.addEventListener('click', ()=> toolsModal?.classList.remove('hidden'));
 $$('.quick-card, .tool').forEach(b=>{
   b.addEventListener('click', ()=>{
