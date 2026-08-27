@@ -80,6 +80,11 @@ const redoBtn = $('#redoBtn');
 const convMenuBtn = $('#convMenuBtn');
 const convMenu = $('#convMenu');
 const speechBar = $('#speechBar');
+const speechText = $('#speechText');
+const speechInterim = $('#speechInterim');
+const speechTimer = $('#speechTimer');
+const speechWave = $('#speechWave');
+const cancelSpeech = $('#cancelSpeech');
 const micBtn = $('#micBtn');
 const stopSpeech = $('#stopSpeech');
 const liveBtn = $('#liveBtn');
@@ -279,6 +284,11 @@ const refreshIcons=()=>{ try{ if(window.lucide && window.lucide.createIcons) win
 const toast=(m,d=2200)=>{ const el = (typeof toastEl !== 'undefined' ? toastEl : document.getElementById('toast')); if(!el) return; el.textContent=m; el.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.add('hidden'),d); };
 const esc=s=> String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const scrollBottom=()=>{ const el = (typeof messagesEl !== 'undefined' ? messagesEl : document.getElementById('messages')); if(el) el.scrollTo({top:el.scrollHeight, behavior:'smooth'}); };
+let speechStartTime=null, speechTimerInt=null;
+const fmtTimer=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+const startSpeechTimer=()=>{ speechStartTime=Date.now(); if(speechTimer) speechTimer.textContent='00:00'; clearInterval(speechTimerInt); speechTimerInt=setInterval(()=>{ if(!speechStartTime||!speechTimer) return; const sec=Math.floor((Date.now()-speechStartTime)/1000); speechTimer.textContent=fmtTimer(sec); }, 500); };
+const stopSpeechTimer=()=>{ clearInterval(speechTimerInt); speechTimerInt=null; speechStartTime=null; };
+const setSpeechState=(state, text)=>{ if(speechText && text) speechText.textContent=text; if(micBtn){ micBtn.classList.toggle('recording', state==='recording'); micBtn.classList.toggle('listening', state==='listening'); micBtn.classList.toggle('active', state!=='idle'); micBtn.setAttribute('aria-pressed', state!=='idle' ? 'true':'false'); if(state==='recording') micBtn.title='Listening — click to stop, hold to talk'; else micBtn.title='Voice — click to toggle, hold to talk'; } if(composerInner){ composerInner.classList.toggle('listening', state!=='idle'); } if(state==='recording'){ speechBar?.classList.remove('hidden'); startSpeechTimer(); refreshIcons(); } else if(state==='idle'){ stopSpeechTimer(); } };
 const atBottom=()=>{ const el=messagesEl; if(!el) return true; return el.scrollHeight - el.scrollTop - el.clientHeight < 80; };
 const updateScrollFab=()=>{ if(!messagesEl || !scrollFab) return; const show = !atBottom() && messagesEl.scrollHeight > messagesEl.clientHeight + 100; scrollFab.classList.toggle('visible', show); if(topbarEl) topbarEl.classList.toggle('scrolled', messagesEl.scrollTop > 6); };
 const uid=()=> Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -1348,8 +1358,9 @@ function initSpeech(){
   }
   recognition=new SR();
   recognition.continuous=true; recognition.interimResults=true; recognition.lang= liveLangSelect?.value || 'en-US';
-  recognition.onstart=()=>{ isRecording=true; speechBar?.classList.remove('hidden'); micBtn.classList.add('active'); liveStatusText && (liveStatusText.textContent='Listening…'); };
-  recognition.onend=()=>{ if(!liveActive){ isRecording=false; speechBar?.classList.add('hidden'); micBtn.classList.remove('active'); } else if(liveActive && !liveMuted && !livePaused){ try{ recognition.start(); }catch{} }};
+  recognition.onstart=()=>{ isRecording=true; setSpeechState('recording', 'Listening — speak now'); if(speechInterim) speechInterim.textContent='…'; liveStatusText && (liveStatusText.textContent='Listening…'); };
+  recognition.onend=()=>{ if(!liveActive){ isRecording=false; stopSpeechTimer(); if(speechInterim) speechInterim.textContent=''; // keep bar visible briefly for UX then hide
+      setTimeout(()=>{ if(!isRecording) { speechBar?.classList.add('hidden'); micBtn?.classList.remove('active','recording','listening'); } }, 600); } else if(liveActive && !liveMuted && !livePaused){ try{ recognition.start(); }catch{} }};
   recognition.onresult=(e)=>{
     let interim='', final='';
     for(let i=e.resultIndex;i<e.results.length;i++){
@@ -1393,12 +1404,26 @@ function initSpeech(){
         }
       }
     } else {
-      // single mode
-      if(interim) liveInterim && (liveInterim.textContent=interim);
-      if(final){ inputEl.value=(inputEl.value+' '+final).trim(); autoResize(); syncComposer(); if(liveInterim) liveInterim.textContent=''; }
+      // single mode — show interim in composer bar
+      if(interim){
+        if(speechInterim) speechInterim.textContent=interim;
+        if(speechText) speechText.textContent='Hearing…';
+        if(liveInterim) liveInterim.textContent=interim;
+        setSpeechState('listening');
+      }
+      if(final){
+        final=final.trim();
+        if(speechInterim) speechInterim.textContent=final;
+        if(speechText) speechText.textContent='Got it';
+        inputEl.value=(inputEl.value+' '+final).trim(); autoResize(); syncComposer();
+        if(speechInterim) setTimeout(()=>{ if(speechInterim) speechInterim.textContent=''; if(speechText) speechText.textContent='Listening — say “query users” or “list files”'; }, 900);
+        if(liveInterim) liveInterim.textContent='';
+        // briefly show listening after final before auto-hide onend
+        toast('Heard: '+final.slice(0,48), 1800);
+      }
     }
   };
-  recognition.onerror=()=>{ isRecording=false; if(speechBar) speechBar?.classList.add('hidden'); if(micBtn) micBtn.classList.remove('active'); if(liveActive) setLiveWave('paused'); toast('Mic error'); };
+  recognition.onerror=(ev)=>{ isRecording=false; stopSpeechTimer(); speechBar?.classList.add('hidden'); micBtn?.classList.remove('active','recording','listening'); if(liveActive) setLiveWave('paused'); const msg = ev?.error==='not-allowed' ? 'Mic blocked — allow access' : ev?.error==='no-speech' ? 'No speech — try again' : 'Mic error'; toast(msg); if(speechText) speechText.textContent=msg; };
   if(liveLangSelect) liveLangSelect.addEventListener('change', ()=>{ recognition.lang=liveLangSelect.value; toast('Language: '+liveLangSelect.value); });
 }
 initSpeech();
@@ -1543,18 +1568,76 @@ function toggleSpeech(){
     }
     return;
   }
-  // single mode
+  // single mode — enhanced UX with timer, interim, mock fallback
   if(!recognition){
-    if(!isRecording){ isRecording=true; speechBar?.classList.remove('hidden'); micBtn.classList.add('active'); toast('Listening (mock)… say something'); setTimeout(()=>{ if(isRecording){ inputEl.value=(inputEl.value+' list S3 buckets').trim(); autoResize(); syncComposer(); stopSpeechClick(); }}, 1800); }
-    else stopSpeechClick();
+    if(!isRecording){
+      isRecording=true;
+      setSpeechState('recording', 'Listening — say “query users” or “list files”');
+      if(speechInterim) speechInterim.textContent='…';
+      toast('Listening (mock)… say something');
+      // mock interim simulation
+      let mockInterim=['query','query users','query users table…'];
+      let idx=0;
+      const mockInt=setInterval(()=>{ if(!isRecording || idx>=mockInterim.length){ clearInterval(mockInt); return; } if(speechInterim) speechInterim.textContent=mockInterim[idx++]; }, 420);
+      setTimeout(()=>{ if(isRecording){ const final='list S3 buckets'; if(speechInterim) speechInterim.textContent=final; inputEl.value=(inputEl.value+' '+final).trim(); autoResize(); syncComposer(); toast('Heard: '+final, 1800); stopSpeechClick(); } clearInterval(mockInt); }, 1800);
+    } else stopSpeechClick();
     return;
   }
-  if(isRecording) recognition.stop();
-  else recognition.start();
+  if(isRecording) { try{ recognition.stop(); }catch{} }
+  else {
+    // permission hint
+    if(navigator.mediaDevices?.getUserMedia){
+      navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{ s.getTracks().forEach(tr=>tr.stop()); try{ recognition.start(); }catch(e){ toast('Mic blocked — check permissions'); setSpeechState('idle'); } }).catch(()=>{ toast('Microphone blocked — enable in browser settings'); setSpeechState('idle'); });
+    } else {
+      try{ recognition.start(); }catch(e){ toast('Mic error'); setSpeechState('idle'); }
+    }
+  }
 }
-function stopSpeechClick(){ if(recognition && isRecording) recognition.stop(); isRecording=false; speechBar?.classList.add('hidden'); micBtn.classList.remove('active'); }
-micBtn?.addEventListener('click', toggleSpeech);
-stopSpeech?.addEventListener('click', stopSpeechClick);
+function stopSpeechClick(cancel=false){
+  if(recognition && isRecording) try{ recognition.stop(); }catch{}
+  isRecording=false;
+  stopSpeechTimer();
+  speechBar?.classList.add('hidden');
+  micBtn?.classList.remove('active','recording','listening');
+  micBtn?.setAttribute('aria-pressed','false');
+  if(speechInterim) speechInterim.textContent='';
+  if(cancel && speechText) speechText.textContent='Canceled';
+  if(cancel) toast('Canceled');
+}
+let micHoldActive=false, micHoldTimer=null, micWasRecordingOnDown=false;
+function bindMicHold(){
+  if(!micBtn) return;
+  const startHold=(e)=>{
+    // prevent context menu
+    e.preventDefault();
+    micHoldActive=false;
+    micWasRecordingOnDown=isRecording;
+    micHoldTimer=setTimeout(()=>{ micHoldActive=true; if(!isRecording) toggleSpeech(); }, 220);
+  };
+  const endHold=(e)=>{
+    clearTimeout(micHoldTimer);
+    if(micHoldActive){
+      e.preventDefault();
+      e.stopPropagation();
+      // was holding — stop on release
+      if(isRecording) stopSpeechClick();
+      micHoldActive=false;
+    } else {
+      // short press — let click handler toggle (do nothing here)
+    }
+  };
+  micBtn.addEventListener('pointerdown', startHold);
+  micBtn.addEventListener('pointerup', endHold);
+  micBtn.addEventListener('pointerleave', ()=>{ clearTimeout(micHoldTimer); if(micHoldActive && isRecording){ stopSpeechClick(true); micHoldActive=false; } });
+  micBtn.addEventListener('pointercancel', ()=>{ clearTimeout(micHoldTimer); micHoldActive=false; });
+  // also support touch
+  micBtn.addEventListener('touchstart', startHold, {passive:false});
+  micBtn.addEventListener('touchend', endHold);
+}
+bindMicHold();
+micBtn?.addEventListener('click', (e)=>{ if(micHoldActive){ e.preventDefault(); e.stopPropagation(); return; } toggleSpeech(); });
+stopSpeech?.addEventListener('click', ()=> stopSpeechClick());
+cancelSpeech?.addEventListener('click', ()=> stopSpeechClick(true));
 // Live controls
 liveBtn?.addEventListener('click', toggleLive);
 liveBackdrop?.addEventListener('click', closeLive);

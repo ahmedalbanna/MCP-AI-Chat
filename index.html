@@ -184,14 +184,15 @@
             <div class="todo-add"><input id="todoInput" placeholder="Add todo…  ⏎" /><button class="ghost-btn sm" id="addTodoBtn">Add</button></div>
           </div>
           <div class="slash-menu hidden" id="slashMenu"></div>
-          <div class="speech-bar hidden" id="speechBar">
-            <div class="wave"><span></span><span></span><span></span><span></span><span></span></div>
-            <span class="speech-text">Listening… say “query users” or “list files”</span>
-            <button class="ghost-btn sm" id="stopSpeech">Stop</button>
+          <div class="speech-bar hidden" id="speechBar" role="status" aria-live="polite">
+            <div class="speech-left"><div class="wave" id="speechWave"><span></span><span></span><span></span><span></span><span></span></div><span class="speech-dot"></span></div>
+            <div class="speech-main"><span class="speech-text" id="speechText">Listening — say “query users” or “list files”</span><span class="speech-interim" id="speechInterim"></span></div>
+            <span class="speech-timer" id="speechTimer">00:00</span>
+            <div class="speech-actions"><button class="ghost-btn sm" id="stopSpeech"><i data-lucide="square" style="width:12px;height:12px"></i> Stop</button><button class="icon-btn sm" id="cancelSpeech" title="Cancel recording"><i data-lucide="x" style="width:12px;height:12px"></i></button></div>
           </div>
           <div class="composer-box" id="composerInner">
             <button class="attach-btn" id="attachBtn" title="Attach media"><i data-lucide="paperclip"></i></button>
-            <button class="icon-btn sm" id="micBtn" title="Live speech (hold or click)"><i data-lucide="mic"></i></button>
+            <button class="icon-btn sm mic-btn" id="micBtn" title="Voice — click to toggle, hold to talk" aria-label="Voice input" aria-pressed="false"><i data-lucide="mic"></i></button>
             <input type="file" id="mediaInput" hidden multiple accept="image/*,video/*,audio/*,.pdf,.csv,.json,.txt,.md" />
             <textarea id="promptInput" placeholder="Ask MCP to run a tool…  •  type “/” for commands" rows="1"></textarea>
             <div class="composer-tools">
@@ -210,7 +211,7 @@
             </div>
           </div>
           <div class="composer-meta">
-            <span><kbd>/</kbd> commands</span><span>•</span><span><kbd>⇧</kbd>+<kbd>↵</kbd> new line</span><span>•</span><span>paste or drag media</span><span>•</span><button class="link-btn" id="showPromptsLink">prompts</button>
+            <span><kbd>/</kbd> commands</span><span>•</span><span><kbd>⇧</kbd>+<kbd>↵</kbd> new line</span><span>•</span><span>hold <i data-lucide="mic" style="width:10px;height:10px;display:inline;vertical-align:middle"></i> to talk</span><span>•</span><span>paste or drag media</span><span>•</span><button class="link-btn" id="showPromptsLink">prompts</button>
           </div>
         </div>
       </div>
