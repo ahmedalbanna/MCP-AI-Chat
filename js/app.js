@@ -41,6 +41,7 @@ const activeModeDesc = $('#activeModeDesc');
 const activeModeBadge = $('#activeModeBadge');
 const modeModal = $('#modeModal');
 const modeModalBackdrop = $('#modeModalBackdrop');
+const modeModalTitle = $('#modeModalTitle');
 const closeModeModal = $('#closeModeModal');
 const cancelMode = $('#cancelMode');
 const duplicateModeBtn = $('#duplicateModeBtn');
@@ -138,6 +139,7 @@ const showOnboardingBtn = $('#showOnboardingBtn');
 
 // drawers
 const settingsView = $('#settingsView');
+const settingsBackdrop = $('#settingsBackdrop');
 const marketplaceView = $('#marketplaceView');
 const promptsView = $('#promptsView');
 const profileView = $('#profileView');
@@ -147,7 +149,7 @@ const addServerBtn = $('#addServerBtn');
 const addServerSidebar = $('#addServerSidebar');
 const closeSettings = $('#closeSettings');
 const serversBtn = $('#serversBtn');
-const settingsBtn = $('#settingsBtn');
+const settingsBtn = $('#settingsBtn'); // may be null (legacy id) — guarded
 const marketplaceBtn = $('#marketplaceBtn');
 const promptLibraryBtn = $('#promptLibraryBtn');
 const showPromptsLink = $('#showPromptsLink');
@@ -222,6 +224,7 @@ const exportServersBtn = $('#exportServersBtn');
 const importServersBtn = $('#importServersBtn');
 const importServersFile = $('#importServersFile');
 const healthPoll = $('#healthPoll');
+const autoReconnect = $('#autoReconnect');
 let activeServerTab = localStorage.getItem('serverTab') || 'all';
 let envDraft = [];
 const toolsModal = $('#toolsModal');
@@ -256,22 +259,35 @@ let isRecording = false;
 let recognition = null;
 let history = { undo: [], redo: [] };
 
+const safeParse = (key, fallback) => {
+  try { const v = localStorage.getItem(key); if(v===null) return fallback; const p = JSON.parse(v); return p ?? fallback; } catch(e){ console.warn('[mcp] corrupt storage', key, e); try{ localStorage.removeItem(key);}catch{} return fallback; }
+};
+const safeSet = (key, val) => { try{ localStorage.setItem(key, val); } catch(e){ console.warn('[mcp] storage quota', key, e); }};
+const refreshIcons=()=>{ try{ if(window.lucide && window.lucide.createIcons) window.lucide.createIcons(); }catch(e){ /* icon load may fail if CDN blocked */ } };
+const toast=(m,d=2200)=>{ const el = (typeof toastEl !== 'undefined' ? toastEl : document.getElementById('toast')); if(!el) return; el.textContent=m; el.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.add('hidden'),d); };
+const esc=s=> String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const scrollBottom=()=>{ const el = (typeof messagesEl !== 'undefined' ? messagesEl : document.getElementById('messages')); if(el) el.scrollTop=el.scrollHeight; };
+const uid=()=> Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const on = (el, evt, fn, opts) => { if(el) el.addEventListener(evt, fn, opts); };
+window.addEventListener('error', e=>{ console.warn('[mcp] unhandled', e.message); if(toastEl) toast('Error: '+ (e.message||'unknown').slice(0,60)); });
+window.addEventListener('unhandledrejection', e=>{ console.warn('[mcp] unhandled rejection', e.reason); if(toastEl) toast('Async error: '+ String(e.reason).slice(0,60)); });
+
 // Providers — extended
-let PROVIDERS = JSON.parse(localStorage.getItem('mcp_providers')||'null') || [
+let PROVIDERS = safeParse('mcp_providers', [
   { id:'openai', name:'OpenAI', models:['gpt-4o','gpt-4o-mini','o1-preview'], apiKey:'', baseUrl:'https://api.openai.com/v1', temp:0.7, maxTokens:4096, enabled:true, streaming:true, latency:142 },
   { id:'anthropic', name:'Anthropic', models:['claude-3.5-sonnet','claude-3-opus'], apiKey:'', baseUrl:'https://api.anthropic.com', temp:0.7, maxTokens:8192, enabled:true, streaming:true, latency:210 },
   { id:'google', name:'Google', models:['gemini-1.5-pro','gemini-1.5-flash'], apiKey:'', baseUrl:'https://generativelanguage.googleapis.com', temp:0.8, maxTokens:8192, enabled:true, streaming:true, latency:180 },
   { id:'local', name:'Local', models:['llama-3.1-70B','mistral-large'], apiKey:'', baseUrl:'http://localhost:11434', temp:0.6, maxTokens:4096, enabled:false, streaming:false, latency:45 },
-];
+]);
 let selectedProvider = localStorage.getItem('provider') || 'anthropic';
 let selectedModel = localStorage.getItem('model') || 'claude-3.5-sonnet';
 let selectedMode = localStorage.getItem('agentMode') || 'Chat';
 let fallbackProvider = localStorage.getItem('fallbackProvider') || 'openai';
 let globalTemp = parseFloat(localStorage.getItem('globalTemp')||'0.7');
-const saveProviders = ()=> localStorage.setItem('mcp_providers', JSON.stringify(PROVIDERS));
+const saveProviders = ()=> safeSet('mcp_providers', JSON.stringify(PROVIDERS));
 
 // Chats
-let chats = JSON.parse(localStorage.getItem('mcp_chats')||'null') || [
+let chats = safeParse('mcp_chats', [
   {id:'c1', title:'PostgreSQL users query', created:Date.now()-3600000, archived:false, messages:[
     {id:'m1', role:'user', text:'Query the remote PostgreSQL database for the last 5 user registrations and format as a table.', time:'10:21 AM'},
     {id:'m2', role:'assistant', html:'pg', time:'10:21 AM', tasks:[{id:'t1', text:'Verify table schema', done:false},{id:'t2', text:'Run SELECT on remote_db.users', done:true},{id:'t3', text:'Format as markdown table', done:true}], todos:[{text:'Export to CSV', done:false},{text:'Share with team', done:false}], status:'done'},
@@ -283,9 +299,9 @@ let chats = JSON.parse(localStorage.getItem('mcp_chats')||'null') || [
   {id:'c3', title:'Local filesystem', created:Date.now()-172800000, archived:true, messages:[
     {id:'m5', role:'user', text:'List files in /data', time:'Yesterday'},
   ]},
-];
-if(!localStorage.getItem('mcp_chats')) localStorage.setItem('mcp_chats', JSON.stringify(chats));
-activeChatId = localStorage.getItem('activeChat') || chats[0].id;
+]);
+if(!localStorage.getItem('mcp_chats')) safeSet('mcp_chats', JSON.stringify(chats));
+activeChatId = localStorage.getItem('activeChat') || chats[0]?.id || null;
 
 // Servers — enhanced with health, env, timeout etc.
 const DEFAULT_SERVERS = [
@@ -293,7 +309,7 @@ const DEFAULT_SERVERS = [
   {id:'srv2', name:'postgres-mcp', transport:'stdio', endpoint:'npx @modelcontextprotocol/server-postgres', tools:'query, list_tables, describe_schema', status:'connected', color:'pg', desc:'Postgres — remote_db', timeout:10000, retries:2, env:[{k:'DATABASE_URL', v:'postgres://...'}], latency:68, health:'ok', lastSeen:Date.now(), autoConnect:true, healthCheck:true},
   {id:'srv3', name:'local-fs', transport:'stdio', endpoint:'npx @modelcontextprotocol/server-filesystem /data', tools:'read, write, list', status:'disconnected', color:'fs', desc:'Local filesystem /data sandbox', timeout:8000, retries:1, env:[], latency:12, health:'off', lastSeen:Date.now()-3600000, autoConnect:false, healthCheck:true},
 ];
-let servers = JSON.parse(localStorage.getItem('mcp_servers')||'null') || DEFAULT_SERVERS;
+let servers = safeParse('mcp_servers', DEFAULT_SERVERS);
 // migrate old servers missing fields
 servers = servers.map(s=> ({
   desc: s.desc||'',
@@ -307,22 +323,22 @@ servers = servers.map(s=> ({
   healthCheck: s.healthCheck??true,
   ...s
 }));
-const saveServers=()=> localStorage.setItem('mcp_servers', JSON.stringify(servers));
-const saveChats=()=> localStorage.setItem('mcp_chats', JSON.stringify(chats));
+const saveServers=()=> safeSet('mcp_servers', JSON.stringify(servers));
+const saveChats=()=> safeSet('mcp_chats', JSON.stringify(chats));
 
-const MARKET = JSON.parse(localStorage.getItem('mcp_market')||'null') || [
+const MARKET = safeParse('mcp_market', [
   {id:'m1', name:'Postgres Pro', cat:'db', icon:'database', color:'#334155', desc:'Advanced SQL with vector search, migrations & pgvector support', author:'modelcontextprotocol', version:'2.1.0', stars:4.9, installs:12400, installed:true, featured:true, trending:true, isNew:false, tags:['postgres','sql','vector'], tools:['query','list_tables','describe_schema'], updated:'2024-10-12', verified:true},
   {id:'m2', name:'AWS Suite', cat:'cloud', icon:'cloud', color:'#ff9900', desc:'S3, EC2, Lambda, CloudWatch unified with MFA support', author:'aws', version:'1.8.3', stars:4.8, installs:8400, installed:true, featured:true, trending:true, isNew:false, tags:['aws','s3','ec2'], tools:['s3_list','ec2_status','lambda_invoke'], updated:'2024-10-20', verified:true},
   {id:'m3', name:'Filesystem', cat:'fs', icon:'folder', color:'#2563eb', desc:'Secure local file access with sandboxing & watcher', author:'modelcontextprotocol', version:'1.4.2', stars:4.7, installs:6100, installed:true, featured:false, trending:false, isNew:false, tags:['fs','local','watch'], tools:['read','write','list'], updated:'2024-09-28', verified:true},
-  {id:'m4', name:'GitHub', cat:'dev', icon:'github', color:'#0f172a', desc:'Repos, PRs, issues, actions, code search', author:'github', version:'3.0.1', stars:4.9, installs:15200, installed:false, featured:true, trending:true, isNew:false, tags:['git','pr','actions'], tools:['list_repos','create_pr','search_code'], updated:'2024-10-18', verified:true},
+  {id:'m4', name:'GitHub', cat:'dev', icon:'git-branch', color:'#0f172a', desc:'Repos, PRs, issues, actions, code search', author:'github', version:'3.0.1', stars:4.9, installs:15200, installed:false, featured:true, trending:true, isNew:false, tags:['git','pr','actions'], tools:['list_repos','create_pr','search_code'], updated:'2024-10-18', verified:true},
   {id:'m5', name:'Slack', cat:'cloud', icon:'message-square', color:'#e11d48', desc:'Channels, messages, threads, reactions & workflows', author:'slack', version:'1.2.5', stars:4.6, installs:9000, installed:false, featured:false, trending:false, isNew:true, tags:['chat','slack'], tools:['list_channels','post_message'], updated:'2024-10-22', verified:false},
   {id:'m6', name:'Notion', cat:'fs', icon:'book-open', color:'#000', desc:'Pages, databases, blocks, comments API', author:'notion', version:'0.9.4', stars:4.5, installs:5200, installed:false, featured:false, trending:false, isNew:true, tags:['notion','docs'], tools:['query_db','create_page'], updated:'2024-10-05', verified:false},
   {id:'m7', name:'Redis', cat:'db', icon:'layers', color:'#dc2626', desc:'Cache, pub/sub, streams & cluster management', author:'redis', version:'1.1.0', stars:4.7, installs:4100, installed:false, featured:false, trending:true, isNew:false, tags:['redis','cache'], tools:['get','set','publish'], updated:'2024-09-15', verified:true},
   {id:'m8', name:'Puppeteer', cat:'dev', icon:'globe', color:'#7c3aed', desc:'Browser automation, scraping & PDF gen', author:'browser', version:'2.3.0', stars:4.8, installs:7300, installed:false, featured:false, trending:true, isNew:false, tags:['browser','scrape'], tools:['navigate','screenshot','pdf'], updated:'2024-10-10', verified:true},
   {id:'m9', name:'Stripe', cat:'cloud', icon:'credit-card', color:'#635bff', desc:'Payments, customers, subscriptions, invoices', author:'stripe', version:'1.0.2', stars:4.8, installs:6800, installed:false, featured:false, trending:false, isNew:true, tags:['payments','stripe'], tools:['list_customers','create_charge'], updated:'2024-10-23', verified:true},
   {id:'m10', name:'Linear', cat:'dev', icon:'target', color:'#5e6ad2', desc:'Issues, projects, cycles, roadmap sync', author:'linear', version:'1.3.1', stars:4.6, installs:3100, installed:false, featured:false, trending:false, isNew:false, tags:['linear','issues'], tools:['list_issues','create_issue'], updated:'2024-09-30', verified:false},
-];
-const saveMarket = ()=> localStorage.setItem('mcp_market', JSON.stringify(MARKET));
+]);
+const saveMarket = ()=> safeSet('mcp_market', JSON.stringify(MARKET));
 
 const PROMPTS = [
   {cat:'MCP', title:'SQL audit', prompt:'Query the remote PostgreSQL database for the last 5 user registrations and format as a table.', icon:'database'},
@@ -345,25 +361,23 @@ const SLASH = [
   {key:'/disconnect', desc:'Disconnect', hint:'<name>', insert:'/disconnect '},
 ];
 
-const refreshIcons=()=> window.lucide && lucide.createIcons();
-const toast=(m,d=2200)=>{ toastEl.textContent=m; toastEl.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(()=>toastEl.classList.add('hidden'),d); };
-const esc=s=> s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const scrollBottom=()=>{ messagesEl.scrollTop=messagesEl.scrollHeight; };
-const uid=()=> Math.random().toString(36).slice(2,9);
-
 // Providers render — complete
 function renderProviders(){
   const enabledProviders = PROVIDERS.filter(p=>p.enabled);
   // if selected is disabled, fallback
   if(!enabledProviders.find(p=>p.id===selectedProvider)){
     const fallback = enabledProviders[0];
-    if(fallback){ selectedProvider=fallback.id; selectedModel=fallback.models[0]; }
+    if(fallback){
+      const prev = selectedProvider;
+      selectedProvider=fallback.id; selectedModel=fallback.models[0];
+      try{ localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel);}catch{}
+      if(prev!==selectedProvider) toast(`Provider ${prev} disabled — switched to ${fallback.name}`);
+    }
   }
-  providerSelect.innerHTML = PROVIDERS.filter(p=>p.enabled).map(p=>`<option value="${p.id}" ${p.id===selectedProvider?'selected':''}>${p.name}</option>`).join('') || `<option>No providers enabled</option>`;
+  if(providerSelect) providerSelect.innerHTML = PROVIDERS.filter(p=>p.enabled).map(p=>`<option value="${p.id}" ${p.id===selectedProvider?'selected':''}>${p.name}</option>`).join('') || `<option>No providers enabled</option>`;
   const prov = PROVIDERS.find(p=>p.id===selectedProvider);
   if(prov){
-    modelSelect.innerHTML = prov.models.map(m=>`<option ${m===selectedModel?'selected':''}>${m}</option>`).join('');
-    modelSelect.disabled=false;
+    if(modelSelect){ modelSelect.innerHTML = prov.models.map(m=>`<option ${m===selectedModel?'selected':''}>${m}</option>`).join(''); modelSelect.disabled=false; }
     // pills
     const pillName=$('#providerPillName'), pillMeta=$('#providerPillMeta');
     if(pillName) pillName.textContent = selectedModel;
@@ -380,8 +394,7 @@ function renderProviders(){
     const activeStatus=$('#activeProviderStatus');
     if(activeStatus) activeStatus.className = `status ${prov.apiKey?'on':'off'}`;
   } else {
-    modelSelect.innerHTML=`<option>No model</option>`;
-    modelSelect.disabled=true;
+    if(modelSelect){ modelSelect.innerHTML=`<option>No model</option>`; modelSelect.disabled=true; }
   }
   // global temp
   const gv=$('#globalTempVal');
@@ -400,7 +413,7 @@ function renderProviders(){
   if(req) req.textContent = String(Math.floor(Math.random()*20+20));
   refreshIcons();
 }
-providerSelect.addEventListener('change', e=>{
+providerSelect?.addEventListener('change', e=>{
   selectedProvider=e.target.value;
   const prov=PROVIDERS.find(p=>p.id===selectedProvider);
   if(!prov || !prov.enabled) return;
@@ -409,7 +422,7 @@ providerSelect.addEventListener('change', e=>{
   localStorage.setItem('model', selectedModel);
   renderProviders(); renderProviderList(); toast(`Provider: ${prov.name} • ${selectedModel}`);
 });
-modelSelect.addEventListener('change', e=>{ selectedModel=e.target.value; localStorage.setItem('model', selectedModel); toast(`Model: ${selectedModel}`); renderProviders(); renderMessages(); });
+modelSelect?.addEventListener('change', e=>{ selectedModel=e.target.value; localStorage.setItem('model', selectedModel); toast(`Model: ${selectedModel}`); renderProviders(); renderMessages(); });
 
 // Provider list drawer
 const providerView=$('#providerView'), providerBackdrop=$('#providerBackdrop'), closeProvider=$('#closeProvider'), providerList=$('#providerList'), providerSearch=$('#providerSearch'), addProviderBtn=$('#addProviderBtn'), providerSettingsBtn=$('#providerSettingsBtn'), providerPill=$('#providerPill'), providerTopBtn=$('#providerTopBtn'), testActiveProvider=$('#testActiveProvider'), exportProvidersBtn=$('#exportProvidersBtn'), importProviderBtn=$('#importProviderBtn'), importProviderFile=$('#importProviderFile'), fallbackProviderEl=$('#fallbackProvider'), globalTempEl=$('#globalTemp'), providerModal=$('#providerModal'), providerModalBackdrop=$('#providerModalBackdrop'), closeProviderModal=$('#closeProviderModal'), providerForm=$('#providerForm'), provName=$('#provName'), provId=$('#provId'), provKey=$('#provKey'), provBase=$('#provBase'), provModels=$('#provModels'), provTemp=$('#provTemp'), provTempVal=$('#provTempVal'), provMax=$('#provMax'), provStream=$('#provStream'), provEnabled=$('#provEnabled'), testProviderBtn=$('#testProviderBtn'), cancelProvider=$('#cancelProvider');
@@ -444,8 +457,8 @@ function renderProviderList(){
   }).join('') || `<p style="text-align:center;color:#94a3b8;padding:16px;background:#fff;border:1px dashed var(--line);border-radius:12px">No providers found<br><small>Try a different search or add a provider</small></p>`;
   refreshIcons();
 }
-function openProviderView(){ providerView.classList.remove('hidden'); renderProviderList(); renderProviders(); refreshIcons(); }
-function closeProviderView(){ providerView.classList.add('hidden'); }
+function openProviderView(){ providerView?.classList.remove('hidden'); renderProviderList(); renderProviders(); refreshIcons(); }
+function closeProviderView(){ providerView?.classList.add('hidden'); }
 providerSettingsBtn?.addEventListener('click', openProviderView);
 providerPill?.addEventListener('click', openProviderView);
 providerTopBtn?.addEventListener('click', openProviderView);
@@ -482,7 +495,7 @@ importProviderFile?.addEventListener('change', e=>{
 providerList?.addEventListener('click', e=>{
   const test=e.target.closest('[data-provider-test]'); if(test){ const p=PROVIDERS.find(x=>x.id===test.dataset.providerTest); toast(p.apiKey?`Testing ${p.name}…`:'No API key', 1600); setTimeout(()=> toast(p.apiKey? `${p.name} ✓ ${p.latency}ms` : `${p.name}: add API key first`), 800); return; }
   const use=e.target.closest('[data-provider-use]'); if(use){ selectedProvider=use.dataset.providerUse; const pr=PROVIDERS.find(x=>x.id===selectedProvider); selectedModel=pr.models[0]; localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); renderProviders(); renderProviderList(); renderMessages(); toast(`Switched to ${pr.name}`); return; }
-  const edit=e.target.closest('[data-provider-edit]'); if(edit){ const p=PROVIDERS.find(x=>x.id===edit.dataset.providerEdit); if(p){ editingProviderId=p.id; $('#providerModalTitle').textContent='Edit Provider'; provName.value=p.name; provId.value=p.id; provId.disabled=true; provKey.value=p.apiKey; provBase.value=p.baseUrl; provModels.value=p.models.join(', '); provTemp.value=String(p.temp); if(provTempVal) provTempVal.textContent=String(p.temp); provMax.value=String(p.maxTokens); provStream.checked=p.streaming; provEnabled.checked=p.enabled; providerModal.classList.remove('hidden'); refreshIcons(); } return; }
+  const edit=e.target.closest('[data-provider-edit]'); if(edit){ const p=PROVIDERS.find(x=>x.id===edit.dataset.providerEdit); if(p){ editingProviderId=p.id; $('#providerModalTitle').textContent='Edit Provider'; provName.value=p.name; provId.value=p.id; provId.disabled=true; provKey.value=p.apiKey; provBase.value=p.baseUrl; provModels.value=p.models.join(', '); provTemp.value=String(p.temp); if(provTempVal) provTempVal.textContent=String(p.temp); provMax.value=String(p.maxTokens); provStream.checked=p.streaming; provEnabled.checked=p.enabled; providerModal?.classList.remove('hidden'); refreshIcons(); } return; }
   const del=e.target.closest('[data-provider-del]'); if(del){ const id=del.dataset.providerDel; if(PROVIDERS.length<=1) return toast('Keep at least one provider'); if(confirm('Delete provider?')){ PROVIDERS=PROVIDERS.filter(p=>p.id!==id); if(selectedProvider===id){ selectedProvider=PROVIDERS[0].id; selectedModel=PROVIDERS[0].models[0]; localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); } saveProviders(); renderProviders(); renderProviderList(); renderMessages(); toast('Provider deleted'); } return; }
 });
 providerList?.addEventListener('change', e=>{
@@ -492,11 +505,11 @@ addProviderBtn?.addEventListener('click', ()=>{
   editingProviderId=null;
   $('#providerModalTitle').textContent='Add AI Provider';
   provName.value=''; provId.value=''; provId.disabled=false; provKey.value=''; provBase.value='https://api.example.com/v1'; provModels.value=''; provTemp.value='0.7'; if(provTempVal) provTempVal.textContent='0.7'; provMax.value='4096'; provStream.checked=true; provEnabled.checked=true;
-  providerModal.classList.remove('hidden'); refreshIcons();
+  providerModal?.classList.remove('hidden'); refreshIcons();
 });
-closeProviderModal?.addEventListener('click', ()=> providerModal.classList.add('hidden'));
-providerModalBackdrop?.addEventListener('click', ()=> providerModal.classList.add('hidden'));
-cancelProvider?.addEventListener('click', ()=> providerModal.classList.add('hidden'));
+closeProviderModal?.addEventListener('click', ()=> providerModal?.classList.add('hidden'));
+providerModalBackdrop?.addEventListener('click', ()=> providerModal?.classList.add('hidden'));
+cancelProvider?.addEventListener('click', ()=> providerModal?.classList.add('hidden'));
 testProviderBtn?.addEventListener('click', async ()=>{
   const fake={id:provId.value, name:provName.value, apiKey:provKey.value};
   testProviderBtn.innerHTML=`<i data-lucide="loader-2" style="width:12px;height:12px"></i> Testing…`; refreshIcons();
@@ -532,7 +545,7 @@ providerForm?.addEventListener('submit', e=>{
     PROVIDERS.push(data);
     toast(`${name} added`);
   }
-  saveProviders(); renderProviders(); renderProviderList(); providerModal.classList.add('hidden');
+  saveProviders(); renderProviders(); renderProviderList(); providerModal?.classList.add('hidden');
   if(data.enabled){ selectedProvider=data.id; selectedModel=data.models[0]; localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); renderProviders(); renderMessages(); }
 });
 
@@ -547,9 +560,9 @@ const DEFAULT_MODES = [
   {id:'Shield', name:'Shield', icon:'shield', color:'#16a34a', desc:'Secure, privacy-aware, minimal tools', prompt:'You are a security-aware assistant. Minimize tool use, avoid sensitive data, explain risks.', temp:0.3, tokens:4096, provider:'', model:'', servers:[], tools:{sql:false, fs:false, cloud:false, web:false}, builtin:true},
   {id:'Creative', name:'Creative', icon:'palette', color:'#f59e0b', desc:'Brainstorm, ideas, variations & play', prompt:'You are a creative partner. Generate ideas, variations, playful tone. Use tools sparingly.', temp:0.9, tokens:4096, provider:'', model:'', servers:[], tools:{sql:false, fs:false, cloud:false, web:true}, builtin:true},
 ];
-let MODES = JSON.parse(localStorage.getItem('mcp_modes')||'null') || DEFAULT_MODES;
+let MODES = safeParse('mcp_modes', DEFAULT_MODES);
 let editingModeId = null;
-const saveModes = ()=> localStorage.setItem('mcp_modes', JSON.stringify(MODES));
+const saveModes = ()=> safeSet('mcp_modes', JSON.stringify(MODES));
 function getMode(id){ return MODES.find(m=>m.id===id) || MODES[0]; }
 function getActiveMode(){ return getMode(selectedMode); }
 function renderModes(){
@@ -632,7 +645,7 @@ function renderModesGrid(){
   }).join('') || `<p style="grid-column:1/-1;text-align:center;color:var(--faint);padding:20px;background:#fff;border:1px dashed var(--line);border-radius:12px">No modes match<br><small>Try another search</small></p>`;
   refreshIcons();
 }
-function openModesView(){ modesView.classList.remove('hidden'); renderModesGrid(); refreshIcons(); }
+function openModesView(){ modesView?.classList.remove('hidden'); renderModesGrid(); refreshIcons(); }
 function populateModeServers(){
   if(!modeServers) return;
   const active= editingModeId ? MODES.find(m=>m.id===editingModeId) : null;
@@ -643,7 +656,7 @@ function populateModeServers(){
     </label>
   `).join('') || `<span style="font-size:11px;color:var(--faint)">No servers yet</span>`;
 }
-agentModesEl.addEventListener('click', e=>{
+agentModesEl?.addEventListener('click', e=>{
   const b=e.target.closest('[data-mode]'); if(!b) return;
   selectedMode=b.dataset.mode; localStorage.setItem('agentMode', selectedMode);
   const m=getMode(selectedMode);
@@ -655,8 +668,8 @@ agentModesEl.addEventListener('click', e=>{
   renderModes(); renderModesGrid(); toast(`Mode: ${m.name} — ${m.desc}`);
 });
 manageModesBtn?.addEventListener('click', openModesView);
-modesBackdrop?.addEventListener('click', ()=> modesView.classList.add('hidden'));
-closeModes?.addEventListener('click', ()=> modesView.classList.add('hidden'));
+modesBackdrop?.addEventListener('click', ()=> modesView?.classList.add('hidden'));
+closeModes?.addEventListener('click', ()=> modesView?.classList.add('hidden'));
 modeSearch?.addEventListener('input', renderModesGrid);
 modeFilter?.addEventListener('change', renderModesGrid);
 modesGrid?.addEventListener('click', e=>{
@@ -671,7 +684,7 @@ addModeBtn?.addEventListener('click', ()=>{
   editingModeId=null;
   modeModalTitle.textContent='New Agent Mode';
   modeName.value=''; modeId.value=''; modeIcon.value='message-circle'; modeColor.value='#2563eb'; modeAccent.value='solid'; modeDesc.value=''; modePrompt.value=''; modeTemp.value='0.7'; if(modeTempVal) modeTempVal.textContent='0.7'; modeTokens.value='4096'; modeProvider.value=''; modeModel.value=''; modeToolSQL.checked=true; modeToolFS.checked=true; modeToolCloud.checked=true; modeToolWeb.checked=false; populateModeServers(); duplicateModeBtn.style.display='none';
-  modeModal.classList.remove('hidden'); refreshIcons();
+  modeModal?.classList.remove('hidden'); refreshIcons();
 });
 exportModesBtn?.addEventListener('click', ()=>{
   const blob=new Blob([JSON.stringify(MODES,null,2)],{type:'application/json'});
@@ -680,24 +693,24 @@ exportModesBtn?.addEventListener('click', ()=>{
 importModesBtn?.addEventListener('click', ()=> importModesFile.click());
 importModesFile?.addEventListener('change', e=>{
   const f=e.target.files[0]; if(!f) return;
-  const r=new FileReader(); r.onload=()=>{ try{ const arr=JSON.parse(r.result); if(Array.isArray(arr)){ MODES=arr; saveModes(); renderModes(); renderModesGrid(); toast('Modes imported'); } else toast('Invalid file'); } catch{ toast('Invalid JSON'); } }; r.readAsText(f); e.target.value='';
+  const r=new FileReader(); r.onerror=()=> toast('File read error'); r.onload=()=>{ try{ const arr=JSON.parse(r.result); if(Array.isArray(arr)){ MODES=arr; saveModes(); renderModes(); renderModesGrid(); toast('Modes imported'); } else toast('Invalid file'); } catch{ toast('Invalid JSON'); } }; r.readAsText(f); e.target.value='';
 });
 function openEditMode(id){
   const m=MODES.find(x=>x.id===id); if(!m) return;
   editingModeId=id;
   modeModalTitle.textContent='Edit Mode — '+m.name;
   modeName.value=m.name; modeId.value=m.id; modeId.disabled=true; modeIcon.value=m.icon; modeColor.value=m.color; modeAccent.value=m.accent||'solid'; modeDesc.value=m.desc; modePrompt.value=m.prompt; modeTemp.value=String(m.temp); if(modeTempVal) modeTempVal.textContent=String(m.temp); modeTokens.value=String(m.tokens); modeProvider.value=m.provider||''; modeModel.value=m.model||''; modeToolSQL.checked=!!m.tools.sql; modeToolFS.checked=!!m.tools.fs; modeToolCloud.checked=!!m.tools.cloud; modeToolWeb.checked=!!m.tools.web; populateModeServers(); duplicateModeBtn.style.display='';
-  modeModal.classList.remove('hidden'); refreshIcons();
+  modeModal?.classList.remove('hidden'); refreshIcons();
 }
 modeTemp?.addEventListener('input', e=>{ if(modeTempVal) modeTempVal.textContent=e.target.value; });
-closeModeModal?.addEventListener('click', ()=> modeModal.classList.add('hidden'));
-modeModalBackdrop?.addEventListener('click', ()=> modeModal.classList.add('hidden'));
-cancelMode?.addEventListener('click', ()=> modeModal.classList.add('hidden'));
+closeModeModal?.addEventListener('click', ()=> modeModal?.classList.add('hidden'));
+modeModalBackdrop?.addEventListener('click', ()=> modeModal?.classList.add('hidden'));
+cancelMode?.addEventListener('click', ()=> modeModal?.classList.add('hidden'));
 duplicateModeBtn?.addEventListener('click', ()=>{
   if(!editingModeId) return;
   const src=MODES.find(m=>m.id===editingModeId);
   const copy={...JSON.parse(JSON.stringify(src)), id:src.id+'-copy', name:src.name+' Copy', builtin:false};
-  MODES.push(copy); saveModes(); renderModes(); renderModesGrid(); modeModal.classList.add('hidden'); toast('Duplicated '+src.name);
+  MODES.push(copy); saveModes(); renderModes(); renderModesGrid(); modeModal?.classList.add('hidden'); toast('Duplicated '+src.name);
 });
 modeForm?.addEventListener('submit', e=>{
   e.preventDefault();
@@ -724,7 +737,7 @@ modeForm?.addEventListener('submit', e=>{
     MODES.push(data);
     toast(`${name} created`);
   }
-  saveModes(); renderModes(); renderModesGrid(); modeModal.classList.add('hidden');
+  saveModes(); renderModes(); renderModesGrid(); modeModal?.classList.add('hidden');
   selectedMode=data.id; localStorage.setItem('agentMode', selectedMode); renderModes();
 });
 
@@ -761,7 +774,7 @@ function renderChats(){
   `).join('') || `<p style="font-size:12px;color:#94a3b8;padding:8px">No chats</p>`;
   refreshIcons();
 }
-chatListEl.addEventListener('click', e=>{
+chatListEl?.addEventListener('click', e=>{
   const item=e.target.closest('.chat-item'); if(!item) return;
   const more=e.target.closest('[data-act="more"]');
   if(more){
@@ -771,13 +784,13 @@ chatListEl.addEventListener('click', e=>{
     if(act==='1'){ const t=prompt('New title', chat.title); if(t){ pushHistory(); chat.title=t; saveChats(); renderChats(); renderMessages(); } }
     else if(act==='2') doExport(chat);
     else if(act==='3'){ chat.archived=!chat.archived; saveChats(); renderChats(); }
-    else if(act==='4'){ if(confirm('Delete?')){ pushHistory(); chats=chats.filter(c=>c.id!==id); if(activeChatId===id) activeChatId=chats[0]?.id||null; saveChats(); if(activeChatId) localStorage.setItem('activeChat', activeChatId); renderChats(); renderMessages(); } }
+    else if(act==='4'){ if(confirm('Delete?')){ pushHistory(); chats=chats.filter(c=>c.id!==id); if(activeChatId===id) activeChatId=chats[0]?.id||null; saveChats(); if(activeChatId) try{ localStorage.setItem('activeChat', activeChatId);}catch{} else try{ localStorage.removeItem('activeChat');}catch{}; renderChats(); renderMessages(); } }
     return;
   }
   activeChatId=item.dataset.id; localStorage.setItem('activeChat', activeChatId); renderChats(); renderMessages(); pushHistory();
 });
-newChatBtn.addEventListener('click', ()=> createChat());
-newChatTopBtn.addEventListener('click', ()=> createChat());
+newChatBtn?.addEventListener('click', ()=> createChat());
+newChatTopBtn?.addEventListener('click', ()=> createChat());
 function createChat(){
   pushHistory();
   const id=uid();
@@ -789,9 +802,9 @@ function doExport(chat){
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=`${chat.title}.json`; a.click(); URL.revokeObjectURL(url); toast('Exported');
 }
-convMenuBtn.addEventListener('click', ()=> convMenu.classList.toggle('hidden'));
+convMenuBtn?.addEventListener('click', ()=> convMenu.classList.toggle('hidden'));
 document.addEventListener('click', e=>{ if(!e.target.closest('.dropdown')) convMenu.classList.add('hidden'); });
-convMenu.addEventListener('click', e=>{
+convMenu?.addEventListener('click', e=>{
   const b=e.target.closest('[data-action]'); if(!b) return;
   const act=b.dataset.action;
   const chat=getActiveChat(); if(!chat) return;
@@ -800,14 +813,14 @@ convMenu.addEventListener('click', e=>{
   if(act==='export') doExport(chat);
   if(act==='duplicate'){ pushHistory(); const copy=JSON.parse(JSON.stringify(chat)); copy.id=uid(); copy.title=chat.title+' (copy)'; copy.created=Date.now(); chats.unshift(copy); activeChatId=copy.id; saveChats(); renderChats(); renderMessages(); toast('Duplicated'); }
   if(act==='archive'){ pushHistory(); chat.archived=!chat.archived; saveChats(); renderChats(); renderMessages(); toast(chat.archived?'Archived':'Unarchived'); }
-  if(act==='delete'){ if(confirm('Delete conversation?')){ pushHistory(); chats=chats.filter(c=>c.id!==chat.id); activeChatId=chats[0]?.id||null; saveChats(); renderChats(); renderMessages(); toast('Deleted'); } }
+  if(act==='delete'){ if(confirm('Delete conversation?')){ pushHistory(); chats=chats.filter(c=>c.id!==chat.id); activeChatId=chats[0]?.id||null; saveChats(); if(activeChatId) try{ localStorage.setItem('activeChat', activeChatId);}catch{} else try{ localStorage.removeItem('activeChat');}catch{}; renderChats(); renderMessages(); toast('Deleted'); } }
 });
-importChatBtn.addEventListener('click', ()=> importFile.click());
-importFile.addEventListener('change', e=>{
+importChatBtn?.addEventListener('click', ()=> importFile.click());
+importFile?.addEventListener('change', e=>{
   const f=e.target.files[0]; if(!f) return;
-  const r=new FileReader(); r.onload=()=>{ try{ const data=JSON.parse(r.result); if(data.title && data.messages){ pushHistory(); data.id=uid(); data.created=Date.now(); chats.unshift(data); activeChatId=data.id; saveChats(); renderChats(); renderMessages(); toast('Imported'); } else toast('Invalid file'); } catch{ toast('Invalid JSON'); } }; r.readAsText(f); e.target.value='';
+  const r=new FileReader(); r.onerror=()=> toast('File read error'); r.onload=()=>{ try{ const data=JSON.parse(r.result); if(data.title && data.messages){ pushHistory(); data.id=uid(); data.created=Date.now(); chats.unshift(data); activeChatId=data.id; saveChats(); renderChats(); renderMessages(); toast('Imported'); } else toast('Invalid file'); } catch{ toast('Invalid JSON'); } }; r.readAsText(f); e.target.value='';
 });
-archiveToggle.addEventListener('click', ()=>{ showArchived=!showArchived; archiveToggle.style.background=showArchived?'#0f172a':''; archiveToggle.style.color=showArchived?'#fff':''; renderChats(); toast(showArchived?'Showing archived':'Hiding archived'); });
+archiveToggle?.addEventListener('click', ()=>{ showArchived=!showArchived; archiveToggle.style.background=showArchived?'#0f172a':''; archiveToggle.style.color=showArchived?'#fff':''; renderChats(); toast(showArchived?'Showing archived':'Hiding archived'); });
 
 // Servers render — enhanced
 let serverHealthTimer=null;
@@ -833,7 +846,7 @@ function renderServers(){
     return `<button class="node-pill ${on?'connected':'disconnected'}" data-id="${s.id}"><span class="d" style="background:${on ? (s.color==='aws'?'#ff9900': s.color==='pg'?'#16a34a':'#2563eb') : '#cbd5e1'}"></span> ${esc(s.name)}</button>`;
   }).join('');
   // sidebar — filtered
-  const sideFiltered = servers.filter(s=> !sq || s.name.toLowerCase().includes(q) || s.tools.toLowerCase().includes(sq) || s.endpoint.toLowerCase().includes(sq));
+  const sideFiltered = servers.filter(s=> !sq || s.name.toLowerCase().includes(sq) || s.tools.toLowerCase().includes(sq) || s.endpoint.toLowerCase().includes(sq) || (s.desc||'').toLowerCase().includes(sq));
   sidebarList.innerHTML = sideFiltered.map(s=>{
     const on=s.status==='connected', busy=s.status==='connecting';
     const latCls=getLatencyClass(s.latency||0);
@@ -851,7 +864,7 @@ function renderServers(){
   else if(sort==='latency') filtered.sort((a,b)=> (a.latency||999)-(b.latency||999));
   // tabs ui
   if(serverTabs){
-    serverTabs.querySelectorAll('button').forEach(b=> b.classList.toggle('active', b.dataset.stab===activeServerTab));
+    if(serverTabs) serverTabs.querySelectorAll('button').forEach(b=> b.classList.toggle('active', b.dataset.stab===activeServerTab));
     serverTabs.querySelectorAll('button').forEach(b=>{
       if(b.dataset.stab===activeServerTab){ b.style.background='var(--text)'; b.style.color='#fff'; b.style.borderColor='var(--text)'; }
       else { b.style.background='#fff'; b.style.color='var(--muted)'; b.style.borderColor='var(--line)'; }
@@ -902,9 +915,10 @@ function renderServers(){
   if(tunnelStatus) tunnelStatus.innerHTML=connected? `Secure MCP tunnel • <strong>${connected}</strong> connected` : `No MCP nodes connected`;
   if(serverCountInfo) serverCountInfo.textContent=`${filtered.length} of ${servers.length} servers`;
   refreshIcons();
-  // health polling indicator
-  if(healthPoll && !healthPoll.checked && serverHealthTimer){ clearInterval(serverHealthTimer); serverHealthTimer=null; }
-  else if(healthPoll && healthPoll.checked && !serverHealthTimer){
+}
+function initHealthPoll(){
+  if(serverHealthTimer){ clearInterval(serverHealthTimer); serverHealthTimer=null; }
+  if(healthPoll?.checked){
     serverHealthTimer=setInterval(()=> doHealthCheck(false), 30000);
   }
 }
@@ -973,11 +987,11 @@ function openServerDetail(id){
       </div>
     </div>
   `;
-  serverDetailModal.classList.remove('hidden'); refreshIcons();
-  $('#closeServerDetail')?.addEventListener('click', ()=> serverDetailModal.classList.add('hidden'));
-  $('#copyServerConfig')?.addEventListener('click', ()=>{ navigator.clipboard.writeText($('#serverConfigJson').textContent); toast('Config copied'); });
-  $('#detailToggle')?.addEventListener('click', async ()=>{ await toggle(s.id); serverDetailModal.classList.add('hidden'); });
-  $('#detailEdit')?.addEventListener('click', ()=>{ serverDetailModal.classList.add('hidden'); openEditServer(s.id); });
+  serverDetailModal?.classList.remove('hidden'); refreshIcons();
+  const _closeDetail = $('#closeServerDetail'); if(_closeDetail) _closeDetail.onclick = ()=> serverDetailModal?.classList.add('hidden');
+  const _copyCfg = $('#copyServerConfig'); if(_copyCfg) _copyCfg.onclick = ()=>{ navigator.clipboard.writeText($('#serverConfigJson')?.textContent||'').catch(()=>{}); toast('Config copied'); };
+  const _detToggle = $('#detailToggle'); if(_detToggle) _detToggle.onclick = async ()=>{ await toggle(s.id); serverDetailModal?.classList.add('hidden'); };
+  const _detEdit = $('#detailEdit'); if(_detEdit) _detEdit.onclick = ()=>{ serverDetailModal?.classList.add('hidden'); openEditServer(s.id); };
 }
 function openEditServer(id){
   const s=servers.find(x=>x.id===id); if(!s) return;
@@ -985,7 +999,7 @@ function openEditServer(id){
   serverModalTitle.textContent='Edit MCP Server';
   srvName.value=s.name; srvTransport.value=s.transport; srvEndpoint.value=s.endpoint; srvTools.value=s.tools; if(srvDesc) srvDesc.value=s.desc||''; if(srvTimeout) srvTimeout.value=String(s.timeout); if(srvRetries) srvRetries.value=String(s.retries); if(srvAuto) srvAuto.checked=!!s.autoConnect; if(srvHealth) srvHealth.checked=!!s.healthCheck;
   envDraft=[...(s.env||[])];
-  renderEnv(); updateEndpointHint(); serverModal.classList.remove('hidden'); refreshIcons();
+  renderEnv(); updateEndpointHint(); serverModal?.classList.remove('hidden'); refreshIcons();
 }
 function renderEnv(){
   if(!envList) return;
@@ -1012,8 +1026,8 @@ function addFiles(files){
   drawPreview(); syncComposer();
 }
 function drawPreview(){
-  if(!pending.length){ attachPreview.classList.add('hidden'); attachPreview.innerHTML=''; return; }
-  attachPreview.classList.remove('hidden');
+  if(!pending.length){ attachPreview?.classList.add('hidden'); attachPreview.innerHTML=''; return; }
+  attachPreview?.classList.remove('hidden');
   attachPreview.innerHTML=pending.map(p=>{
     let inner='';
     if(p.file.type.startsWith('image/')) inner=`<img src="${p.url}" alt="">`;
@@ -1022,105 +1036,105 @@ function drawPreview(){
     return `<div class="preview">${inner}<button class="rm" data-rm="${p.id}"><i data-lucide="x"></i></button></div>`;
   }).join(''); refreshIcons();
 }
-attachPreview.addEventListener('click', e=>{
+attachPreview?.addEventListener('click', e=>{
   const b=e.target.closest('[data-rm]'); if(!b) return;
   const id=b.dataset.rm; const i=pending.findIndex(p=>p.id===id);
   if(i>=0){ if(pending[i].url) URL.revokeObjectURL(pending[i].url); pending.splice(i,1); drawPreview(); syncComposer(); }
 });
-mediaInput.addEventListener('change', e=>{ if(e.target.files.length) addFiles([...e.target.files]); e.target.value=''; });
+mediaInput?.addEventListener('change', e=>{ if(e.target.files.length) addFiles([...e.target.files]); e.target.value=''; });
 
 // Todo draft
 function renderTodo(){
-  if(!todos.length && todoDraft.classList.contains('hidden')) return;
+  if(todoDraft && !todos.length && todoDraft?.classList.contains('hidden')){ if(todoProgress) todoProgress.textContent=`0/0`; return; }
+  if(!todoDraft || !todoList) return;
   todoList.innerHTML=todos.map((t,i)=>`<li><input type="checkbox" ${t.done?'checked':''} data-i="${i}"><input value="${esc(t.text)}" data-input="${i}"><button class="icon-btn xs" data-del="${i}"><i data-lucide="x" style="width:12px;height:12px"></i></button></li>`).join('');
   const done=todos.filter(t=>t.done).length;
   todoProgress.textContent=`${done}/${todos.length}`;
   refreshIcons();
 }
-todoToggle.addEventListener('click', ()=>{
-  todoDraft.classList.toggle('hidden');
-  if(!todoDraft.classList.contains('hidden')) todoInput.focus();
+todoToggle?.addEventListener('click', ()=>{
+  todoDraft?.classList.toggle('hidden');
+  if(!todoDraft?.classList.contains('hidden')) todoInput.focus();
   refreshIcons();
 });
-clearTodo.addEventListener('click', ()=>{ todos=[]; todoDraft.classList.add('hidden'); renderTodo(); });
-addTodoBtn.addEventListener('click', ()=>{
+clearTodo?.addEventListener('click', ()=>{ todos=[]; todoDraft?.classList.add('hidden'); renderTodo(); });
+addTodoBtn?.addEventListener('click', ()=>{
   const v=todoInput.value.trim(); if(!v) return;
   todos.push({text:v, done:false}); todoInput.value=''; renderTodo();
 });
-todoInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addTodoBtn.click(); }});
-todoList.addEventListener('change', e=>{
+todoInput?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addTodoBtn.click(); }});
+todoList?.addEventListener('change', e=>{
   const c=e.target.closest('[data-i]'); if(c && e.target.type==='checkbox'){ todos[Number(c.dataset.i)].done=e.target.checked; renderTodo(); }
 });
-todoList.addEventListener('input', e=>{
+todoList?.addEventListener('input', e=>{
   const inp=e.target.closest('[data-input]'); if(inp) todos[Number(inp.dataset.input)].text=inp.value;
 });
-todoList.addEventListener('click', e=>{
+todoList?.addEventListener('click', e=>{
   const b=e.target.closest('[data-del]'); if(b){ todos.splice(Number(b.dataset.del),1); renderTodo(); }
 });
 
 // Composer
-function autoResize(){ inputEl.style.height='auto'; inputEl.style.height=Math.min(inputEl.scrollHeight,120)+'px'; }
+function autoResize(){ if(!inputEl) return; inputEl.style.height='auto'; inputEl.style.height=Math.min(inputEl.scrollHeight,120)+'px'; }
 function syncComposer(){
-  const hasText=inputEl.value.trim().length>0;
+  const hasText=(inputEl?.value||'').trim().length>0;
   const hasMedia=pending.length>0;
-  sendBtn.disabled=(!hasText && !hasMedia && !todos.length) || isTyping;
-  charCount.textContent=inputEl.value.length? `${inputEl.value.length}/2000` : '';
-  charCount.style.color=inputEl.value.length>1800?'#ef4444':'#94a3b8';
-  localStorage.setItem('mcp_draft', inputEl.value);
+  if(sendBtn) sendBtn.disabled=(!hasText && !hasMedia && !todos.length) || isTyping;
+  if(charCount){ charCount.textContent=inputEl?.value?.length? `${inputEl.value.length}/2000` : ''; charCount.style.color=(inputEl?.value?.length||0)>1800?'#ef4444':'#94a3b8'; }
+  try{ localStorage.setItem('mcp_draft', inputEl?.value||''); }catch{}
   // show prompt strip when empty
-  if(!hasText && !hasMedia && !isTyping) promptStrip.classList.remove('hidden'); else promptStrip.classList.add('hidden');
+  if(promptStrip){ if(!hasText && !hasMedia && !isTyping) promptStrip?.classList.remove('hidden'); else promptStrip?.classList.add('hidden'); }
 }
 const PROMPT_CHIPS = ["Summarize S3 buckets","Query users table","List /data files","Draft release notes","Explain TLS tunnel"];
 function renderPromptStrip(){
   promptStrip.innerHTML = PROMPT_CHIPS.map(p=>`<button class="prompt-chip" data-prompt="${esc(p)}"><i data-lucide="sparkles"></i> ${esc(p)}</button>`).join('');
   refreshIcons();
 }
-promptStrip.addEventListener('click', e=>{
+promptStrip?.addEventListener('click', e=>{
   const b=e.target.closest('[data-prompt]'); if(!b) return;
   inputEl.value=b.dataset.prompt; autoResize(); syncComposer(); inputEl.focus();
 });
-inputEl.value=localStorage.getItem('mcp_draft')||'';
+try{ inputEl.value=localStorage.getItem('mcp_draft')||''; }catch{ inputEl.value=''; }
 autoResize(); syncComposer(); renderPromptStrip();
 
-inputEl.addEventListener('input', ()=>{
+inputEl?.addEventListener('input', ()=>{
   autoResize(); syncComposer();
   const pos=inputEl.selectionStart; const before=inputEl.value.slice(0,pos);
-  const m=before.match(/(^|\s)(\/[a-z]*)$/);
+  const m=before.match(/(^|\s)(\/[a-z0-9-]*)$/i);
   if(!m){ hideSlash(); return; }
   const q=m[2].toLowerCase();
-  filtered=SLASH.filter(c=>c.key.startsWith(q));
+  filtered=SLASH.filter(c=>c.key.toLowerCase().startsWith(q));
   if(!filtered.length){ hideSlash(); return; }
   slashIndex=0; renderSlash();
 });
 function renderSlash(){
   slashMenu.innerHTML=filtered.map((c,i)=>`<div class="s-item ${i===slashIndex?'active':''}" data-i="${i}"><span class="s-key">${esc(c.key)}</span><span class="s-desc">${esc(c.desc)}</span><span class="s-hint">${esc(c.hint)}</span></div>`).join('');
-  slashMenu.classList.remove('hidden');
+  slashMenu?.classList.remove('hidden');
 }
-function hideSlash(){ slashMenu.classList.add('hidden'); filtered=[]; }
+function hideSlash(){ slashMenu?.classList.add('hidden'); filtered=[]; }
 function pickSlash(cmd){
   if(!cmd) return;
   const pos=inputEl.selectionStart; const before=inputEl.value.slice(0,pos); const after=inputEl.value.slice(pos);
-  inputEl.value=before.replace(/\/[a-z]*$/, cmd.insert)+after;
+  inputEl.value=before.replace(/\/[a-z0-9-]*$/i, cmd.insert)+after;
   hideSlash(); autoResize(); syncComposer(); inputEl.focus();
   if(cmd.key==='/clear') clearCurrentChat();
   if(cmd.key==='/help') doSend('/help');
 }
-slashMenu.addEventListener('click', e=>{ const it=e.target.closest('.s-item'); if(it) pickSlash(filtered[Number(it.dataset.i)]); });
-inputEl.addEventListener('keydown', e=>{
-  if(!slashMenu.classList.contains('hidden')){
+slashMenu?.addEventListener('click', e=>{ const it=e.target.closest('.s-item'); if(it) pickSlash(filtered[Number(it.dataset.i)]); });
+inputEl?.addEventListener('keydown', e=>{
+  if(!slashMenu?.classList.contains('hidden')){
     if(e.key==='ArrowDown'){ e.preventDefault(); slashIndex=(slashIndex+1)%filtered.length; renderSlash(); }
     else if(e.key==='ArrowUp'){ e.preventDefault(); slashIndex=(slashIndex-1+filtered.length)%filtered.length; renderSlash(); }
     else if(e.key==='Enter'||e.key==='Tab'){ e.preventDefault(); pickSlash(filtered[slashIndex]); return; }
     else if(e.key==='Escape') hideSlash();
   }
   if(e.key==='Enter' && !e.shiftKey){
-    if(!slashMenu.classList.contains('hidden') && filtered.length){ e.preventDefault(); pickSlash(filtered[slashIndex]); return; }
+    if(!slashMenu?.classList.contains('hidden') && filtered.length){ e.preventDefault(); pickSlash(filtered[slashIndex]); return; }
     e.preventDefault(); doSend();
   }
   if((e.ctrlKey||e.metaKey) && e.key==='z' && !e.shiftKey){ e.preventDefault(); undo(); }
   if((e.ctrlKey||e.metaKey) && (e.key==='y' || (e.key==='z' && e.shiftKey))){ e.preventDefault(); redo(); }
 });
-document.addEventListener('click', e=>{ if(!slashMenu.contains(e.target) && e.target!==inputEl) hideSlash(); });
+document.addEventListener('click', e=>{ if(!slashMenu || !inputEl) return; if(!slashMenu.contains(e.target) && e.target!==inputEl) hideSlash(); });
 
 // Speech — single + Live Conversation (complete)
 let liveActive=false, liveMuted=false, livePaused=false, liveSpeaker=true;
@@ -1136,8 +1150,8 @@ function initSpeech(){
   }
   recognition=new SR();
   recognition.continuous=true; recognition.interimResults=true; recognition.lang= liveLangSelect?.value || 'en-US';
-  recognition.onstart=()=>{ isRecording=true; speechBar.classList.remove('hidden'); micBtn.classList.add('active'); liveStatusText && (liveStatusText.textContent='Listening…'); };
-  recognition.onend=()=>{ if(!liveActive){ isRecording=false; speechBar.classList.add('hidden'); micBtn.classList.remove('active'); } else if(liveActive && !liveMuted && !livePaused){ try{ recognition.start(); }catch{} }};
+  recognition.onstart=()=>{ isRecording=true; speechBar?.classList.remove('hidden'); micBtn.classList.add('active'); liveStatusText && (liveStatusText.textContent='Listening…'); };
+  recognition.onend=()=>{ if(!liveActive){ isRecording=false; speechBar?.classList.add('hidden'); micBtn.classList.remove('active'); } else if(liveActive && !liveMuted && !livePaused){ try{ recognition.start(); }catch{} }};
   recognition.onresult=(e)=>{
     let interim='', final='';
     for(let i=e.resultIndex;i<e.results.length;i++){
@@ -1186,7 +1200,7 @@ function initSpeech(){
       if(final){ inputEl.value=(inputEl.value+' '+final).trim(); autoResize(); syncComposer(); if(liveInterim) liveInterim.textContent=''; }
     }
   };
-  recognition.onerror=()=>{ isRecording=false; speechBar.classList.add('hidden'); micBtn.classList.remove('active'); if(liveActive) setLiveWave('paused'); toast('Mic error'); };
+  recognition.onerror=()=>{ isRecording=false; if(speechBar) speechBar?.classList.add('hidden'); if(micBtn) micBtn.classList.remove('active'); if(liveActive) setLiveWave('paused'); toast('Mic error'); };
   if(liveLangSelect) liveLangSelect.addEventListener('change', ()=>{ recognition.lang=liveLangSelect.value; toast('Language: '+liveLangSelect.value); });
 }
 initSpeech();
@@ -1203,14 +1217,16 @@ if('speechSynthesis' in window){
 function setLiveWave(state){
   if(!liveWave) return;
   liveWave.className='live-wave '+state;
-  if(state==='listening') liveWaveWrap.style.opacity='1';
-  if(state==='speaking') liveWaveWrap.style.opacity='1';
-  if(state==='thinking'){ liveWave.className='live-wave paused'; liveWaveWrap.style.opacity='.9'; }
-  if(state==='paused'){ liveWave.className='live-wave paused'; }
+  if(liveWaveWrap){
+    if(state==='listening') liveWaveWrap.style.opacity='1';
+    if(state==='speaking') liveWaveWrap.style.opacity='1';
+    if(state==='thinking'){ liveWave.className='live-wave paused'; liveWaveWrap.style.opacity='.9'; }
+    if(state==='paused'){ liveWave.className='live-wave paused'; }
+  }
 }
 function openLive(){
   liveActive=true; liveMuted=false; livePaused=false;
-  liveOverlay.classList.remove('hidden');
+  liveOverlay?.classList.remove('hidden');
   liveBtn.classList.add('live-active');
   liveBtn.title='Live active — click to end';
   liveTranscript.innerHTML=`<div class="live-hint"><i data-lucide="mic" style="width:28px;height:28px;color:var(--primary)"></i><p>Live listening — speak naturally<br><small>Pause to send • I’ll respond with voice</small></p></div>`;
@@ -1238,7 +1254,7 @@ function openLive(){
 }
 function closeLive(){
   liveActive=false; isRecording=false;
-  liveOverlay.classList.add('hidden');
+  liveOverlay?.classList.add('hidden');
   liveBtn.classList.remove('live-active');
   liveBtn.title='Live conversation — talk hands-free';
   setLiveWave('paused');
@@ -1247,7 +1263,7 @@ function closeLive(){
   liveInterim.textContent='';
   if(recognition){ try{ recognition.stop(); }catch{} }
   if(speechSynthesis.speaking) speechSynthesis.cancel();
-  speechBar.classList.add('hidden'); micBtn.classList.remove('active');
+  speechBar?.classList.add('hidden'); micBtn.classList.remove('active');
   toast('Live ended');
 }
 function toggleLive(){ liveActive ? closeLive() : openLive(); }
@@ -1331,16 +1347,16 @@ function toggleSpeech(){
   }
   // single mode
   if(!recognition){
-    if(!isRecording){ isRecording=true; speechBar.classList.remove('hidden'); micBtn.classList.add('active'); toast('Listening (mock)… say something'); setTimeout(()=>{ if(isRecording){ inputEl.value=(inputEl.value+' list S3 buckets').trim(); autoResize(); syncComposer(); stopSpeechClick(); }}, 1800); }
+    if(!isRecording){ isRecording=true; speechBar?.classList.remove('hidden'); micBtn.classList.add('active'); toast('Listening (mock)… say something'); setTimeout(()=>{ if(isRecording){ inputEl.value=(inputEl.value+' list S3 buckets').trim(); autoResize(); syncComposer(); stopSpeechClick(); }}, 1800); }
     else stopSpeechClick();
     return;
   }
   if(isRecording) recognition.stop();
   else recognition.start();
 }
-function stopSpeechClick(){ if(recognition && isRecording) recognition.stop(); isRecording=false; speechBar.classList.add('hidden'); micBtn.classList.remove('active'); }
-micBtn.addEventListener('click', toggleSpeech);
-stopSpeech.addEventListener('click', stopSpeechClick);
+function stopSpeechClick(){ if(recognition && isRecording) recognition.stop(); isRecording=false; speechBar?.classList.add('hidden'); micBtn.classList.remove('active'); }
+micBtn?.addEventListener('click', toggleSpeech);
+stopSpeech?.addEventListener('click', stopSpeechClick);
 // Live controls
 liveBtn?.addEventListener('click', toggleLive);
 liveBackdrop?.addEventListener('click', closeLive);
@@ -1388,11 +1404,11 @@ livePauseBtn?.addEventListener('click', ()=>{
 });
 liveSettingsBtn?.addEventListener('click', ()=> liveSettings.classList.toggle('hidden'));
 liveVoiceSelect?.addEventListener('change', ()=> toast('Voice: '+liveVoiceSelect.value));
-liveLangSelect?.addEventListener('change', ()=>{ if(recognition) recognition.lang=liveLangSelect.value; })
+liveLangSelect?.addEventListener('change', ()=>{ if(recognition) recognition.lang=liveLangSelect.value; });
 
 // Drag & paste
-['dragenter','dragover'].forEach(ev=> document.addEventListener(ev, e=>{ e.preventDefault(); if(ev==='dragenter') dropOverlay.classList.remove('hidden'); composerInner.classList.add('drag'); }));
-['dragleave','drop'].forEach(ev=> document.addEventListener(ev, e=>{ if(ev==='dragleave' && e.target===dropOverlay) dropOverlay.classList.add('hidden'); if(ev==='drop') dropOverlay.classList.add('hidden'); composerInner.classList.remove('drag'); }));
+;;['dragenter','dragover'].forEach(ev=> document.addEventListener(ev, e=>{ e.preventDefault(); if(ev==='dragenter') dropOverlay?.classList.remove('hidden'); composerInner?.classList.add('drag'); }));
+;['dragleave','drop'].forEach(ev=> document.addEventListener(ev, e=>{ if(ev==='dragleave' && e.target===dropOverlay) dropOverlay?.classList.add('hidden'); if(ev==='drop') dropOverlay?.classList.add('hidden'); composerInner?.classList.remove('drag'); }));
 document.addEventListener('drop', e=>{ e.preventDefault(); if(e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]); });
 document.addEventListener('paste', e=>{ const files=[...(e.clipboardData?.files||[])]; if(files.length) addFiles(files); });
 
@@ -1415,18 +1431,21 @@ function undo(){
   const cur=JSON.stringify(chats);
   history.redo.push(cur);
   const prev=history.undo.pop();
-  chats=JSON.parse(prev); saveChats(); renderChats(); renderMessages(); updateUndoRedo(); toast('Undone');
-  activeChatId=chats.find(c=>c.id===activeChatId)?activeChatId:chats[0]?.id; if(activeChatId) localStorage.setItem('activeChat', activeChatId);
+  try{ chats=JSON.parse(prev); }catch{ return toast('Undo data corrupt'); }
+  saveChats(); if(!chats.find(c=>c.id===activeChatId)) activeChatId=chats[0]?.id||null; if(activeChatId) try{ localStorage.setItem('activeChat', activeChatId);}catch{} else try{ localStorage.removeItem('activeChat');}catch{}
+  renderChats(); renderMessages(); updateUndoRedo(); toast('Undone');
 }
 function redo(){
   if(!history.redo.length) return toast('Nothing to redo');
   const cur=JSON.stringify(chats);
   history.undo.push(cur);
   const nxt=history.redo.pop();
-  chats=JSON.parse(nxt); saveChats(); renderChats(); renderMessages(); updateUndoRedo(); toast('Redone');
+  try{ chats=JSON.parse(nxt); }catch{ return toast('Redo data corrupt'); }
+  saveChats(); if(!chats.find(c=>c.id===activeChatId)) activeChatId=chats[0]?.id||null; if(activeChatId) try{ localStorage.setItem('activeChat', activeChatId);}catch{} 
+  renderChats(); renderMessages(); updateUndoRedo(); toast('Redone');
 }
-undoBtn.addEventListener('click', undo);
-redoBtn.addEventListener('click', redo);
+undoBtn?.addEventListener('click', undo);
+redoBtn?.addEventListener('click', redo);
 document.addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z' && !e.shiftKey){ e.preventDefault(); undo(); }
   if((e.ctrlKey||e.metaKey) && (e.key.toLowerCase()==='y' || (e.shiftKey && e.key.toLowerCase()==='z'))){ e.preventDefault(); redo(); }
@@ -1435,7 +1454,7 @@ document.addEventListener('keydown', e=>{
 // Messages rendering with tasks/todos/stream
 function renderMessages(){
   const chat=getActiveChat();
-  if(!chat){ messagesEl.innerHTML=`<div class="date-sep"><span>No conversation selected</span></div><div style="text-align:center;padding:24px"><button class="primary-btn" onclick="document.getElementById('newChatBtn').click()">Start new chat</button></div>`; return; }
+  if(!chat || !messagesEl){ if(messagesEl) messagesEl.innerHTML=`<div class="date-sep"><span>No conversation selected</span></div><div style="text-align:center;padding:24px"><button class="primary-btn" onclick="document.getElementById('newChatBtn')?.click()">Start new chat</button></div>`; return; }
   const title=chat.title;
   messagesEl.innerHTML=`<div class="date-sep"><span>${esc(title)} • ${chat.messages.length} messages • ${selectedModel}</span></div>` + chat.messages.map(m=>{
     if(m.role==='user'){
@@ -1483,11 +1502,11 @@ function fsHTML(){ return `<div class="card"><div class="card-head"><h4>Listed 5
 function generalHTML(t){ return `<div class="card"><div class="card-head"><h4>MCP Router • ${esc(selectedMode)}</h4><p>Received: <code>${esc((t||'').slice(0,80))}</code></p></div><div style="padding:12px"><p style="margin:0 0 8px;font-size:13px">Try <code>/sql</code>, <code>/s3</code>, <code>/fs</code> or upload media.</p><div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:10px;padding:10px;font-size:12px">Suggested: <code>/sql SELECT * FROM users LIMIT 5</code> • <code>/s3 list buckets</code></div></div></div>`; }
 
 // Message actions delegation
-messagesEl.addEventListener('click', e=>{
+messagesEl?.addEventListener('click', e=>{
   const edit=e.target.closest('[data-edit]'); if(edit){
     const id=edit.dataset.edit;
     const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===id);
-    if(msg){ editingMsgId=id; editMsgInput.value=msg.text; editMsgModal.classList.remove('hidden'); refreshIcons(); }
+    if(msg){ editingMsgId=id; editMsgInput.value=msg.text; editMsgModal?.classList.remove('hidden'); refreshIcons(); }
     return;
   }
   const del=e.target.closest('[data-delete]'); if(del){
@@ -1510,12 +1529,12 @@ messagesEl.addEventListener('click', e=>{
   const copy=e.target.closest('[data-copy]'); if(copy){
     const id=copy.dataset.copy;
     const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===id);
-    if(msg){ const txt= msg.html==='pg' ? 'pg table' : (msg.text||''); navigator.clipboard.writeText(txt); toast('Copied'); }
+    if(msg){ const txt= msg.html==='pg' ? 'pg table' : (msg.text||''); navigator.clipboard.writeText(txt).catch(()=>{}); toast('Copied'); }
     return;
   }
   const copyTbl=e.target.closest('[data-copy-table]'); if(copyTbl){
     const tbl=copyTbl.closest('.card')?.querySelector('table');
-    if(tbl){ const t=[...tbl.rows].map(r=>[...r.cells].map(c=>c.textContent).join('\t')).join('\n'); navigator.clipboard.writeText(t); toast('Copied table'); }
+    if(tbl){ const t=[...tbl.rows].map(r=>[...r.cells].map(c=>c.textContent).join('\t')).join('\n'); navigator.clipboard.writeText(t).catch(()=>{}); toast('Copied table'); }
     return;
   }
   const tts=e.target.closest('[data-tts]'); if(tts){
@@ -1545,7 +1564,7 @@ messagesEl.addEventListener('click', e=>{
     return;
   }
 });
-messagesEl.addEventListener('change', e=>{
+messagesEl?.addEventListener('change', e=>{
   const task=e.target.closest('[data-task]'); if(task){
     const [mid,tid]=task.dataset.task.split(':');
     const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===mid);
@@ -1557,36 +1576,40 @@ messagesEl.addEventListener('change', e=>{
     msg.todos[Number(i)].done=e.target.checked; saveChats(); renderMessages();
   }
 });
-closeEditMsg.addEventListener('click', ()=> editMsgModal.classList.add('hidden'));
-cancelEdit.addEventListener('click', ()=> editMsgModal.classList.add('hidden'));
-editMsgBackdrop.addEventListener('click', ()=> editMsgModal.classList.add('hidden'));
-saveEdit.addEventListener('click', ()=>{
+closeEditMsg?.addEventListener('click', ()=> editMsgModal?.classList.add('hidden'));
+cancelEdit?.addEventListener('click', ()=> editMsgModal?.classList.add('hidden'));
+editMsgBackdrop?.addEventListener('click', ()=> editMsgModal?.classList.add('hidden'));
+saveEdit?.addEventListener('click', ()=>{
   const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===editingMsgId);
   if(msg){
     pushHistory();
     msg.text=editMsgInput.value;
-    saveChats(); renderMessages(); editMsgModal.classList.add('hidden');
+    saveChats(); renderMessages(); editMsgModal?.classList.add('hidden');
     // resend
     doSend(msg.text, msg.files||[], msg.todos||[], true);
   }
 });
 
 // Streaming
+let _streamIntervals = {};
 function streamHTML(targetId, html, doneText){
   const el=document.getElementById(targetId);
   if(!el) return;
-  if(!streamToggle.checked){
+  if(_streamIntervals[targetId]){ clearInterval(_streamIntervals[targetId]); delete _streamIntervals[targetId]; }
+  if(!streamToggle?.checked){
     el.innerHTML=html; refreshIcons(); return;
   }
   el.innerHTML='';
   let i=0;
-  const chunk=2;
+  const chunk=6;
   const iv=setInterval(()=>{
+    if(!document.getElementById(targetId)){ clearInterval(iv); delete _streamIntervals[targetId]; return; }
     el.innerHTML = html.slice(0,i) + '<span class="stream-cursor"></span>';
     i+=chunk;
     scrollBottom();
-    if(i>=html.length){ clearInterval(iv); el.innerHTML=html; refreshIcons(); }
-  }, 12);
+    if(i>=html.length){ clearInterval(iv); delete _streamIntervals[targetId]; el.innerHTML=html; refreshIcons(); }
+  }, 10);
+  _streamIntervals[targetId]=iv;
 }
 
 // Do send with todo, files, stream
@@ -1595,18 +1618,18 @@ async function doSend(rawText, rawFiles, rawTodos, isRetry){
   const files=[... (rawFiles ?? pending)];
   const curTodos = rawTodos ?? (todos.length? [...todos] : []);
   if(!text && !files.length && !curTodos.length) return;
-  if(isTyping) return;
-  if(text==='/clear'){ clearCurrentChat(); inputEl.value=''; pending=[]; todos=[]; todoDraft.classList.add('hidden'); drawPreview(); syncComposer(); hideSlash(); return; }
+  if(isTyping){ toast('Please wait — still generating'); return; }
+  if(text==='/clear'){ clearCurrentChat(); if(inputEl) inputEl.value=''; pending.forEach(pr=>{ if(pr.url) try{ URL.revokeObjectURL(pr.url);}catch{} }); pending=[]; todos=[]; if(todoDraft) todoDraft?.classList.add('hidden'); drawPreview(); syncComposer(); hideSlash(); return; }
   if(text==='/help'){ await sendAndStream(text, files, curTodos, 'general'); return; }
   // todo command
-  if(text.startsWith('/todo ')){ const t=text.slice(6).trim(); if(t){ todos.push({text:t, done:false}); renderTodo(); todoDraft.classList.remove('hidden'); toast('Todo added'); } inputEl.value=''; syncComposer(); hideSlash(); autoResize(); return; }
+  if(text.startsWith('/todo ')){ const t=text.slice(6).trim(); if(t){ todos.push({text:t, done:false}); renderTodo(); todoDraft?.classList.remove('hidden'); toast('Todo added'); } inputEl.value=''; syncComposer(); hideSlash(); autoResize(); return; }
   if(text.startsWith('/connect ') || text.startsWith('/disconnect ')){
     const isCon=text.startsWith('/connect ');
     const name=text.slice(isCon?9:12).trim();
     const s=servers.find(x=>x.name===name);
     if(s) await toggle(s.id, isCon);
     else toast(`Unknown server ${name}`);
-    inputEl.value=''; hideSlash(); syncComposer(); autoResize(); return;
+    if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); return;
   }
   const tool=detect(text);
   const need={pg:'postgres-mcp', aws:'aws-us-east', fs:'local-fs'}[tool];
@@ -1634,7 +1657,7 @@ async function sendAndStream(text, files, curTodos, tool, isRetry){
   chat.messages.push(placeholder);
   // clear composer if not retry
   if(!isRetry){
-    pending.forEach(p=>{}); pending=[]; todos=[]; todoDraft.classList.add('hidden'); drawPreview();
+    pending.forEach(pr=>{ if(pr.url) try{ URL.revokeObjectURL(pr.url);}catch{} }); pending=[]; todos=[]; if(todoDraft) todoDraft?.classList.add('hidden'); drawPreview();
     inputEl.value=''; hideSlash(); autoResize(); syncComposer();
   }
   saveChats(); renderChats(); renderMessages();
@@ -1653,7 +1676,7 @@ async function sendAndStream(text, files, curTodos, tool, isRetry){
   saveChats(); renderChats(); renderMessages();
   isTyping=false; syncComposer();
   // TTS if enabled
-  if(ttsToggle.checked && 'speechSynthesis' in window){
+  if(ttsToggle?.checked && 'speechSynthesis' in window){
     const u=new SpeechSynthesisUtterance(text.slice(0,120));
     speechSynthesis.speak(u);
   }
@@ -1687,7 +1710,7 @@ function renderMarket(){
   else if(sort==='name') filtered.sort((a,b)=> a.name.localeCompare(b.name));
   // tabs UI
   if(marketTabs){
-    marketTabs.querySelectorAll('button').forEach(b=> b.classList.toggle('active', b.dataset.tab===activeMarketTab));
+    if(marketTabs) marketTabs.querySelectorAll('button').forEach(b=> b.classList.toggle('active', b.dataset.tab===activeMarketTab));
     marketTabs.querySelectorAll('button').forEach(b=>{
       if(b.dataset.tab===activeMarketTab){ b.style.background='var(--text)'; b.style.color='#fff'; b.style.borderColor='var(--text)'; }
       else { b.style.background='#fff'; b.style.color='var(--muted)'; b.style.borderColor='var(--line)'; }
@@ -1747,25 +1770,24 @@ function openMarketDetail(id){
       ${m.installing?`<div class="install-progress"><span style="width:${m.progress||0}%"></span></div><p style="font-size:11px;color:var(--muted);text-align:center;margin:4px 0 0">${m.progress}% installing…</p>`:''}
     </div>
   `;
-  marketDetailModal.classList.remove('hidden');
+  marketDetailModal?.classList.remove('hidden');
   refreshIcons();
   // detail listeners
-  $('#closeMarketDetail')?.addEventListener('click', ()=> marketDetailModal.classList.add('hidden'));
-  $('#copyInstall')?.addEventListener('click', ()=>{ navigator.clipboard.writeText(`npx @modelcontextprotocol/server-${m.name.toLowerCase().replace(/\s/g,'-')}`); toast('Copied install command'); });
-  $('#detailInstall')?.addEventListener('click', e=>{
+  const _closeM = $('#closeMarketDetail'); if(_closeM) _closeM.onclick = ()=> marketDetailModal?.classList.add('hidden');
+  const _copyI = $('#copyInstall'); if(_copyI) _copyI.onclick = ()=>{ navigator.clipboard.writeText(`npx @modelcontextprotocol/server-${m.name.toLowerCase().replace(/\s/g,'-')}`).catch(()=>{}); toast('Copied install command'); };
+  const _detInst = $('#detailInstall'); if(_detInst) _detInst.onclick = e=>{
     const id=e.currentTarget.dataset.install;
     handleInstall(id);
-    // update detail button
     setTimeout(()=> openMarketDetail(id), 400);
-  });
-  $('#detailConnect')?.addEventListener('click', ()=>{
+  };
+  const _detConn = $('#detailConnect'); if(_detConn) _detConn.onclick = ()=>{
     if(!m.installed) return toast('Install first');
     // find server and connect
     const srv=servers.find(s=> s.name===m.name.toLowerCase().replace(/\s/g,'-') || s.name===m.name);
     if(srv) toggle(srv.id, true);
     else toast('Server not found — installing…');
-    marketDetailModal.classList.add('hidden');
-  });
+    marketDetailModal?.classList.add('hidden');
+  };
 }
 async function handleInstall(id){
   const m=MARKET.find(x=>x.id===id);
@@ -1775,20 +1797,21 @@ async function handleInstall(id){
   for(let p=0; p<=100; p+= 20){
     await new Promise(r=>setTimeout(r, 180));
     m.progress=p; renderMarket();
-    if(marketDetailModal && !marketDetailModal.classList.contains('hidden')) {
+    if(marketDetailModal && !marketDetailModal?.classList.contains('hidden')) {
       const bar=marketDetailContent.querySelector('.install-progress span');
       if(bar) bar.style.width=p+'%';
     }
   }
   m.installing=false; m.progress=100; m.installed=true; saveMarket();
-  const nid='srv'+Date.now();
+  const nid='srv'+Date.now()+Math.random().toString(36).slice(2,5);
   const col=m.cat==='db'?'pg': m.cat==='cloud'?'aws': m.cat==='ai'?'pg' : m.cat==='dev'?'custom':'fs';
-  servers.push({id:nid, name:m.name.toLowerCase().replace(/\s/g,'-'), transport:'sse', endpoint:`wss://${m.name.toLowerCase().replace(/\s/g,'')}.mcp.local/sse`, tools:m.tools.join(', '), status:'disconnected', color:col});
+  const srvName=m.name.toLowerCase().replace(/\s/g,'-');
+  if(!servers.find(s=>s.name===srvName)) servers.push({id:nid, name:srvName, transport:'sse', endpoint:`wss://${m.name.toLowerCase().replace(/\s/g,'')}.mcp.local/sse`, tools:m.tools.join(', '), status:'disconnected', color:col, desc:m.desc||'', timeout:10000, retries:2, env:[], latency:Math.floor(Math.random()*80+40), health:'off', lastSeen:Date.now(), autoConnect:false, healthCheck:true});
   saveServers(); renderServers();
   renderMarket(); toast(`${m.name} installed — connect in MCP servers ✓`);
 }
-marketSearch.addEventListener('input', renderMarket);
-marketFilter.addEventListener('change', renderMarket);
+marketSearch?.addEventListener('input', renderMarket);
+marketFilter?.addEventListener('change', renderMarket);
 marketSort?.addEventListener('change', renderMarket);
 marketTabs?.addEventListener('click', e=>{
   const b=e.target.closest('[data-tab]'); if(!b) return;
@@ -1802,7 +1825,7 @@ refreshMarket?.addEventListener('click', ()=>{ // mock refresh
   setTimeout(()=>{ refreshMarket.innerHTML=`<i data-lucide="refresh-cw" style="width:11px;height:11px"></i> Refresh`; refreshIcons(); toast('Registry synced • 10 servers'); renderMarket(); }, 900);
 });
 document.getElementById('marketInfoBtn')?.addEventListener('click', ()=> toast('Visit registry.modelcontextprotocol.io'));
-marketGrid.addEventListener('click', e=>{
+marketGrid?.addEventListener('click', e=>{
   const card=e.target.closest('[data-detail]');
   const btn=e.target.closest('[data-install]');
   if(btn){
@@ -1812,7 +1835,7 @@ marketGrid.addEventListener('click', e=>{
   }
   if(card) openMarketDetail(card.dataset.detail);
 });
-marketDetailBackdrop?.addEventListener('click', ()=> marketDetailModal.classList.add('hidden'));
+marketDetailBackdrop?.addEventListener('click', ()=> marketDetailModal?.classList.add('hidden'));
 document.getElementById('closeMarketplace')?.addEventListener('click', ()=> document.getElementById('marketplaceView').classList.add('hidden'));
 
 // Prompts
@@ -1833,28 +1856,28 @@ function renderPromptGrid(){
   `).join('');
   refreshIcons();
 }
-promptCatsEl.addEventListener('click', e=>{
+promptCatsEl?.addEventListener('click', e=>{
   const b=e.target.closest('[data-cat]'); if(!b) return;
   activePromptCat=b.dataset.cat; renderPromptCats(); renderPromptGrid();
 });
-promptGridEl.addEventListener('click', e=>{
+promptGridEl?.addEventListener('click', e=>{
   const card=e.target.closest('.prompt-item'); if(!card) return;
   inputEl.value=card.dataset.prompt; autoResize(); syncComposer();
-  promptsView.classList.add('hidden'); toast('Prompt inserted');
+  promptsView?.classList.add('hidden'); toast('Prompt inserted');
   inputEl.focus();
 });
 
 // Profile
-userProfileCard.addEventListener('click', ()=>{ profileView.classList.remove('hidden'); refreshIcons(); });
-profileBackdrop.addEventListener('click', ()=> profileView.classList.add('hidden'));
-closeProfile.addEventListener('click', ()=> profileView.classList.add('hidden'));
-changeAvatar.addEventListener('click', ()=> avatarInput.click());
-avatarInput.addEventListener('change', e=>{
+userProfileCard?.addEventListener('click', ()=>{ profileView?.classList.remove('hidden'); refreshIcons(); });
+profileBackdrop?.addEventListener('click', ()=> profileView?.classList.add('hidden'));
+closeProfile?.addEventListener('click', ()=> profileView?.classList.add('hidden'));
+changeAvatar?.addEventListener('click', ()=> avatarInput.click());
+avatarInput?.addEventListener('change', e=>{
   const f=e.target.files[0]; if(!f) return;
   const url=URL.createObjectURL(f);
   profileAvatar.src=url; profileLargeAvatar.src=url; toast('Avatar updated');
 });
-saveProfileBtn.addEventListener('click', ()=>{
+saveProfileBtn?.addEventListener('click', ()=>{
   const newName=profileNameInput.value.trim()||'User';
   const newEmail=profileEmail.value.trim()||'user@local.dev';
   const role=$('#profileRoleSelect')?.value||'Admin';
@@ -1875,30 +1898,32 @@ saveProfileBtn.addEventListener('click', ()=>{
     localStorage.setItem('profileEmail', newEmail);
   }
   // also update server detail etc.
-  profileView.classList.add('hidden'); toast('Profile saved ✓');
+  profileView?.classList.add('hidden'); toast('Profile saved ✓');
   renderProviders(); renderModes();
 });
-themeSelect.addEventListener('change', e=>{
-  if(e.target.value==='dark'){ document.documentElement.style.filter='invert(1) hue-rotate(180deg)'; document.body.style.background='#0f172a'; toast('Dark preview — invert filter'); }
+themeSelect?.addEventListener('change', e=>{
+  const v=e.target.value;
+  try{ localStorage.setItem('mcp_theme', v); }catch{}
+  if(v==='dark'){ document.documentElement.style.filter='invert(1) hue-rotate(180deg)'; document.body.style.background='#0f172a'; toast('Dark preview — invert filter'); }
   else { document.documentElement.style.filter=''; document.body.style.background=''; toast('Light theme'); }
 });
 
 // Servers drawer events
-function openSettings(){ settingsView.classList.remove('hidden'); refreshIcons(); }
-function closeSettingsView(){ settingsView.classList.add('hidden'); }
-serversBtn.addEventListener('click', openSettings);
-settingsBtn.addEventListener('click', openSettings);
-marketplaceBtn.addEventListener('click', ()=>{ marketplaceView.classList.remove('hidden'); renderMarket(); refreshIcons(); });
-promptLibraryBtn.addEventListener('click', ()=>{ promptsView.classList.remove('hidden'); renderPromptCats(); renderPromptGrid(); refreshIcons(); });
-showPromptsLink.addEventListener('click', ()=> promptLibraryBtn.click());
-closeMarketplace.addEventListener('click', ()=> marketplaceView.classList.add('hidden'));
-marketplaceBackdrop.addEventListener('click', ()=> marketplaceView.classList.add('hidden'));
-promptsBackdrop.addEventListener('click', ()=> promptsView.classList.add('hidden'));
-closePrompts.addEventListener('click', ()=> promptsView.classList.add('hidden'));
-settingsBackdrop.addEventListener('click', closeSettingsView);
-closeSettings.addEventListener('click', closeSettingsView);
-serverSearch.addEventListener('input', renderServers);
-sidebarSearch.addEventListener('input', ()=>{ renderChats(); renderServers(); });
+function openSettings(){ settingsView?.classList.remove('hidden'); refreshIcons(); }
+function closeSettingsView(){ settingsView?.classList.add('hidden'); }
+serversBtn?.addEventListener('click', openSettings);
+settingsBtn?.addEventListener('click', openSettings);
+marketplaceBtn?.addEventListener('click', ()=>{ marketplaceView?.classList.remove('hidden'); renderMarket(); refreshIcons(); });
+promptLibraryBtn?.addEventListener('click', ()=>{ promptsView?.classList.remove('hidden'); renderPromptCats(); renderPromptGrid(); refreshIcons(); });
+showPromptsLink?.addEventListener('click', ()=> promptLibraryBtn.click());
+closeMarketplace?.addEventListener('click', ()=> marketplaceView?.classList.add('hidden'));
+marketplaceBackdrop?.addEventListener('click', ()=> marketplaceView?.classList.add('hidden'));
+promptsBackdrop?.addEventListener('click', ()=> promptsView?.classList.add('hidden'));
+closePrompts?.addEventListener('click', ()=> promptsView?.classList.add('hidden'));
+settingsBackdrop?.addEventListener('click', closeSettingsView);
+closeSettings?.addEventListener('click', closeSettingsView);
+serverSearch?.addEventListener('input', renderServers);
+sidebarSearch?.addEventListener('input', ()=>{ renderChats(); renderServers(); });
 serverSort?.addEventListener('change', renderServers);
 serverTabs?.addEventListener('click', e=>{
   const b=e.target.closest('[data-stab]'); if(!b) return;
@@ -1922,22 +1947,22 @@ exportServersBtn?.addEventListener('click', ()=>{
 importServersBtn?.addEventListener('click', ()=> importServersFile.click());
 importServersFile?.addEventListener('change', e=>{
   const f=e.target.files[0]; if(!f) return;
-  const r=new FileReader(); r.onload=()=>{ try{ const arr=JSON.parse(r.result); if(Array.isArray(arr)){ servers=arr.map(s=> ({...s, id: s.id||'srv'+Date.now()+Math.random().toString(36).slice(2), health:s.health||'off', latency:s.latency||0, lastSeen:s.lastSeen||Date.now()})); saveServers(); renderServers(); toast('Servers imported'); } else toast('Invalid file'); } catch{ toast('Invalid JSON'); } }; r.readAsText(f); e.target.value='';
+  const r=new FileReader(); r.onerror=()=> toast('File read error'); r.onload=()=>{ try{ const arr=JSON.parse(r.result); if(Array.isArray(arr)){ servers=arr.map(s=> ({...s, id: s.id||'srv'+Date.now()+Math.random().toString(36).slice(2), health:s.health||'off', latency:s.latency||0, lastSeen:s.lastSeen||Date.now()})); saveServers(); renderServers(); toast('Servers imported'); } else toast('Invalid file'); } catch{ toast('Invalid JSON'); } }; r.readAsText(f); e.target.value='';
 });
-healthPoll?.addEventListener('change', ()=>{ renderServers(); toast(healthPoll.checked?'Health polling on':'Health polling off'); });
-addServerBtn.addEventListener('click', ()=>{
+healthPoll?.addEventListener('change', ()=>{ initHealthPoll(); renderServers(); toast(healthPoll.checked?'Health polling on':'Health polling off'); });
+addServerBtn?.addEventListener('click', ()=>{
   editingId=null;
   serverModalTitle.textContent='Add MCP Server';
   srvName.value=''; srvEndpoint.value=''; srvTools.value=''; if(srvDesc) srvDesc.value=''; if(srvTimeout) srvTimeout.value='10000'; if(srvRetries) srvRetries.value='2'; if(srvAuto) srvAuto.checked=true; if(srvHealth) srvHealth.checked=true;
   srvTransport.value='sse'; if(srvTemplate) srvTemplate.value='';
   envDraft=[]; renderEnv(); updateEndpointHint();
-  serverModal.classList.remove('hidden'); refreshIcons();
+  serverModal?.classList.remove('hidden'); refreshIcons();
 });
-addServerSidebar.addEventListener('click', ()=> addServerBtn.click());
-closeServerModalBtn.addEventListener('click', ()=> serverModal.classList.add('hidden'));
-cancelServer.addEventListener('click', ()=> serverModal.classList.add('hidden'));
-serverModalBackdrop.addEventListener('click', ()=> serverModal.classList.add('hidden'));
-serverDetailBackdrop?.addEventListener('click', ()=> serverDetailModal.classList.add('hidden'));
+addServerSidebar?.addEventListener('click', ()=> addServerBtn.click());
+closeServerModalBtn?.addEventListener('click', ()=> serverModal?.classList.add('hidden'));
+cancelServer?.addEventListener('click', ()=> serverModal?.classList.add('hidden'));
+serverModalBackdrop?.addEventListener('click', ()=> serverModal?.classList.add('hidden'));
+serverDetailBackdrop?.addEventListener('click', ()=> serverDetailModal?.classList.add('hidden'));
 srvTemplate?.addEventListener('change', ()=>{
   const v=srvTemplate.value;
   const map={
@@ -1974,7 +1999,7 @@ testServerBtn?.addEventListener('click', async ()=>{
   toast(ok? '✓ Connection test passed (mock)':'✗ Test failed — check endpoint', ok?2200:3000);
   testServerBtn.innerHTML=`<i data-lucide="activity" style="width:12px;height:12px"></i> Test`; refreshIcons();
 });
-serverForm.addEventListener('submit', e=>{
+serverForm?.addEventListener('submit', e=>{
   e.preventDefault();
   const name=srvName.value.trim(), ep=srvEndpoint.value.trim();
   if(!name||!ep) return toast('Name and endpoint required');
@@ -1999,11 +2024,11 @@ serverForm.addEventListener('submit', e=>{
     servers.push({id,name,transport:srvTransport.value,endpoint:ep,tools,status:'disconnected',color:col, desc, timeout, retries, env, latency:Math.floor(Math.random()*120+40), health:'off', lastSeen:Date.now(), autoConnect, healthCheck});
     toast(`${name} added`);
   }
-  saveServers(); renderServers(); serverModal.classList.add('hidden');
+  saveServers(); renderServers(); serverModal?.classList.add('hidden');
 });
-topNodes.addEventListener('click', e=>{ const p=e.target.closest('[data-id]'); if(!p) return; const s=servers.find(x=>x.id===p.dataset.id); if(s) openServerDetail(s.id); else toggle(p.dataset.id); });
-sidebarList.addEventListener('click', e=>{ const p=e.target.closest('[data-id]'); if(!p) return; const s=servers.find(x=>x.id===p.dataset.id); if(s) openServerDetail(s.id); });
-serversList.addEventListener('click', e=>{
+topNodes?.addEventListener('click', e=>{ const p=e.target.closest('[data-id]'); if(!p) return; const s=servers.find(x=>x.id===p.dataset.id); if(s) openServerDetail(s.id); else toggle(p.dataset.id); });
+sidebarList?.addEventListener('click', e=>{ const p=e.target.closest('[data-id]'); if(!p) return; const s=servers.find(x=>x.id===p.dataset.id); if(s) openServerDetail(s.id); });
+serversList?.addEventListener('click', e=>{
   const test=e.target.closest('[data-test]'); if(test){ const s=servers.find(x=>x.id===test.dataset.test); toast(`Testing ${s.name}…`); setTimeout(()=>{ s.latency=Math.floor(30+Math.random()*180); s.health= s.latency<100?'ok': s.latency<250?'warn':'bad'; s.lastSeen=Date.now(); saveServers(); renderServers(); toast(`${s.name}: ${s.health} • ${s.latency}ms`); }, 700); return; }
   const logs=e.target.closest('[data-logs]'); if(logs){ openServerDetail(logs.dataset.logs); return; }
   const dup=e.target.closest('[data-dup]'); if(dup){ const s=servers.find(x=>x.id===dup.dataset.dup); const copy={...JSON.parse(JSON.stringify(s)), id:'srv'+Date.now(), name:s.name+'-copy', status:'disconnected', health:'off', lastSeen:Date.now()}; servers.push(copy); saveServers(); renderServers(); toast(`Duplicated ${s.name}`); return; }
@@ -2011,12 +2036,15 @@ serversList.addEventListener('click', e=>{
   const ed=e.target.closest('[data-edit]'); if(ed){ openEditServer(ed.dataset.edit); return; }
   const card=e.target.closest('.server-card'); if(card && !e.target.closest('button') && !e.target.closest('label')){ openServerDetail(card.dataset.id); }
 });
-serversList.addEventListener('change', e=>{ const t=e.target.closest('[data-toggle]'); if(t) toggle(t.dataset.toggle, t.checked); });
+serversList?.addEventListener('change', e=>{ const t=e.target.closest('[data-toggle]'); if(t) toggle(t.dataset.toggle, t.checked); });
+const _toggleLock = new Set();
 async function toggle(id, force){
   const s=servers.find(x=>x.id===id); if(!s) return;
+  if(_toggleLock.has(id)) return toast(`${s.name} already toggling`);
   const should= typeof force==='boolean' ? force : s.status!=='connected';
   if(should){
-    if(s.status==='connected') return;
+    if(s.status==='connected' || s.status==='connecting') return;
+    _toggleLock.add(id);
     s.status='connecting'; s.health='off'; renderServers(); toast(`Connecting ${s.name}…`);
     await new Promise(r=>setTimeout(r, 700 + Math.random()*600));
     // simulate success/failure based on endpoint
@@ -2024,26 +2052,30 @@ async function toggle(id, force){
     if(fail){
       s.status='disconnected'; s.health='bad'; s.latency=999; s.lastSeen=Date.now();
       saveServers(); renderServers(); toast(`${s.name} failed — check endpoint`, 3000);
+      _toggleLock.delete(id);
     } else {
       s.status='connected'; s.health='ok'; s.latency=Math.floor(30+Math.random()*120); s.lastSeen=Date.now();
       saveServers(); renderServers(); toast(`${s.name} connected ✓ • ${s.latency}ms`);
+      _toggleLock.delete(id);
     }
+    _toggleLock.delete(id);
   } else {
     s.status='disconnected'; s.health='off'; s.lastSeen=Date.now();
+    _toggleLock.delete(id);
     saveServers(); renderServers(); toast(`${s.name} disconnected`);
   }
 }
 
 // Quick tools sheet
-toolsBackdrop.addEventListener('click', ()=> toolsModal.classList.add('hidden'));
-closeModalBtn.addEventListener('click', ()=> toolsModal.classList.add('hidden'));
-quickToolsBtn.addEventListener('click', ()=> toolsModal.classList.remove('hidden'));
+toolsBackdrop?.addEventListener('click', ()=> toolsModal?.classList.add('hidden'));
+closeModalBtn?.addEventListener('click', ()=> toolsModal?.classList.add('hidden'));
+quickToolsBtn?.addEventListener('click', ()=> toolsModal?.classList.remove('hidden'));
 $$('.quick-card, .tool').forEach(b=>{
   b.addEventListener('click', ()=>{
     const t=b.dataset.tool;
-    toolsModal.classList.add('hidden');
-    if(t==='marketplace'){ marketplaceView.classList.remove('hidden'); renderMarket(); }
-    else if(t==='upload') mediaInput.click();
+    toolsModal?.classList.add('hidden');
+    if(t==='marketplace'){ marketplaceView?.classList.remove('hidden'); renderMarket(); }
+    else if(t==='upload') mediaInput?.click();
     else if(t==='pg') { inputEl.value='/sql SELECT * FROM users LIMIT 5'; inputEl.focus(); autoResize(); syncComposer(); }
     else if(t==='aws'){ inputEl.value='/s3 list buckets'; inputEl.focus(); autoResize(); syncComposer(); }
     else if(t==='fs'){ inputEl.value='/fs list /data'; inputEl.focus(); autoResize(); syncComposer(); }
@@ -2051,16 +2083,16 @@ $$('.quick-card, .tool').forEach(b=>{
 });
 
 // Sidebar toggle
-menuBtn.addEventListener('click', ()=> sidebar.classList.add('open'));
-sidebarClose.addEventListener('click', ()=> sidebar.classList.remove('open'));
+menuBtn?.addEventListener('click', ()=> sidebar.classList.add('open'));
+sidebarClose?.addEventListener('click', ()=> sidebar.classList.remove('open'));
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){ settingsView.classList.add('hidden'); serverModal.classList.add('hidden'); toolsModal.classList.add('hidden'); marketplaceView.classList.add('hidden'); promptsView.classList.add('hidden'); profileView.classList.add('hidden'); providerView.classList.add('hidden'); providerModal.classList.add('hidden'); serverDetailModal.classList.add('hidden'); marketDetailModal.classList.add('hidden'); modesView.classList.add('hidden'); modeModal.classList.add('hidden'); liveOverlay.classList.add('hidden'); editMsgModal.classList.add('hidden'); hideSlash(); sidebar.classList.remove('open'); convMenu.classList.add('hidden'); }
+  if(e.key==='Escape'){ settingsView?.classList.add('hidden'); serverModal?.classList.add('hidden'); toolsModal?.classList.add('hidden'); marketplaceView?.classList.add('hidden'); promptsView?.classList.add('hidden'); profileView?.classList.add('hidden'); providerView?.classList.add('hidden'); providerModal?.classList.add('hidden'); serverDetailModal?.classList.add('hidden'); marketDetailModal?.classList.add('hidden'); modesView?.classList.add('hidden'); modeModal?.classList.add('hidden'); liveOverlay?.classList.add('hidden'); editMsgModal?.classList.add('hidden'); hideSlash(); sidebar.classList.remove('open'); convMenu.classList.add('hidden'); }
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); openSettings(); }
 });
 
 // Send
-sendBtn.addEventListener('click', ()=> doSend());
-attachBtn.addEventListener('click', ()=> mediaInput.click());
+sendBtn?.addEventListener('click', ()=> doSend());
+attachBtn?.addEventListener('click', ()=> mediaInput.click());
 
 // ——— Auth, Splash & Onboarding ———
 const ONBOARD_STEPS = [
@@ -2085,8 +2117,8 @@ function renderOnStep(){
   onNext.innerHTML = onIndex===ONBOARD_STEPS.length-1 ? `Get started <i data-lucide="arrow-right" style="width:14px;height:14px"></i>` : `Next <i data-lucide="arrow-right" style="width:14px;height:14px"></i>`;
   refreshIcons();
 }
-function openOnboarding(){ onIndex=0; renderOnStep(); onboarding.classList.remove('hidden'); refreshIcons(); }
-function closeOnboarding(){ onboarding.classList.add('hidden'); localStorage.setItem('mcp_onboarded','1'); }
+function openOnboarding(){ onIndex=0; renderOnStep(); authView?.classList.add('hidden'); onboarding?.classList.remove('hidden'); refreshIcons(); }
+function closeOnboarding(){ onboarding?.classList.add('hidden'); try{ localStorage.setItem('mcp_onboarded','1'); }catch{} }
 onNext?.addEventListener('click', ()=>{ if(onIndex < ONBOARD_STEPS.length-1){ onIndex++; renderOnStep(); } else { closeOnboarding(); if(!currentUser) showAuth(); } });
 onPrev?.addEventListener('click', ()=>{ if(onIndex>0){ onIndex--; renderOnStep(); }});
 onSkip?.addEventListener('click', ()=>{ closeOnboarding(); if(!currentUser) showAuth(); });
@@ -2094,15 +2126,15 @@ onboardingBackdrop?.addEventListener('click', ()=>{ closeOnboarding(); if(!curre
 showOnboardingBtn?.addEventListener('click', openOnboarding);
 
 // Users / Auth
-let users = JSON.parse(localStorage.getItem('mcp_users')||'null') || [
+let users = safeParse('mcp_users', [
   {id:'u_alex', name:'Alex Rivera', email:'alex@local.dev', pass:'demo123', avatar:'https://i.pravatar.cc/100?img=32', role:'Admin', isGuest:false},
   {id:'u_sara', name:'Sara Chen', email:'sara@local.dev', pass:'demo123', avatar:'https://i.pravatar.cc/100?img=15', role:'Developer', isGuest:false},
-];
+]);
 let currentUserId = localStorage.getItem('mcp_currentUserId') || null;
 let currentUser = users.find(u=>u.id===currentUserId) || null;
-const saveUsers = ()=> { localStorage.setItem('mcp_users', JSON.stringify(users)); if(currentUser) localStorage.setItem('mcp_currentUserId', currentUser.id); else localStorage.removeItem('mcp_currentUserId'); };
-function showAuth(){ authView.classList.remove('hidden'); refreshIcons(); }
-function hideAuth(){ authView.classList.add('hidden'); }
+const saveUsers = ()=> { safeSet('mcp_users', JSON.stringify(users)); if(currentUser) safeSet('mcp_currentUserId', currentUser.id); else try{ localStorage.removeItem('mcp_currentUserId');}catch{} };
+function showAuth(){ if(onboarding) onboarding?.classList.add('hidden'); authView?.classList.remove('hidden'); refreshIcons(); }
+function hideAuth(){ authView?.classList.add('hidden'); }
 function renderAuthTabs(tab){
   document.querySelectorAll('.auth-tab').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
   loginForm.classList.toggle('hidden', tab!=='login');
@@ -2132,7 +2164,9 @@ function setCurrentUser(user){
   // For demo, keep chats global but personalize greeting
   renderProfilesList();
   hideAuth();
-  closeOnboarding();
+  // do not auto-close onboarding here — let initApp handle first-run flag
+  try{ localStorage.setItem('mcp_onboarded','1'); }catch{}
+  onboarding?.classList.add('hidden');
   toast(`Welcome, ${user.name}${user.isGuest?' (guest)':''} ✓`);
   renderMessages();
 }
@@ -2151,16 +2185,16 @@ function renderProfilesList(){
 profilesList?.addEventListener('click', e=>{
   const row=e.target.closest('[data-switch]'); if(!row) return;
   const u=users.find(x=>x.id===row.dataset.switch);
-  if(u && u.id!==currentUserId){ setCurrentUser(u); profileView.classList.add('hidden'); }
+  if(u && u.id!==currentUserId){ setCurrentUser(u); profileView?.classList.add('hidden'); }
 });
 switchProfileBtn?.addEventListener('click', ()=>{
-  profileView.classList.add('hidden');
+  profileView?.classList.add('hidden');
   showAuth(); renderAuthTabs('login');
 });
 manageProfilesBtn?.addEventListener('click', ()=>{ renderProfilesList(); toast('Select a profile to switch'); });
 addProfileBtn?.addEventListener('click', ()=>{
   // create new empty profile and switch to signup
-  profileView.classList.add('hidden');
+  profileView?.classList.add('hidden');
   showAuth(); renderAuthTabs('signup');
   signupName.value=''; signupEmail.value=''; signupPass.value=''; signupPass2.value='';
 });
@@ -2174,7 +2208,7 @@ logoutBtn?.addEventListener('click', ()=>{
     }
     currentUser=null; currentUserId=null;
     localStorage.removeItem('mcp_currentUserId');
-    profileView.classList.add('hidden');
+    profileView?.classList.add('hidden');
     showAuth(); renderAuthTabs('login');
     toast('Logged out');
     renderProfilesList();
@@ -2220,7 +2254,7 @@ authBackdrop?.addEventListener('click', ()=>{
 // Splash
 function runSplash(){
   if(!splash) return Promise.resolve();
-  splash.classList.remove('hidden');
+  splash?.classList.remove('hidden');
   const statuses=['Initializing secure tunnel…','Loading MCP nodes…','Syncing providers…','Ready'];
   let idx=0;
   const iv=setInterval(()=>{
@@ -2230,7 +2264,7 @@ function runSplash(){
   return new Promise(res=>{
     setTimeout(()=>{
       clearInterval(iv);
-      splash.classList.add('hidden');
+      splash?.classList.add('hidden');
       splash.setAttribute('aria-hidden','true');
       res();
     }, 1600);
@@ -2239,29 +2273,31 @@ function runSplash(){
 // Init — with splash/onboarding/auth gate
 async function initApp(){
   await runSplash();
-  // update profile header initially
+  const hasOnboarded = !!localStorage.getItem('mcp_onboarded');
   if(currentUser){
-    setCurrentUser(currentUser); // refresh UI (will hide auth)
-    // check onboarding
-    if(!localStorage.getItem('mcp_onboarded')){
-      openOnboarding();
-    } else {
-      hideAuth();
-    }
+    // refresh UI without overwriting onboarding flag logic
+    hideAuth(); onboarding?.classList.add('hidden');
+    profileName.textContent=currentUser.name;
+    profileHeaderName.textContent=currentUser.name;
+    profileHeaderEmail.textContent=currentUser.email + (currentUser.isGuest?' • guest':'');
+    profileHeaderMeta.textContent=currentUser.isGuest?'Guest • local only':'Signed in • local';
+    if(profileGuestBadge) profileGuestBadge.classList.toggle('hidden', !currentUser.isGuest);
+    if(profileRoleBadge) profileRoleBadge.textContent=currentUser.role||'Admin';
+    if(profileAvatar) profileAvatar.src=currentUser.avatar;
+    if(profileLargeAvatar) profileLargeAvatar.src=currentUser.avatar;
+    if(profileNameInput) profileNameInput.value=currentUser.name;
+    if(profileEmail) profileEmail.value=currentUser.email;
+    renderProfilesList();
+    if(!hasOnboarded){ openOnboarding(); }
   } else {
-    // no user
-    if(!localStorage.getItem('mcp_onboarded')){
-      openOnboarding();
-      // after onboarding, show auth
-      const origClose=closeOnboarding;
-      // monkey patch close to also show auth if needed (already handled in onNext)
-    } else {
-      showAuth();
-    }
+    if(!hasOnboarded){ openOnboarding(); }
+    else { showAuth(); }
   }
-  renderProviders(); renderModes(); renderChats(); renderMessages(); renderServers(); renderPromptStrip(); renderMarket(); renderPromptCats(); renderPromptGrid(); renderProfilesList(); refreshIcons(); scrollBottom(); updateUndoRedo();
-  if(profileNameInput) profileNameInput.value=currentUser ? currentUser.name : (localStorage.getItem('profileName')||'Alex Rivera');
-  if(profileEmail) profileEmail.value=currentUser ? currentUser.email : (localStorage.getItem('profileEmail')||'alex@local.dev');
+  renderProviders(); renderModes(); renderChats(); renderMessages(); renderServers(); initHealthPoll(); renderPromptStrip(); renderMarket(); renderPromptCats(); renderPromptGrid(); renderProfilesList(); refreshIcons(); scrollBottom(); updateUndoRedo();
+  if(profileNameInput && !profileNameInput.value) profileNameInput.value=currentUser ? currentUser.name : (localStorage.getItem('profileName')||'Alex Rivera');
+  if(profileEmail && !profileEmail.value) profileEmail.value=currentUser ? currentUser.email : (localStorage.getItem('profileEmail')||'alex@local.dev');
+  // restore theme
+  try{ const th=localStorage.getItem('mcp_theme'); if(th==='dark' && themeSelect){ themeSelect.value='dark'; document.documentElement.style.filter='invert(1) hue-rotate(180deg)'; document.body.style.background='#0f172a'; } }catch{}
 }
 initApp();
 
