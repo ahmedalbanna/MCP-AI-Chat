@@ -60,6 +60,15 @@ const marketplaceBackdrop = $('#marketplaceBackdrop');
 const marketGrid = $('#marketGrid');
 const marketSearch = $('#marketSearch');
 const marketFilter = $('#marketFilter');
+const marketSort = $('#marketSort');
+const marketTabs = $('#marketTabs');
+const marketCount = $('#marketCount');
+const marketInstalledCount = $('#marketInstalledCount');
+const refreshMarket = $('#refreshMarket');
+const marketDetailModal = $('#marketDetailModal');
+const marketDetailBackdrop = $('#marketDetailBackdrop');
+const marketDetailContent = $('#marketDetailContent');
+let activeMarketTab = localStorage.getItem('marketTab') || 'all';
 const promptsBackdrop = $('#promptsBackdrop');
 const closePrompts = $('#closePrompts');
 const promptCats = $('#promptCats');
@@ -170,16 +179,19 @@ let servers = JSON.parse(localStorage.getItem('mcp_servers')||'null') || DEFAULT
 const saveServers=()=> localStorage.setItem('mcp_servers', JSON.stringify(servers));
 const saveChats=()=> localStorage.setItem('mcp_chats', JSON.stringify(chats));
 
-const MARKET = [
-  {id:'m1', name:'Postgres Pro', cat:'db', icon:'database', color:'#334155', desc:'Advanced SQL tooling with vector search', stars:4.9, installs:'12k', installed:true},
-  {id:'m2', name:'AWS Suite', cat:'cloud', icon:'cloud', color:'#ff9900', desc:'S3, EC2, Lambda, CloudWatch unified', stars:4.8, installs:'8.4k', installed:true},
-  {id:'m3', name:'Filesystem', cat:'fs', icon:'folder', color:'#2563eb', desc:'Secure local file access with sandboxing', stars:4.7, installs:'6.1k', installed:true},
-  {id:'m4', name:'GitHub', cat:'cloud', icon:'github', color:'#0f172a', desc:'Repos, PRs, issues, actions', stars:4.9, installs:'15k', installed:false},
-  {id:'m5', name:'Slack', cat:'cloud', icon:'message-square', color:'#e11d48', desc:'Channels, messages, threads', stars:4.6, installs:'9k', installed:false},
-  {id:'m6', name:'Notion', cat:'fs', icon:'book-open', color:'#000', desc:'Pages, databases, blocks', stars:4.5, installs:'5.2k', installed:false},
-  {id:'m7', name:'Redis', cat:'db', icon:'layers', color:'#dc2626', desc:'Cache, pub/sub, streams', stars:4.7, installs:'4k', installed:false},
-  {id:'m8', name:'Puppeteer', cat:'cloud', icon:'globe', color:'#7c3aed', desc:'Browser automation & scraping', stars:4.8, installs:'7k', installed:false},
+const MARKET = JSON.parse(localStorage.getItem('mcp_market')||'null') || [
+  {id:'m1', name:'Postgres Pro', cat:'db', icon:'database', color:'#334155', desc:'Advanced SQL with vector search, migrations & pgvector support', author:'modelcontextprotocol', version:'2.1.0', stars:4.9, installs:12400, installed:true, featured:true, trending:true, isNew:false, tags:['postgres','sql','vector'], tools:['query','list_tables','describe_schema'], updated:'2024-10-12', verified:true},
+  {id:'m2', name:'AWS Suite', cat:'cloud', icon:'cloud', color:'#ff9900', desc:'S3, EC2, Lambda, CloudWatch unified with MFA support', author:'aws', version:'1.8.3', stars:4.8, installs:8400, installed:true, featured:true, trending:true, isNew:false, tags:['aws','s3','ec2'], tools:['s3_list','ec2_status','lambda_invoke'], updated:'2024-10-20', verified:true},
+  {id:'m3', name:'Filesystem', cat:'fs', icon:'folder', color:'#2563eb', desc:'Secure local file access with sandboxing & watcher', author:'modelcontextprotocol', version:'1.4.2', stars:4.7, installs:6100, installed:true, featured:false, trending:false, isNew:false, tags:['fs','local','watch'], tools:['read','write','list'], updated:'2024-09-28', verified:true},
+  {id:'m4', name:'GitHub', cat:'dev', icon:'github', color:'#0f172a', desc:'Repos, PRs, issues, actions, code search', author:'github', version:'3.0.1', stars:4.9, installs:15200, installed:false, featured:true, trending:true, isNew:false, tags:['git','pr','actions'], tools:['list_repos','create_pr','search_code'], updated:'2024-10-18', verified:true},
+  {id:'m5', name:'Slack', cat:'cloud', icon:'message-square', color:'#e11d48', desc:'Channels, messages, threads, reactions & workflows', author:'slack', version:'1.2.5', stars:4.6, installs:9000, installed:false, featured:false, trending:false, isNew:true, tags:['chat','slack'], tools:['list_channels','post_message'], updated:'2024-10-22', verified:false},
+  {id:'m6', name:'Notion', cat:'fs', icon:'book-open', color:'#000', desc:'Pages, databases, blocks, comments API', author:'notion', version:'0.9.4', stars:4.5, installs:5200, installed:false, featured:false, trending:false, isNew:true, tags:['notion','docs'], tools:['query_db','create_page'], updated:'2024-10-05', verified:false},
+  {id:'m7', name:'Redis', cat:'db', icon:'layers', color:'#dc2626', desc:'Cache, pub/sub, streams & cluster management', author:'redis', version:'1.1.0', stars:4.7, installs:4100, installed:false, featured:false, trending:true, isNew:false, tags:['redis','cache'], tools:['get','set','publish'], updated:'2024-09-15', verified:true},
+  {id:'m8', name:'Puppeteer', cat:'dev', icon:'globe', color:'#7c3aed', desc:'Browser automation, scraping & PDF gen', author:'browser', version:'2.3.0', stars:4.8, installs:7300, installed:false, featured:false, trending:true, isNew:false, tags:['browser','scrape'], tools:['navigate','screenshot','pdf'], updated:'2024-10-10', verified:true},
+  {id:'m9', name:'Stripe', cat:'cloud', icon:'credit-card', color:'#635bff', desc:'Payments, customers, subscriptions, invoices', author:'stripe', version:'1.0.2', stars:4.8, installs:6800, installed:false, featured:false, trending:false, isNew:true, tags:['payments','stripe'], tools:['list_customers','create_charge'], updated:'2024-10-23', verified:true},
+  {id:'m10', name:'Linear', cat:'dev', icon:'target', color:'#5e6ad2', desc:'Issues, projects, cycles, roadmap sync', author:'linear', version:'1.3.1', stars:4.6, installs:3100, installed:false, featured:false, trending:false, isNew:false, tags:['linear','issues'], tools:['list_issues','create_issue'], updated:'2024-09-30', verified:false},
 ];
+const saveMarket = ()=> localStorage.setItem('mcp_market', JSON.stringify(MARKET));
 
 const PROMPTS = [
   {cat:'MCP', title:'SQL audit', prompt:'Query the remote PostgreSQL database for the last 5 user registrations and format as a table.', icon:'database'},
@@ -942,34 +954,151 @@ function detect(q){
   return 'general';
 }
 
-// Marketplace
+// Marketplace — Discover (enhanced)
 function renderMarket(){
   const q=(marketSearch.value||'').toLowerCase();
-  const f=marketFilter.value;
-  const filtered=MARKET.filter(m=> (!q||m.name.toLowerCase().includes(q)||m.desc.toLowerCase().includes(q)) && (f==='all'||m.cat===f));
-  marketGrid.innerHTML=filtered.map(m=>`
-    <div class="mkt-card">
-      <div class="mkt-head"><span class="ic" style="background:${m.color}"><i data-lucide="${m.icon}" style="width:16px;height:16px"></i></span><div><b>${esc(m.name)}</b><p>${esc(m.cat)} • ${m.installs}</p></div><span style="margin-left:auto;font-size:11px;background:#f1f5f9;padding:4px 8px;border-radius:999px">${m.stars} ★</span></div>
+  const cat=marketFilter.value;
+  const sort=marketSort.value;
+  let filtered=MARKET.filter(m=>{
+    const matchSearch = !q || m.name.toLowerCase().includes(q) || m.desc.toLowerCase().includes(q) || m.tags.some(t=>t.includes(q)) || m.author.toLowerCase().includes(q);
+    const matchCat = cat==='all' || m.cat===cat;
+    const matchTab = activeMarketTab==='all' || (activeMarketTab==='featured'&&m.featured) || (activeMarketTab==='trending'&&m.trending) || (activeMarketTab==='new'&&m.isNew) || (activeMarketTab==='installed'&&m.installed);
+    return matchSearch && matchCat && matchTab;
+  });
+  // sort
+  if(sort==='popular') filtered.sort((a,b)=> b.installs - a.installs);
+  else if(sort==='rating') filtered.sort((a,b)=> b.stars - a.stars);
+  else if(sort==='new') filtered.sort((a,b)=> new Date(b.updated)-new Date(a.updated));
+  else if(sort==='name') filtered.sort((a,b)=> a.name.localeCompare(b.name));
+  // tabs UI
+  if(marketTabs){
+    marketTabs.querySelectorAll('button').forEach(b=> b.classList.toggle('active', b.dataset.tab===activeMarketTab));
+    marketTabs.querySelectorAll('button').forEach(b=>{
+      if(b.dataset.tab===activeMarketTab){ b.style.background='var(--text)'; b.style.color='#fff'; b.style.borderColor='var(--text)'; }
+      else { b.style.background='#fff'; b.style.color='var(--muted)'; b.style.borderColor='var(--line)'; }
+    });
+  }
+  if(marketCount) marketCount.textContent = `${filtered.length} servers`;
+  if(marketInstalledCount) marketInstalledCount.textContent = `${MARKET.filter(m=>m.installed).length} installed`;
+  marketGrid.innerHTML = filtered.map(m=>{
+    const installs = m.installs>=1000 ? (m.installs/1000).toFixed(1)+'k' : String(m.installs);
+    return `
+    <div class="mkt-card ${m.featured?'featured':''}" data-detail="${m.id}">
+      <div class="mkt-head"><span class="ic" style="background:${m.color}"><i data-lucide="${m.icon}" style="width:16px;height:16px"></i></span>
+        <div style="flex:1;min-width:0"><b>${esc(m.name)} ${m.verified?'<span title="Verified" style="background:#eff6ff;color:var(--primary);border:1px solid #dbeafe;padding:1px 5px;border-radius:999px;font-size:9px">✓</span>':''}</b>
+        <p>${esc(m.author)} • v${esc(m.version)} • ${esc(m.cat)}</p></div>
+        <span style="font-size:11px;background:#fff;border:1px solid var(--line);padding:4px 8px;border-radius:999px;font-weight:700">${m.stars} ★</span>
+      </div>
       <p class="mkt-desc">${esc(m.desc)}</p>
-      <div class="mkt-foot"><span class="stars">${'★'.repeat(5)}</span><button class="${m.installed?'ghost-btn sm':'primary-btn sm'}" data-install="${m.id}">${m.installed?'Installed':'Install'}</button></div>
-    </div>
-  `).join('') || `<p style="grid-column:1/-1;text-align:center;color:#94a3b8;padding:12px">No results</p>`;
+      <div class="mkt-meta">${m.tags.map(t=>`<span class="mkt-tag">${esc(t)}</span>`).join('')}</div>
+      <div class="mkt-foot">
+        <span class="installs"><i data-lucide="download" style="width:11px;height:11px"></i> ${installs}</span>
+        <span style="font-size:11px;color:var(--faint);font-family:var(--mono)">${new Date(m.updated).toLocaleDateString()}</span>
+        <button class="${m.installed?'ghost-btn sm':'primary-btn sm'}" data-install="${m.id}" style="margin-left:auto" onclick="event.stopPropagation()">${m.installed?'Installed':'Install'}</button>
+      </div>
+      ${m.installing?`<div class="install-progress"><span style="width:${m.progress||0}%"></span></div>`:''}
+    </div>`;
+  }).join('') || `<div style="grid-column:1/-1;text-align:center;padding:28px;background:#fff;border:1px dashed var(--line);border-radius:14px"><i data-lucide="search-x" style="width:28px;height:28px;color:#cbd5e1"></i><p style="margin:8px 0 0;font-weight:700">No servers found</p><p style="margin:4px 0 0;font-size:12px;color:var(--muted)">Try adjusting search, category or tab</p><button class="ghost-btn sm" onclick="document.getElementById('marketSearch').value=''; document.getElementById('marketFilter').value='all'; document.getElementById('activeMarketTab')&& (activeMarketTab='all'); renderMarket();" style="margin-top:10px">Clear filters</button></div>`;
   refreshIcons();
+}
+function openMarketDetail(id){
+  const m=MARKET.find(x=>x.id===id); if(!m) return;
+  const installs = m.installs>=1000 ? (m.installs/1000).toFixed(1)+'k' : String(m.installs);
+  marketDetailContent.innerHTML = `
+    <div class="market-detail-hero">
+      <div style="display:flex;gap:12px;align-items:center">
+        <span class="ic" style="background:${m.color};width:48px;height:48px;border-radius:12px;display:grid;place-items:center;color:#fff"><i data-lucide="${m.icon}" style="width:22px;height:22px"></i></span>
+        <div><h3 style="margin:0;font-size:18px;font-weight:800">${esc(m.name)} ${m.verified?'<span style="background:#22c55e;color:#fff;padding:2px 6px;border-radius:999px;font-size:10px">Verified</span>':''}</h3><p style="margin:4px 0 0;font-size:12px;opacity:.8">${esc(m.author)} • v${esc(m.version)} • updated ${new Date(m.updated).toLocaleDateString()} • ${installs} installs</p></div>
+        <button class="icon-btn" id="closeMarketDetail" style="margin-left:auto;background:rgba(255,255,255,.12);color:#fff"><i data-lucide="x"></i></button>
+      </div>
+      <p style="margin:12px 0 0;font-size:13px;line-height:1.6;opacity:.9">${esc(m.desc)}</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">${m.tags.map(t=>`<span style="background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.14);padding:4px 8px;border-radius:999px;font-size:11px;font-family:var(--mono)">${esc(t)}</span>`).join('')}</div>
+    </div>
+    <div class="market-detail-body">
+      <div style="display:flex;gap:8px"><span style="font-size:12px;font-weight:700;background:#f1f5f9;padding:6px 10px;border-radius:999px;border:1px solid var(--line)"><i data-lucide="star" style="width:12px;height:12px;color:#f59e0b"></i> ${m.stars} rating</span><span style="font-size:12px;background:#fff;border:1px solid var(--line);padding:6px 10px;border-radius:999px">${esc(m.cat)} • ${m.tools.length} tools</span><span style="margin-left:auto;font-size:11px;color:var(--muted);font-family:var(--mono)">${m.installs} installs</span></div>
+      <div>
+        <h4 style="margin:0 0 8px;font-size:12px;letter-spacing:.06em;color:var(--muted)">TOOLS</h4>
+        <ul class="market-tools">${m.tools.map(t=>`<li><i data-lucide="wrench" style="width:12px;height:12px;color:var(--primary)"></i> ${esc(t)} <span style="margin-left:auto;font-size:11px;color:var(--faint)">via ${esc(m.name)}</span></li>`).join('')}</ul>
+      </div>
+      <div style="background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px;font-family:var(--mono);font-size:11px;line-height:1.6">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-weight:700;letter-spacing:.06em;color:#93c5fd">INSTALL</span><button class="ghost-btn sm" id="copyInstall" style="background:#1e293b;color:#e2e8f0;border-color:#334155;padding:4px 8px;font-size:11px"><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button></div>
+        <div>npx @modelcontextprotocol/server-${esc(m.name.toLowerCase().replace(/\s/g,'-'))}</div>
+        <div style="color:#86efac">wss://${esc(m.name.toLowerCase().replace(/\s/g,''))}.mcp.local/sse</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="${m.installed?'ghost-btn':'primary-btn'}" id="detailInstall" data-install="${m.id}" style="flex:1;justify-content:center">${m.installed?'<i data-lucide="check" style="width:14px;height:14px"></i> Installed':'<i data-lucide="download" style="width:14px;height:14px"></i> Install'}</button>
+        <button class="ghost-btn" id="detailConnect" ${!m.installed?'disabled':''} style="flex:1;justify-content:center"><i data-lucide="plug" style="width:14px;height:14px"></i> ${m.installed?'Connect':'Install first'}</button>
+      </div>
+      ${m.installing?`<div class="install-progress"><span style="width:${m.progress||0}%"></span></div><p style="font-size:11px;color:var(--muted);text-align:center;margin:4px 0 0">${m.progress}% installing…</p>`:''}
+    </div>
+  `;
+  marketDetailModal.classList.remove('hidden');
+  refreshIcons();
+  // detail listeners
+  $('#closeMarketDetail')?.addEventListener('click', ()=> marketDetailModal.classList.add('hidden'));
+  $('#copyInstall')?.addEventListener('click', ()=>{ navigator.clipboard.writeText(`npx @modelcontextprotocol/server-${m.name.toLowerCase().replace(/\s/g,'-')}`); toast('Copied install command'); });
+  $('#detailInstall')?.addEventListener('click', e=>{
+    const id=e.currentTarget.dataset.install;
+    handleInstall(id);
+    // update detail button
+    setTimeout(()=> openMarketDetail(id), 400);
+  });
+  $('#detailConnect')?.addEventListener('click', ()=>{
+    if(!m.installed) return toast('Install first');
+    // find server and connect
+    const srv=servers.find(s=> s.name===m.name.toLowerCase().replace(/\s/g,'-') || s.name===m.name);
+    if(srv) toggle(srv.id, true);
+    else toast('Server not found — installing…');
+    marketDetailModal.classList.add('hidden');
+  });
+}
+async function handleInstall(id){
+  const m=MARKET.find(x=>x.id===id);
+  if(!m || m.installed) { if(m?.installed) toast(`${m.name} already installed`); return; }
+  m.installing=true; m.progress=0; renderMarket();
+  // simulate progress
+  for(let p=0; p<=100; p+= 20){
+    await new Promise(r=>setTimeout(r, 180));
+    m.progress=p; renderMarket();
+    if(marketDetailModal && !marketDetailModal.classList.contains('hidden')) {
+      const bar=marketDetailContent.querySelector('.install-progress span');
+      if(bar) bar.style.width=p+'%';
+    }
+  }
+  m.installing=false; m.progress=100; m.installed=true; saveMarket();
+  const nid='srv'+Date.now();
+  const col=m.cat==='db'?'pg': m.cat==='cloud'?'aws': m.cat==='ai'?'pg' : m.cat==='dev'?'custom':'fs';
+  servers.push({id:nid, name:m.name.toLowerCase().replace(/\s/g,'-'), transport:'sse', endpoint:`wss://${m.name.toLowerCase().replace(/\s/g,'')}.mcp.local/sse`, tools:m.tools.join(', '), status:'disconnected', color:col});
+  saveServers(); renderServers();
+  renderMarket(); toast(`${m.name} installed — connect in MCP servers ✓`);
 }
 marketSearch.addEventListener('input', renderMarket);
 marketFilter.addEventListener('change', renderMarket);
-marketGrid.addEventListener('click', e=>{
-  const b=e.target.closest('[data-install]'); if(!b) return;
-  const id=b.dataset.install; const m=MARKET.find(x=>x.id===id);
-  if(m.installed){ toast(`${m.name} already installed`); return; }
-  m.installed=true;
-  // add to servers
-  const nid='srv'+Date.now();
-  const col=m.cat==='db'?'pg': m.cat==='cloud'?'aws':'fs';
-  servers.push({id:nid, name:m.name.toLowerCase().replace(/\s/g,'-'), transport:'sse', endpoint:`wss://${m.name.toLowerCase()}.mcp.local/sse`, tools:'auto', status:'disconnected', color:col});
-  saveServers(); renderServers();
-  renderMarket(); toast(`${m.name} installed — connect in MCP servers`);
+marketSort?.addEventListener('change', renderMarket);
+marketTabs?.addEventListener('click', e=>{
+  const b=e.target.closest('[data-tab]'); if(!b) return;
+  activeMarketTab=b.dataset.tab;
+  localStorage.setItem('marketTab', activeMarketTab);
+  renderMarket();
 });
+refreshMarket?.addEventListener('click', ()=>{ // mock refresh
+  refreshMarket.innerHTML=`<i data-lucide="loader-2" style="width:11px;height:11px"></i> Syncing…`;
+  refreshIcons();
+  setTimeout(()=>{ refreshMarket.innerHTML=`<i data-lucide="refresh-cw" style="width:11px;height:11px"></i> Refresh`; refreshIcons(); toast('Registry synced • 10 servers'); renderMarket(); }, 900);
+});
+document.getElementById('marketInfoBtn')?.addEventListener('click', ()=> toast('Visit registry.modelcontextprotocol.io'));
+marketGrid.addEventListener('click', e=>{
+  const card=e.target.closest('[data-detail]');
+  const btn=e.target.closest('[data-install]');
+  if(btn){
+    e.stopPropagation();
+    handleInstall(btn.dataset.install);
+    return;
+  }
+  if(card) openMarketDetail(card.dataset.detail);
+});
+marketDetailBackdrop?.addEventListener('click', ()=> marketDetailModal.classList.add('hidden'));
+document.getElementById('closeMarketplace')?.addEventListener('click', ()=> document.getElementById('marketplaceView').classList.add('hidden'));
 
 // Prompts
 const promptCatsEl=promptCats, promptGridEl=promptGrid;
