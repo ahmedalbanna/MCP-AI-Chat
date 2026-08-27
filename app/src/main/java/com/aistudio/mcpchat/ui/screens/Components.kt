@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
@@ -50,16 +49,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
 import com.aistudio.mcpchat.data.model.McpToolCall
@@ -553,11 +554,16 @@ private fun parseInlineMarkdown(text: String): androidx.compose.ui.text.Annotate
                         val label = text.substring(linkStart + 1, linkEnd)
                         val url = text.substring(parenStart + 1, parenEnd)
                         if (url.startsWith("http://") || url.startsWith("https://")) {
-                            pushStringAnnotation(tag = "URL", annotation = url)
-                            withStyle(SpanStyle(color = CyanSecondary, fontWeight = FontWeight.Medium)) {
+                            withLink(
+                                LinkAnnotation.Url(
+                                    url = url,
+                                    styles = TextLinkStyles(
+                                        style = SpanStyle(color = CyanSecondary, fontWeight = FontWeight.Medium),
+                                    ),
+                                ),
+                            ) {
                                 append(label)
                             }
-                            pop()
                         } else {
                             append(text.substring(linkStart, parenEnd + 1))
                         }
@@ -576,11 +582,9 @@ private fun parseInlineMarkdown(text: String): androidx.compose.ui.text.Annotate
     }
 }
 
-@Suppress("DEPRECATION")
 @Composable
 private fun InlineMarkdownText(annotatedString: androidx.compose.ui.text.AnnotatedString, modifier: Modifier = Modifier) {
-    val uriHandler = LocalUriHandler.current
-    ClickableText(
+    Text(
         text = annotatedString,
         style = androidx.compose.ui.text.TextStyle(
             fontSize = 14.sp,
@@ -588,14 +592,6 @@ private fun InlineMarkdownText(annotatedString: androidx.compose.ui.text.Annotat
             lineHeight = 20.sp,
         ),
         modifier = modifier,
-        onClick = { offset ->
-            annotatedString.getStringAnnotations(tag = "URL", start = offset, end = offset)
-                .firstOrNull()?.let { annotation ->
-                    try {
-                        uriHandler.openUri(annotation.item)
-                    } catch (_: Exception) { }
-                }
-        },
     )
 }
 
