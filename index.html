@@ -89,6 +89,7 @@
           <button class="icon-btn" id="menuBtn"><i data-lucide="menu"></i></button>
           <div class="crumb"><span id="crumbTitle">MCP Chat</span><span class="live"><span class="dot"></span> Live</span></div>
           <div class="agent-modes" id="agentModes"></div>
+          <button class="icon-btn sm" id="manageModesBtn" title="Manage agent modes" style="border:1px solid var(--line);background:#fff"><i data-lucide="sliders-horizontal" style="width:14px;height:14px"></i></button>
           <div class="provider-pill" id="providerPill" title="AI Provider settings" role="button" tabindex="0" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;box-shadow:var(--shadow-xs)"><i data-lucide="sparkles" style="width:14px;height:14px;color:var(--primary)"></i><span id="providerPillName">Claude 3.5</span><span style="color:var(--faint);font-weight:500" id="providerPillMeta">Anthropic</span><i data-lucide="chevron-down" style="width:12px;height:12px;color:var(--faint)"></i></div>
         </div>
         <div class="topbar-right">
@@ -225,6 +226,62 @@
       <div class="modal-backdrop" id="marketDetailBackdrop"></div>
       <div class="modal-card" style="width:560px;max-height:85vh;overflow:auto">
         <div id="marketDetailContent"></div>
+      </div>
+    </div>
+
+    <!-- Agent Modes Drawer -->
+    <div class="drawer hidden" id="modesView" role="dialog" aria-modal="true">
+      <div class="drawer-backdrop" id="modesBackdrop"></div>
+      <div class="drawer-panel wide" style="width:640px">
+        <div class="drawer-head"><h2><i data-lucide="bot"></i> Agent Modes</h2><div style="display:flex;gap:8px"><button class="ghost-btn sm" id="importModesBtn"><i data-lucide="upload" style="width:12px;height:12px"></i> Import</button><input type="file" id="importModesFile" hidden accept=".json" /><button class="ghost-btn sm" id="exportModesBtn"><i data-lucide="download" style="width:12px;height:12px"></i> Export</button><button class="primary-btn sm" id="addModeBtn"><i data-lucide="plus" style="width:12px;height:12px"></i> New mode</button><button class="icon-btn" id="closeModes"><i data-lucide="x"></i></button></div></div>
+        <div class="drawer-body">
+          <div class="panel-card" style="background:linear-gradient(135deg,#eff6ff 0%, #f5f3ff 100%);border-color:#dbeafe"><div style="display:flex;gap:10px;align-items:center"><i data-lucide="sparkles" style="width:18px;height:18px;color:var(--primary)"></i><div><b style="font-size:13px">Active: <span id="activeModeName">Chat</span></b><p style="margin:2px 0 0;font-size:12px;color:var(--muted)" id="activeModeDesc">General chat — balanced, helpful</p></div><span id="activeModeBadge" style="margin-left:auto;background:var(--text);color:#fff;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:700">ACTIVE</span></div></div>
+          <div class="search-row"><i data-lucide="search"></i><input id="modeSearch" placeholder="Search modes…" /><select id="modeFilter" style="border:none;background:transparent;font-size:12px;border-left:1px solid var(--line);padding-left:8px"><option value="all">All</option><option value="built-in">Built-in</option><option value="custom">Custom</option></select></div>
+          <div id="modesGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px"></div>
+          <div class="panel-card"><h3>How modes work</h3><p style="font-size:12px;color:var(--muted);line-height:1.6;margin:0">Modes are system-prompt presets that control tone, tools and MCP servers. Each mode can override provider, temperature and allowed nodes. Switch instantly — your draft stays.</p><div style="display:flex;gap:8px;margin-top:10px"><span class="mono-badge"><i data-lucide="zap" style="width:11px;height:11px"></i> Fast switch</span><span class="mono-badge"><i data-lucide="shield" style="width:11px;height:11px"></i> Per-mode MCP</span><span class="mono-badge"><i data-lucide="sliders" style="width:11px;height:11px"></i> Custom prompts</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mode Edit Modal -->
+    <div class="modal hidden" id="modeModal" role="dialog" aria-modal="true">
+      <div class="modal-backdrop" id="modeModalBackdrop"></div>
+      <div class="modal-card" style="width:560px;max-height:90vh;overflow:auto">
+        <div class="modal-head"><h3 id="modeModalTitle">New Agent Mode</h3><button class="icon-btn" id="closeModeModal"><i data-lucide="x"></i></button></div>
+        <form id="modeForm" class="form" style="padding:16px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Name<input id="modeName" placeholder="Research" required /></label>
+            <label>ID <small style="color:var(--muted)">(slug)</small><input id="modeId" placeholder="research" required pattern="[a-z0-9-]+" /></label>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <label>Icon<select id="modeIcon"><option value="message-circle">💬 message</option><option value="code-2">💻 code</option><option value="search">🔍 search</option><option value="map">🗺 map</option><option value="pen-tool">✒ pen</option><option value="bar-chart-3">📊 chart</option><option value="shield">🛡 shield</option><option value="zap">⚡ zap</option><option value="bot">🤖 bot</option><option value="lightbulb">💡 bulb</option></select></label>
+            <label>Color<input id="modeColor" type="color" value="#2563eb" style="height:38px;padding:2px" /></label>
+            <label>Accent <select id="modeAccent"><option value="solid">Solid</option><option value="soft">Soft</option></select></label>
+          </div>
+          <label>Description<input id="modeDesc" placeholder="Deep research with citations" /></label>
+          <label>System prompt<textarea id="modePrompt" rows="4" placeholder="You are a helpful assistant… Use MCP tools when needed. Be concise." style="font-family:var(--mono);font-size:12px"></textarea></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Temperature <span id="modeTempVal" style="color:var(--primary)">0.7</span><input type="range" id="modeTemp" min="0" max="1" step="0.1" value="0.7" /></label>
+            <label>Max tokens<input id="modeTokens" type="number" value="4096" min="256" max="32000" step="256" /></label>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label>Provider override<select id="modeProvider"><option value="">Inherit (active)</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="google">Google</option><option value="local">Local</option></select></label>
+            <label>Model override<input id="modeModel" placeholder="e.g. gpt-4o" /></label>
+          </div>
+          <div style="border:1px solid var(--line);border-radius:12px;padding:12px;background:#f8fafc">
+            <strong style="font-size:12px">Allowed MCP servers</strong><p style="font-size:11px;color:var(--muted);margin:4px 0 8px">Leave empty to allow all. Select to restrict.</p>
+            <div id="modeServers" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+          </div>
+          <div style="border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff">
+            <strong style="font-size:12px">Tools</strong><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+              <label style="font-weight:500;font-size:12px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="modeToolSQL" checked /> SQL / DB</label>
+              <label style="font-weight:500;font-size:12px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="modeToolFS" checked /> File system</label>
+              <label style="font-weight:500;font-size:12px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="modeToolCloud" checked /> Cloud / S3</label>
+              <label style="font-weight:500;font-size:12px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="modeToolWeb" /> Web fetch</label>
+            </div>
+          </div>
+          <div class="form-actions"><button type="button" class="ghost-btn" id="cancelMode">Cancel</button><button type="button" class="ghost-btn" id="duplicateModeBtn" style="display:none"><i data-lucide="copy" style="width:12px;height:12px"></i> Duplicate</button><button type="submit" class="primary-btn">Save mode</button></div>
+        </form>
       </div>
     </div>
 

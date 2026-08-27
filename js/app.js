@@ -25,6 +25,43 @@ const crumbTitle = $('#crumbTitle');
 const providerSelect = $('#providerSelect');
 const modelSelect = $('#modelSelect');
 const agentModesEl = $('#agentModes');
+const manageModesBtn = $('#manageModesBtn');
+const modesView = $('#modesView');
+const modesBackdrop = $('#modesBackdrop');
+const closeModes = $('#closeModes');
+const modesGrid = $('#modesGrid');
+const modeSearch = $('#modeSearch');
+const modeFilter = $('#modeFilter');
+const addModeBtn = $('#addModeBtn');
+const exportModesBtn = $('#exportModesBtn');
+const importModesBtn = $('#importModesBtn');
+const importModesFile = $('#importModesFile');
+const activeModeName = $('#activeModeName');
+const activeModeDesc = $('#activeModeDesc');
+const activeModeBadge = $('#activeModeBadge');
+const modeModal = $('#modeModal');
+const modeModalBackdrop = $('#modeModalBackdrop');
+const closeModeModal = $('#closeModeModal');
+const cancelMode = $('#cancelMode');
+const duplicateModeBtn = $('#duplicateModeBtn');
+const modeForm = $('#modeForm');
+const modeName = $('#modeName');
+const modeId = $('#modeId');
+const modeIcon = $('#modeIcon');
+const modeColor = $('#modeColor');
+const modeAccent = $('#modeAccent');
+const modeDesc = $('#modeDesc');
+const modePrompt = $('#modePrompt');
+const modeTemp = $('#modeTemp');
+const modeTempVal = $('#modeTempVal');
+const modeTokens = $('#modeTokens');
+const modeProvider = $('#modeProvider');
+const modeModel = $('#modeModel');
+const modeServers = $('#modeServers');
+const modeToolSQL = $('#modeToolSQL');
+const modeToolFS = $('#modeToolFS');
+const modeToolCloud = $('#modeToolCloud');
+const modeToolWeb = $('#modeToolWeb');
 const undoBtn = $('#undoBtn');
 const redoBtn = $('#redoBtn');
 const convMenuBtn = $('#convMenuBtn');
@@ -196,12 +233,6 @@ let selectedModel = localStorage.getItem('model') || 'claude-3.5-sonnet';
 let selectedMode = localStorage.getItem('agentMode') || 'Chat';
 let fallbackProvider = localStorage.getItem('fallbackProvider') || 'openai';
 let globalTemp = parseFloat(localStorage.getItem('globalTemp')||'0.7');
-const MODES = [
-  {id:'Chat', icon:'message-circle', desc:'General chat'},
-  {id:'Code', icon:'code-2', desc:'Code assistant'},
-  {id:'Research', icon:'search', desc:'Deep research'},
-  {id:'Planning', icon:'map', desc:'Planning'},
-];
 const saveProviders = ()=> localStorage.setItem('mcp_providers', JSON.stringify(PROVIDERS));
 
 // Chats
@@ -470,16 +501,198 @@ providerForm?.addEventListener('submit', e=>{
   if(data.enabled){ selectedProvider=data.id; selectedModel=data.models[0]; localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); renderProviders(); renderMessages(); }
 });
 
-// Modes
+// Modes — enhanced with custom, prompts, servers, provider overrides
+const DEFAULT_MODES = [
+  {id:'Chat', name:'Chat', icon:'message-circle', color:'#2563eb', desc:'Balanced, helpful general assistant', prompt:'You are a helpful, concise assistant. Use MCP tools when needed.', temp:0.7, tokens:4096, provider:'', model:'', servers:[], tools:{sql:true, fs:true, cloud:true, web:false}, builtin:true},
+  {id:'Code', name:'Code', icon:'code-2', color:'#0f172a', desc:'Senior engineer — clean code, tests, review', prompt:'You are a senior software engineer. Produce clean, tested code. Prefer MCP: read files, run tools, explain diffs.', temp:0.2, tokens:8192, provider:'', model:'', servers:[], tools:{sql:true, fs:true, cloud:false, web:false}, builtin:true},
+  {id:'Research', name:'Research', icon:'search', color:'#7c3aed', desc:'Deep research with citations & MCP browsing', prompt:'You are a research assistant. Search, read, synthesize with citations. Use MCP tools to gather evidence.', temp:0.5, tokens:8192, provider:'', model:'', servers:[], tools:{sql:true, fs:true, cloud:true, web:true}, builtin:true},
+  {id:'Planning', name:'Planning', icon:'map', color:'#0891b2', desc:'Project planning, roadmap, todos & deps', prompt:'You are a planning assistant. Break goals into todos, identify deps, estimate, and track with checklists.', temp:0.4, tokens:4096, provider:'', model:'', servers:[], tools:{sql:false, fs:true, cloud:false, web:false}, builtin:true},
+  {id:'Write', name:'Write', icon:'pen-tool', color:'#db2777', desc:'Clear writing, editing, tone & structure', prompt:'You are an expert writer. Improve clarity, tone, structure. Be concise and engaging.', temp:0.8, tokens:4096, provider:'', model:'', servers:[], tools:{sql:false, fs:true, cloud:false, web:false}, builtin:true},
+  {id:'Debug', name:'Debug', icon:'bug', color:'#dc2626', desc:'Root-cause analysis, logs & fixes', prompt:'You are a debugging assistant. Analyze errors, logs, and MCP outputs to find root cause and fix.', temp:0.3, tokens:8192, provider:'', model:'', servers:[], tools:{sql:true, fs:true, cloud:true, web:false}, builtin:true},
+  {id:'Shield', name:'Shield', icon:'shield', color:'#16a34a', desc:'Secure, privacy-aware, minimal tools', prompt:'You are a security-aware assistant. Minimize tool use, avoid sensitive data, explain risks.', temp:0.3, tokens:4096, provider:'', model:'', servers:[], tools:{sql:false, fs:false, cloud:false, web:false}, builtin:true},
+  {id:'Creative', name:'Creative', icon:'palette', color:'#f59e0b', desc:'Brainstorm, ideas, variations & play', prompt:'You are a creative partner. Generate ideas, variations, playful tone. Use tools sparingly.', temp:0.9, tokens:4096, provider:'', model:'', servers:[], tools:{sql:false, fs:false, cloud:false, web:true}, builtin:true},
+];
+let MODES = JSON.parse(localStorage.getItem('mcp_modes')||'null') || DEFAULT_MODES;
+let editingModeId = null;
+const saveModes = ()=> localStorage.setItem('mcp_modes', JSON.stringify(MODES));
+function getMode(id){ return MODES.find(m=>m.id===id) || MODES[0]; }
+function getActiveMode(){ return getMode(selectedMode); }
 function renderModes(){
-  agentModesEl.innerHTML = MODES.map(m=>`<button class="mode-pill ${selectedMode===m.id?'active':''}" data-mode="${m.id}"><i data-lucide="${m.icon}" style="width:12px;height:12px"></i> ${m.id}</button>`).join('');
+  const active = getActiveMode();
+  // topbar pills — show first 5 + overflow
+  const visible = MODES.slice(0,5);
+  const overflow = MODES.length - visible.length;
+  agentModesEl.innerHTML = visible.map(m=>{
+    const isActive = selectedMode===m.id;
+    return `<button class="mode-pill ${isActive?'active':''} ${m.color?'colored':''}" data-mode="${m.id}" style="${isActive?`background:${m.color};border-color:${m.color};color:#fff`:`border-color:${m.color}20;color:${m.color}`}" title="${esc(m.desc)}"><i data-lucide="${m.icon}" style="width:12px;height:12px"></i> ${esc(m.name)}</button>`;
+  }).join('') + (overflow>0? `<span style="font-size:11px;color:var(--muted);padding:6px">+${overflow}</span>`:``) + ` <span style="margin-left:4px;font-size:11px;color:var(--faint);font-family:var(--mono);display:none" class="hide-mobile">${active ? esc(active.prompt.slice(0,24))+'…' : ''}</span>`;
   refreshIcons();
+  // update composer placeholder per mode
+  if(inputEl){
+    const placeholders = {
+      Chat:'Ask anything… type “/” for commands',
+      Code:'Ask to code, review, or refactor — I’ll use MCP tools',
+      Research:'Ask to research — I’ll search & cite with MCP',
+      Planning:'Describe goal — I’ll break into todos',
+      Write:'Ask to write or edit — tone & clarity',
+      Debug:'Paste error or logs — I’ll diagnose',
+      Shield:'Ask securely — minimal tools',
+      Creative:'Ask to brainstorm — ideas & variations'
+    };
+    inputEl.placeholder = placeholders[active.id] || `Ask ${active.name}… • type “/” for commands`;
+  }
+  // update profile role line
+  if(profileRole) profileRole.textContent = `${$('#profileRoleSelect')?.value || 'Admin'} • ${selectedModel} • ${active.name} mode`;
+  // filter MCP nodes visibility per mode's servers
+  if(active.servers && active.servers.length){
+    // highlight allowed servers in topNodes
+    $$('.node-pill').forEach(el=>{
+      const id=el.dataset.id;
+      const s=servers.find(x=>x.id===id);
+      if(s && !active.servers.includes(s.name) && !active.servers.includes(s.id)){
+        el.style.opacity='.35'; el.title=`Not allowed in ${active.name} mode`;
+      } else {
+        el.style.opacity=''; el.title='';
+      }
+    });
+  } else {
+    $$('.node-pill').forEach(el=>{ el.style.opacity=''; el.title=''; });
+  }
+  // update active card in drawer
+  if(activeModeName) activeModeName.textContent = active.name;
+  if(activeModeDesc) activeModeDesc.textContent = active.desc;
+  if(activeModeBadge) activeModeBadge.textContent = active.name.toUpperCase();
+  if(liveModel) liveModel.textContent = `${selectedModel} • ${active.name}`;
+}
+function renderModesGrid(){
+  const q=(modeSearch?.value||'').toLowerCase();
+  const f=modeFilter?.value||'all';
+  let list=MODES;
+  if(q) list=list.filter(m=> m.name.toLowerCase().includes(q) || m.desc.toLowerCase().includes(q) || m.id.toLowerCase().includes(q) || m.prompt.toLowerCase().includes(q));
+  if(f==='built-in') list=list.filter(m=>m.builtin);
+  if(f==='custom') list=list.filter(m=>!m.builtin);
+  modesGrid.innerHTML = list.map(m=>{
+    const isActive=selectedMode===m.id;
+    return `<div class="mode-card ${isActive?'active':''}" data-mode-id="${m.id}">
+      <div class="mode-card-head">
+        <div class="mode-icon" style="background:${m.color}"><i data-lucide="${m.icon}" style="width:18px;height:18px"></i></div>
+        <div class="mode-meta"><b>${esc(m.name)} ${isActive?'<span style="background:var(--primary);color:#fff;font-size:10px;padding:2px 6px;border-radius:999px">ACTIVE</span>':''} ${m.builtin?'<span style="background:#f1f5f9;color:var(--muted);font-size:10px;padding:2px 6px;border-radius:999px;border:1px solid var(--line)">BUILT-IN</span>':''}</b><p>${esc(m.desc)}</p></div>
+        <label class="switch" title="Select"><input type="radio" name="modeActive" ${isActive?'checked':''} data-mode-radio="${m.id}"><span></span></label>
+      </div>
+      <div class="mode-badges">
+        <span class="mode-badge" style="border-color:${m.color}30;color:${m.color}">temp ${m.temp}</span>
+        <span class="mode-badge">${m.tokens} tok</span>
+        ${m.provider?`<span class="mode-badge" style="background:var(--primary-ghost);color:var(--primary)">${esc(m.provider)}</span>`:''}
+        ${m.servers?.length?`<span class="mode-badge">${m.servers.length} MCP</span>`:''}
+        ${Object.values(m.tools||{}).filter(Boolean).length?`<span class="mode-badge">${Object.values(m.tools).filter(Boolean).length} tools</span>`:''}
+      </div>
+      <div style="font-family:var(--mono);font-size:11px;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)">${esc(m.prompt.slice(0,72))}…</div>
+      <div class="mode-card-actions">
+        <button class="ghost-btn sm" data-mode-use="${m.id}"><i data-lucide="play" style="width:12px;height:12px"></i> Use</button>
+        <button class="ghost-btn sm" data-mode-edit="${m.id}"><i data-lucide="pencil" style="width:12px;height:12px"></i> Edit</button>
+        <button class="ghost-btn sm" data-mode-dup="${m.id}"><i data-lucide="copy" style="width:12px;height:12px"></i></button>
+        <button class="icon-btn sm" data-mode-del="${m.id}" style="color:var(--bad)" ${m.builtin?'disabled title="Built-in cannot be deleted"':''}><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>
+      </div>
+    </div>`;
+  }).join('') || `<p style="grid-column:1/-1;text-align:center;color:var(--faint);padding:20px;background:#fff;border:1px dashed var(--line);border-radius:12px">No modes match<br><small>Try another search</small></p>`;
+  refreshIcons();
+}
+function openModesView(){ modesView.classList.remove('hidden'); renderModesGrid(); refreshIcons(); }
+function populateModeServers(){
+  if(!modeServers) return;
+  const active= editingModeId ? MODES.find(m=>m.id===editingModeId) : null;
+  const selected = active ? (active.servers||[]) : [];
+  modeServers.innerHTML = servers.map(s=>`
+    <label style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);padding:6px 8px;border-radius:999px;font-size:12px;cursor:pointer">
+      <input type="checkbox" value="${esc(s.id)}" data-mode-server ${selected.includes(s.id)||selected.includes(s.name)?'checked':''} /> ${esc(s.name)}
+    </label>
+  `).join('') || `<span style="font-size:11px;color:var(--faint)">No servers yet</span>`;
 }
 agentModesEl.addEventListener('click', e=>{
   const b=e.target.closest('[data-mode]'); if(!b) return;
-  selectedMode=b.dataset.mode; localStorage.setItem('agentMode', selectedMode); renderModes(); renderProviders();
-  toast(`Agent mode: ${selectedMode}`);
+  selectedMode=b.dataset.mode; localStorage.setItem('agentMode', selectedMode);
+  const m=getMode(selectedMode);
+  // apply provider/model override if set
+  if(m.provider){
+    const p=PROVIDERS.find(x=>x.id===m.provider);
+    if(p && p.enabled){ selectedProvider=p.id; localStorage.setItem('provider', selectedProvider); if(m.model){ selectedModel=m.model; localStorage.setItem('model', selectedModel); } renderProviders(); }
+  }
+  renderModes(); renderModesGrid(); toast(`Mode: ${m.name} — ${m.desc}`);
 });
+manageModesBtn?.addEventListener('click', openModesView);
+modesBackdrop?.addEventListener('click', ()=> modesView.classList.add('hidden'));
+closeModes?.addEventListener('click', ()=> modesView.classList.add('hidden'));
+modeSearch?.addEventListener('input', renderModesGrid);
+modeFilter?.addEventListener('change', renderModesGrid);
+modesGrid?.addEventListener('click', e=>{
+  const use=e.target.closest('[data-mode-use]'); if(use){ selectedMode=use.dataset.modeUse; localStorage.setItem('agentMode', selectedMode); renderModes(); renderModesGrid(); const m=getMode(selectedMode); if(m.provider){ const p=PROVIDERS.find(x=>x.id===m.provider); if(p){ selectedProvider=p.id; localStorage.setItem('provider', p.id); if(m.model) { selectedModel=m.model; localStorage.setItem('model', m.model); } renderProviders(); } } toast(`Switched to ${getMode(selectedMode).name}`); return; }
+  const radio=e.target.closest('[data-mode-radio]'); if(radio){ selectedMode=radio.dataset.modeRadio; localStorage.setItem('agentMode', selectedMode); renderModes(); renderModesGrid(); return; }
+  const edit=e.target.closest('[data-mode-edit]'); if(edit){ openEditMode(edit.dataset.modeEdit); return; }
+  const dup=e.target.closest('[data-mode-dup]'); if(dup){ const src=MODES.find(m=>m.id===dup.dataset.modeDup); const copy={...JSON.parse(JSON.stringify(src)), id:src.id+'-copy', name:src.name+' Copy', builtin:false}; MODES.push(copy); saveModes(); renderModes(); renderModesGrid(); toast(`Duplicated ${src.name}`); return; }
+  const del=e.target.closest('[data-mode-del]'); if(del){ const id=del.dataset.modeDel; const m=MODES.find(x=>x.id===id); if(m.builtin) return toast('Built-in cannot be deleted'); if(confirm(`Delete mode "${m.name}"?`)){ MODES=MODES.filter(x=>x.id!==id); if(selectedMode===id){ selectedMode=MODES[0].id; localStorage.setItem('agentMode', selectedMode); } saveModes(); renderModes(); renderModesGrid(); toast('Mode deleted'); } return; }
+  const card=e.target.closest('.mode-card'); if(card && !e.target.closest('button') && !e.target.closest('input')){ const id=card.dataset.modeId; selectedMode=id; localStorage.setItem('agentMode', selectedMode); renderModes(); renderModesGrid(); }
+});
+addModeBtn?.addEventListener('click', ()=>{
+  editingModeId=null;
+  modeModalTitle.textContent='New Agent Mode';
+  modeName.value=''; modeId.value=''; modeIcon.value='message-circle'; modeColor.value='#2563eb'; modeAccent.value='solid'; modeDesc.value=''; modePrompt.value=''; modeTemp.value='0.7'; if(modeTempVal) modeTempVal.textContent='0.7'; modeTokens.value='4096'; modeProvider.value=''; modeModel.value=''; modeToolSQL.checked=true; modeToolFS.checked=true; modeToolCloud.checked=true; modeToolWeb.checked=false; populateModeServers(); duplicateModeBtn.style.display='none';
+  modeModal.classList.remove('hidden'); refreshIcons();
+});
+exportModesBtn?.addEventListener('click', ()=>{
+  const blob=new Blob([JSON.stringify(MODES,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='mcp-modes.json'; a.click(); URL.revokeObjectURL(url); toast('Modes exported');
+});
+importModesBtn?.addEventListener('click', ()=> importModesFile.click());
+importModesFile?.addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=()=>{ try{ const arr=JSON.parse(r.result); if(Array.isArray(arr)){ MODES=arr; saveModes(); renderModes(); renderModesGrid(); toast('Modes imported'); } else toast('Invalid file'); } catch{ toast('Invalid JSON'); } }; r.readAsText(f); e.target.value='';
+});
+function openEditMode(id){
+  const m=MODES.find(x=>x.id===id); if(!m) return;
+  editingModeId=id;
+  modeModalTitle.textContent='Edit Mode — '+m.name;
+  modeName.value=m.name; modeId.value=m.id; modeId.disabled=true; modeIcon.value=m.icon; modeColor.value=m.color; modeAccent.value=m.accent||'solid'; modeDesc.value=m.desc; modePrompt.value=m.prompt; modeTemp.value=String(m.temp); if(modeTempVal) modeTempVal.textContent=String(m.temp); modeTokens.value=String(m.tokens); modeProvider.value=m.provider||''; modeModel.value=m.model||''; modeToolSQL.checked=!!m.tools.sql; modeToolFS.checked=!!m.tools.fs; modeToolCloud.checked=!!m.tools.cloud; modeToolWeb.checked=!!m.tools.web; populateModeServers(); duplicateModeBtn.style.display='';
+  modeModal.classList.remove('hidden'); refreshIcons();
+}
+modeTemp?.addEventListener('input', e=>{ if(modeTempVal) modeTempVal.textContent=e.target.value; });
+closeModeModal?.addEventListener('click', ()=> modeModal.classList.add('hidden'));
+modeModalBackdrop?.addEventListener('click', ()=> modeModal.classList.add('hidden'));
+cancelMode?.addEventListener('click', ()=> modeModal.classList.add('hidden'));
+duplicateModeBtn?.addEventListener('click', ()=>{
+  if(!editingModeId) return;
+  const src=MODES.find(m=>m.id===editingModeId);
+  const copy={...JSON.parse(JSON.stringify(src)), id:src.id+'-copy', name:src.name+' Copy', builtin:false};
+  MODES.push(copy); saveModes(); renderModes(); renderModesGrid(); modeModal.classList.add('hidden'); toast('Duplicated '+src.name);
+});
+modeForm?.addEventListener('submit', e=>{
+  e.preventDefault();
+  const id=modeId.value.trim().toLowerCase(), name=modeName.value.trim();
+  if(!id||!name) return toast('Name and ID required');
+  if(!/^[a-z0-9-]+$/.test(id)) return toast('ID must be lowercase slug');
+  if(!editingModeId && MODES.find(m=>m.id===id)) return toast('ID exists');
+  const selectedServers=[...modeServers.querySelectorAll('[data-mode-server]:checked')].map(el=>el.value);
+  const data={
+    id, name, icon:modeIcon.value, color:modeColor.value, accent:modeAccent.value,
+    desc:modeDesc.value.trim(), prompt:modePrompt.value.trim()||'You are a helpful assistant.',
+    temp:parseFloat(modeTemp.value)||0.7, tokens:parseInt(modeTokens.value)||4096,
+    provider:modeProvider.value, model:modeModel.value.trim(),
+    servers:selectedServers,
+    tools:{sql:!!modeToolSQL.checked, fs:!!modeToolFS.checked, cloud:!!modeToolCloud.checked, web:!!modeToolWeb.checked},
+    builtin:false
+  };
+  if(editingModeId){
+    const idx=MODES.findIndex(m=>m.id===editingModeId);
+    data.id=editingModeId;
+    MODES[idx]={...MODES[idx], ...data, id:editingModeId};
+    toast(`${name} updated`);
+  } else {
+    MODES.push(data);
+    toast(`${name} created`);
+  }
+  saveModes(); renderModes(); renderModesGrid(); modeModal.classList.add('hidden');
+  selectedMode=data.id; localStorage.setItem('agentMode', selectedMode); renderModes();
+});
+
 
 // Chats
 function getActiveChat(){ return chats.find(c=>c.id===activeChatId); }
@@ -1790,7 +2003,7 @@ $$('.quick-card, .tool').forEach(b=>{
 menuBtn.addEventListener('click', ()=> sidebar.classList.add('open'));
 sidebarClose.addEventListener('click', ()=> sidebar.classList.remove('open'));
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){ settingsView.classList.add('hidden'); serverModal.classList.add('hidden'); toolsModal.classList.add('hidden'); marketplaceView.classList.add('hidden'); promptsView.classList.add('hidden'); profileView.classList.add('hidden'); providerView.classList.add('hidden'); providerModal.classList.add('hidden'); serverDetailModal.classList.add('hidden'); marketDetailModal.classList.add('hidden'); editMsgModal.classList.add('hidden'); hideSlash(); sidebar.classList.remove('open'); convMenu.classList.add('hidden'); }
+  if(e.key==='Escape'){ settingsView.classList.add('hidden'); serverModal.classList.add('hidden'); toolsModal.classList.add('hidden'); marketplaceView.classList.add('hidden'); promptsView.classList.add('hidden'); profileView.classList.add('hidden'); providerView.classList.add('hidden'); providerModal.classList.add('hidden'); serverDetailModal.classList.add('hidden'); marketDetailModal.classList.add('hidden'); modesView.classList.add('hidden'); modeModal.classList.add('hidden'); liveOverlay.classList.add('hidden'); editMsgModal.classList.add('hidden'); hideSlash(); sidebar.classList.remove('open'); convMenu.classList.add('hidden'); }
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); openSettings(); }
 });
 
