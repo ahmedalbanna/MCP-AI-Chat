@@ -149,8 +149,6 @@ const serverSearch = $('#serverSearch');
 const serversList = $('#serversList');
 const addServerBtn = $('#addServerBtn');
 const addServerSidebar = $('#addServerSidebar');
-const sidebarManageBtn = $('#sidebarManageBtn');
-const sidebarMarketplaceBtn = $('#sidebarMarketplaceBtn');
 const closeSettings = $('#closeSettings');
 const serversBtn = $('#serversBtn');
 const settingsBtn = $('#settingsBtn'); // may be null (legacy id) — guarded
@@ -1920,9 +1918,7 @@ function openSettings(){ settingsView?.classList.remove('hidden'); refreshIcons(
 function closeSettingsView(){ settingsView?.classList.add('hidden'); }
 serversBtn?.addEventListener('click', openSettings);
 settingsBtn?.addEventListener('click', openSettings);
-sidebarManageBtn?.addEventListener('click', openSettings);
 marketplaceBtn?.addEventListener('click', ()=>{ marketplaceView?.classList.remove('hidden'); renderMarket(); refreshIcons(); });
-sidebarMarketplaceBtn?.addEventListener('click', ()=>{ marketplaceView?.classList.remove('hidden'); renderMarket(); refreshIcons(); });
 promptLibraryBtn?.addEventListener('click', ()=>{ promptsView?.classList.remove('hidden'); renderPromptCats(); renderPromptGrid(); refreshIcons(); });
 showPromptsLink?.addEventListener('click', ()=> promptLibraryBtn.click());
 closeMarketplace?.addEventListener('click', ()=> marketplaceView?.classList.add('hidden'));
