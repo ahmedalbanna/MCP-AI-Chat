@@ -154,13 +154,15 @@ fun ChatScreen(
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    val chipsScrollState = rememberScrollState()
 
     var userHasScrolledUp by remember { mutableStateOf(false) }
 
     LaunchedEffect(messages.size, inProgressToolCalls.size) {
         if (!userHasScrolledUp && messages.isNotEmpty()) {
-            kotlinx.coroutines.delay(100)
-            listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1)
+            kotlinx.coroutines.delay(80)
+            val count = listState.layoutInfo.totalItemsCount
+            if (count > 0) listState.animateScrollToItem(count - 1)
         }
     }
 
@@ -193,16 +195,15 @@ fun ChatScreen(
                             )
                             Spacer(modifier = Modifier.width(Spacing.sm))
                             Surface(
-                                color = IndigoPrimary.copy(alpha = 0.15f),
+                                onClick = { showProviderSheet = true },
+                                color = MaterialTheme.colorScheme.primaryContainer,
                                 shape = RoundedCornerShape(Dimens.cornerRadiusSm),
-                                border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.3f)),
+                                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
                                 modifier = Modifier
                                     .semantics {
-                                        role = Role.Button
                                         contentDescription = "Select AI provider and model"
                                         stateDescription = "${activeProviderConfig?.name ?: "No provider"}: ${currentSession?.model ?: ""}"
                                     }
-                                    .clickable { showProviderSheet = true }
                                     .testTag("model_picker_chip"),
                             ) {
                                 Row(
@@ -217,7 +218,7 @@ fun ChatScreen(
                                         },
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = IndigoPrimaryLight,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f, fill = false),
@@ -225,7 +226,7 @@ fun ChatScreen(
                                     Icon(
                                         imageVector = Icons.Default.ArrowDropDown,
                                         contentDescription = null,
-                                        tint = IndigoPrimaryLight,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                         modifier = Modifier.size(Dimens.iconSizeSm),
                                     )
                                 }
@@ -296,10 +297,9 @@ fun ChatScreen(
                 .padding(padding),
         ) {
             Box(modifier = Modifier.weight(1f)) {
-                if (messages.isEmpty() && inProgressToolCalls.isEmpty()) {
+                    if (messages.isEmpty() && inProgressToolCalls.isEmpty()) {
                     EmptyChatView(
                         onPromptSelected = { prompt ->
-                            inputText = prompt
                             viewModel.sendMessage(prompt)
                         },
                         modifier = Modifier.fillMaxSize(),
@@ -441,7 +441,7 @@ fun ChatScreen(
                 }
             }
 
-            Divider(
+            androidx.compose.material3.HorizontalDivider(
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
                 thickness = Dimens.borderWidth,
             )
@@ -455,11 +455,10 @@ fun ChatScreen(
             ) {
                 Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
                     Box(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
-                        val scrollState = rememberScrollState()
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .horizontalScroll(scrollState),
+                                .horizontalScroll(chipsScrollState),
                             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                         ) {
                             QuickActionChip(
@@ -494,7 +493,7 @@ fun ChatScreen(
                             }
                         }
                         // Gradient fade hint — only when chips can scroll forward
-                        if (scrollState.canScrollForward) {
+                        if (chipsScrollState.canScrollForward) {
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.CenterEnd)

@@ -17,8 +17,6 @@ import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -35,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,11 +53,6 @@ import com.aistudio.mcpchat.ui.screens.hasSeenOnboarding
 import com.aistudio.mcpchat.ui.screens.markOnboardingSeen
 import com.aistudio.mcpchat.ui.theme.IndigoPrimary
 import com.aistudio.mcpchat.ui.theme.MyApplicationTheme
-import com.aistudio.mcpchat.ui.theme.RoseError
-import com.aistudio.mcpchat.ui.viewmodel.AiProviderSettingsViewModel
-import com.aistudio.mcpchat.ui.viewmodel.ChatViewModel
-import com.aistudio.mcpchat.ui.viewmodel.McpInspectorViewModel
-import com.aistudio.mcpchat.ui.viewmodel.McpServersViewModel
 import com.aistudio.mcpchat.ui.viewmodel.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -99,25 +91,23 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainApp() {
     val context = LocalContext.current
-    var showOnboarding by remember { mutableStateOf(!hasSeenOnboarding(context)) }
+    var showOnboarding by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        showOnboarding = !hasSeenOnboarding(context)
+    }
     val navController = rememberNavController()
-    val chatViewModel: ChatViewModel = hiltViewModel()
-    val providerViewModel: AiProviderSettingsViewModel = hiltViewModel()
-    val serversViewModel: McpServersViewModel = hiltViewModel()
-    val inspectorViewModel: McpInspectorViewModel = hiltViewModel()
-    val themeViewModel: ThemeViewModel = hiltViewModel()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val isGenerating by chatViewModel.isGenerating.collectAsStateWithLifecycle()
-
-    val items = listOf(
-        Screen.Chat,
-        Screen.Servers,
-        Screen.Inspector,
-        Screen.Settings,
-    )
+    val items = remember {
+        listOf(
+            Screen.Chat,
+            Screen.Servers,
+            Screen.Inspector,
+            Screen.Settings,
+        )
+    }
 
     Scaffold(
         bottomBar = {
@@ -130,23 +120,7 @@ fun MainApp() {
                     val isSelected = currentRoute == screen.route
                     NavigationBarItem(
                         icon = {
-                            BadgedBox(
-                                badge = {
-                                    if (screen is Screen.Chat && isGenerating) {
-                                        Badge(
-                                            containerColor = RoseError,
-                                            contentColor = MaterialTheme.colorScheme.onError,
-                                            modifier = Modifier.semantics {
-                                                contentDescription = "AI is generating a response"
-                                            },
-                                        ) {
-                                            Text("!", fontSize = 10.sp)
-                                        }
-                                    }
-                                },
-                            ) {
-                                Icon(screen.icon, contentDescription = screen.title)
-                            }
+                            Icon(screen.icon, contentDescription = screen.title)
                         },
                         label = { Text(screen.title, fontSize = 11.sp) },
                         selected = isSelected,
@@ -183,6 +157,8 @@ fun MainApp() {
             modifier = Modifier.padding(innerPadding),
         ) {
             composable(Screen.Chat.route) {
+                val chatViewModel: com.aistudio.mcpchat.ui.viewmodel.ChatViewModel = hiltViewModel()
+                val providerViewModel: com.aistudio.mcpchat.ui.viewmodel.AiProviderSettingsViewModel = hiltViewModel()
                 ChatScreen(
                     viewModel = chatViewModel,
                     providerViewModel = providerViewModel,
@@ -198,9 +174,11 @@ fun MainApp() {
                 )
             }
             composable(Screen.Servers.route) {
+                val serversViewModel: com.aistudio.mcpchat.ui.viewmodel.McpServersViewModel = hiltViewModel()
                 ServersScreen(viewModel = serversViewModel)
             }
             composable(Screen.Inspector.route) {
+                val inspectorViewModel: com.aistudio.mcpchat.ui.viewmodel.McpInspectorViewModel = hiltViewModel()
                 InspectorScreen(
                     viewModel = inspectorViewModel,
                     onNavigateToServers = {
@@ -213,6 +191,7 @@ fun MainApp() {
                 )
             }
             composable(Screen.Settings.route) {
+                val themeViewModel: com.aistudio.mcpchat.ui.viewmodel.ThemeViewModel = hiltViewModel()
                 SettingsScreen(viewModel = themeViewModel)
             }
         }

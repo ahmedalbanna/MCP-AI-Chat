@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -104,13 +105,15 @@ fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier)
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val filteredServers = if (searchQuery.isBlank()) {
-        servers
-    } else {
-        servers.filter {
-            it.name.contains(searchQuery, ignoreCase = true) ||
-                it.description.contains(searchQuery, ignoreCase = true) ||
-                it.endpointUrl.contains(searchQuery, ignoreCase = true)
+    val filteredServers = remember(servers, searchQuery) {
+        if (searchQuery.isBlank()) {
+            servers
+        } else {
+            servers.filter {
+                it.name.contains(searchQuery, ignoreCase = true) ||
+                    it.description.contains(searchQuery, ignoreCase = true) ||
+                    it.endpointUrl.contains(searchQuery, ignoreCase = true)
+            }
         }
     }
 
@@ -394,12 +397,11 @@ fun ServerCardItem(
             .animateContentSize()
             .testTag("server_card_${server.id}"),
     ) {
-        Row {
-            Spacer(
+        Row(modifier = Modifier.height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
+            Box(
                 modifier = Modifier
                     .width(Dimens.accentBarWidth)
-                    .height(Spacing.xs)
-                    .align(Alignment.CenterVertically)
+                    .fillMaxHeight()
                     .clip(RoundedCornerShape(Dimens.cornerRadiusFull))
                     .background(statusColor),
             )
@@ -631,15 +633,16 @@ fun ServerCardItem(
                                                     )
                                                 }
 
-                                                Switch(
-                                                    checked = tool.isEnabled,
-                                                    onCheckedChange = { onToggleTool(tool.id, it) },
-                                                    colors = SwitchDefaults.colors(
-                                                        checkedThumbColor = CyanSecondary,
-                                                        checkedTrackColor = CyanSecondary.copy(alpha = 0.3f),
-                                                    ),
-                                                    modifier = Modifier.size(32.dp),
-                                                )
+                                                Box(modifier = Modifier.minimumInteractiveComponentSize(), contentAlignment = Alignment.Center) {
+                                                    Switch(
+                                                        checked = tool.isEnabled,
+                                                        onCheckedChange = { onToggleTool(tool.id, it) },
+                                                        colors = SwitchDefaults.colors(
+                                                            checkedThumbColor = CyanSecondary,
+                                                            checkedTrackColor = CyanSecondary.copy(alpha = 0.3f),
+                                                        ),
+                                                    )
+                                                }
                                             }
 
                                             Text(

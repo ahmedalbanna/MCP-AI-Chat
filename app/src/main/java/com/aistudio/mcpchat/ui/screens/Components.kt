@@ -532,7 +532,7 @@ private fun parseInlineMarkdown(text: String): androidx.compose.ui.text.Annotate
                             SpanStyle(
                                 fontFamily = FontFamily.Monospace,
                                 color = CyanSecondary,
-                                background = Color(0xFF1E293B).copy(alpha = 0.5f),
+                                background = Color(0xFFE2E8F0).copy(alpha = 0.6f),
                             ),
                         ) {
                             append(text.substring(codeStart + 1, codeEnd))

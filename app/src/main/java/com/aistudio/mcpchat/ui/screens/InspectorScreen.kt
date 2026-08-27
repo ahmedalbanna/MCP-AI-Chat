@@ -103,8 +103,10 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
     val latestIsSuccess by viewModel.latestIsSuccess.collectAsStateWithLifecycle()
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
+    var showClearConfirm by remember { mutableStateOf(false) }
+    val logDateFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
-    LaunchedEffect(tools) {
+    LaunchedEffect(selectedToolId, tools.size) {
         if (selectedToolId == null && tools.isNotEmpty()) {
             viewModel.selectTool(tools.first())
         }
@@ -295,7 +297,6 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                     )
 
                                     if (logs.isNotEmpty()) {
-                                        var showClearConfirm by remember { mutableStateOf(false) }
                                         TextButton(
                                             onClick = { showClearConfirm = true },
                                             colors = ButtonDefaults.textButtonColors(contentColor = RoseError),
@@ -303,25 +304,6 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                             Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeMd))
                                             Spacer(modifier = Modifier.width(Spacing.xs))
                                             Text("Clear Logs", fontSize = 12.sp)
-                                        }
-                                        if (showClearConfirm) {
-                                            androidx.compose.material3.AlertDialog(
-                                                onDismissRequest = { showClearConfirm = false },
-                                                title = { Text("Clear audit logs?") },
-                                                text = { Text("This will delete all ${logs.size} log entries.") },
-                                                confirmButton = {
-                                                    TextButton(
-                                                        onClick = {
-                                                            viewModel.clearLogs()
-                                                            showClearConfirm = false
-                                                        },
-                                                        colors = ButtonDefaults.textButtonColors(contentColor = RoseError),
-                                                    ) { Text("Clear") }
-                                                },
-                                                dismissButton = {
-                                                    TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
-                                                },
-                                            )
                                         }
                                     }
                                 }
@@ -426,7 +408,29 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                 items(logs, key = { it.id }) { logItem ->
                                     LogItemCard(
                                         logItem = logItem,
+                                        dateFormatter = logDateFormatter,
                                         onReExecute = { toolName, serverId, args -> viewModel.reExecuteTool(toolName, serverId, args) },
+                                    )
+                                }
+                            }
+                            if (showClearConfirm) {
+                                item {
+                                    androidx.compose.material3.AlertDialog(
+                                        onDismissRequest = { showClearConfirm = false },
+                                        title = { Text("Clear audit logs?") },
+                                        text = { Text("This will delete all ${logs.size} log entries.") },
+                                        confirmButton = {
+                                            TextButton(
+                                                onClick = {
+                                                    viewModel.clearLogs()
+                                                    showClearConfirm = false
+                                                },
+                                                colors = ButtonDefaults.textButtonColors(contentColor = RoseError),
+                                            ) { Text("Clear") }
+                                        },
+                                        dismissButton = {
+                                            TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
+                                        },
                                     )
                                 }
                             }
@@ -736,7 +740,7 @@ fun ExecutionResultCard(result: String, latencyMs: Long, isSuccess: Boolean, mod
 }
 
 @Composable
-fun LogItemCard(logItem: McpLogItem, onReExecute: ((String, String, Map<String, Any?>) -> Unit)? = null, modifier: Modifier = Modifier) {
+fun LogItemCard(logItem: McpLogItem, dateFormatter: SimpleDateFormat? = null, onReExecute: ((String, String, Map<String, Any?>) -> Unit)? = null, modifier: Modifier = Modifier) {
     var isExpanded by remember { mutableStateOf(false) }
 
     Surface(
@@ -783,7 +787,7 @@ fun LogItemCard(logItem: McpLogItem, onReExecute: ((String, String, Map<String, 
                     )
                     Spacer(modifier = Modifier.width(Spacing.md))
                     Text(
-                        text = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(logItem.timestamp)),
+                        text = (dateFormatter ?: SimpleDateFormat("HH:mm:ss", Locale.getDefault())).format(Date(logItem.timestamp)),
                         fontSize = 10.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
