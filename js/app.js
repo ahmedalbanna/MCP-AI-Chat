@@ -2063,18 +2063,19 @@ function renderMessages(){
   const title=chat.title;
   const isStreaming = chat.messages.some(mm=>mm.status==='streaming');
   if(messagesEl) messagesEl.setAttribute('aria-busy', isStreaming ? 'true' : 'false');
-  messagesEl.innerHTML=`<div class="date-sep"><span>${esc(title)} • ${chat.messages.length} messages • ${esc(selectedModel)}</span></div>` + chat.messages.map(m=>{
+  const mapped = chat.messages.map(m=>{
     if(m.role==='user'){
-      const isLast = chat.messages[chat.messages.length-1]?.id===m.id;
+      const bubbleHtml = m.text ? linkifyInline(m.text).replace(/\n/g,'<br>') : '<span style="color:var(--faint);font-style:italic">— empty message —</span>';
       return `<div class="message user" data-id="${m.id}">
         <div class="msg-head"><span class="when">${esc(m.time||'')}</span>
+          <button class="msg-action" data-copy="${m.id}" title="Copy"><i data-lucide="copy" style="width:11px;height:11px"></i></button>
           <button class="msg-action" data-edit="${m.id}" title="Edit"><i data-lucide="pencil" style="width:11px;height:11px"></i> Edit</button>
           <button class="msg-action" data-retry="${m.id}" title="Retry"><i data-lucide="refresh-cw" style="width:11px;height:11px"></i> Retry</button>
           <span class="who">You</span><span class="msg-avatar user">Y</span>
         </div>
         ${m.files? `<div class="user-media">${m.files.map(f=> f.type?.startsWith('image/')?`<img src="${f.url}" alt="${esc(f.name)}" loading="lazy">`: `<span class="file-chip"><i data-lucide="file" style="width:12px;height:12px"></i> ${esc(f.name)}</span>`).join('')}</div>`:''}
         ${m.todos && m.todos.length? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-checks" style="width:13px;height:13px" aria-hidden="true"></i> Todos</b><span aria-label="${m.todos.filter(t=>t.done).length} of ${m.todos.length} completed">${m.todos.filter(t=>t.done).length}/${m.todos.length}</span></div><div class="todo-progress-track" style="margin:0 12px 0" aria-hidden="true"><span style="width:${Math.round(m.todos.filter(t=>t.done).length/m.todos.length*100)}%"></span></div><ul class="todo-list" role="list" aria-label="Todos">${m.todos.map(t=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} disabled aria-label="${esc(t.text)}"><span>${esc(t.text)}</span></li>`).join('')}</ul></div>`:''}
-        <div class="bubble">${esc(m.text).replace(/\n/g,'<br>')}</div>
+        <div class="bubble">${bubbleHtml}</div>
       </div>`;
     } else {
       const html = m.html==='pg'? pgHTML(m) : m.html==='aws'? awsHTML() : m.html==='fs'? fsHTML() : generalHTML(m.text||'');
@@ -2094,13 +2095,20 @@ function renderMessages(){
         </div>
       </div>`;
     }
-  }).join('') || `<div class="chat-empty"><div class="chat-empty-icon"><i data-lucide="sparkles" style="width:26px;height:26px"></i></div><h3>Start a conversation</h3><p>Ask MCP to run a tool, query your database, or explore files. Try an example below or type <code>/</code> for commands.</p><div class="chat-empty-actions"><button class="ghost-btn sm" onclick="document.getElementById('promptInput').value='/sql SELECT * FROM users LIMIT 5'; document.getElementById('promptInput').dispatchEvent(new Event('input'))"><i data-lucide="database" style="width:12px;height:12px"></i> Try SQL</button><button class="ghost-btn sm" onclick="document.getElementById('promptInput').value='/s3 list buckets'; document.getElementById('promptInput').dispatchEvent(new Event('input'))"><i data-lucide="cloud" style="width:12px;height:12px"></i> List S3</button><button class="ghost-btn sm" onclick="document.getElementById('promptInput').value='/fs list /data'; document.getElementById('promptInput').dispatchEvent(new Event('input'))"><i data-lucide="folder-open" style="width:12px;height:12px"></i> Browse FS</button></div></div>`;
+  });
+  const bodyHtml = mapped.join('') || `<div class="chat-empty"><div class="chat-empty-icon"><i data-lucide="sparkles" style="width:26px;height:26px"></i></div><h3>Start a conversation</h3><p>Ask MCP to run a tool, query your database, or explore files. Try an example below or type <code>/</code> for commands.</p><div class="chat-empty-actions"><button class="ghost-btn sm" data-quick="/sql SELECT * FROM users LIMIT 5"><i data-lucide="database" style="width:12px;height:12px"></i> Try SQL</button><button class="ghost-btn sm" data-quick="/s3 list buckets"><i data-lucide="cloud" style="width:12px;height:12px"></i> List S3</button><button class="ghost-btn sm" data-quick="/fs list /data"><i data-lucide="folder-open" style="width:12px;height:12px"></i> Browse FS</button></div></div>`;
+  messagesEl.innerHTML=`<div class="date-sep"><span>${esc(title)} • ${chat.messages.length} messages • ${esc(selectedModel)}</span></div>` + bodyHtml;
   refreshIcons(); scrollBottom(); updateScrollFab();
-  // table scroll hint
+  // table scroll hint + a11y
   requestAnimationFrame(()=>{
     messagesEl?.querySelectorAll('.table-wrap').forEach(w=>{
       w.classList.toggle('has-scroll', w.scrollWidth > w.clientWidth + 4);
       w.addEventListener('scroll', ()=> w.classList.toggle('has-scroll', w.scrollWidth > w.clientWidth + w.scrollLeft + 8), {passive:true});
+      w.querySelectorAll('tbody td').forEach(td=>{
+        const truncated = td.scrollWidth > td.clientWidth + 1;
+        if(truncated) td.title = td.textContent.trim();
+        else td.removeAttribute('title');
+      });
     });
     // messages a11y: ensure articles
     messagesEl?.querySelectorAll('.message').forEach(m=>{ if(!m.getAttribute('role')) m.setAttribute('role','article'); });
