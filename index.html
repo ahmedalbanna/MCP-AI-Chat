@@ -11,6 +11,7 @@
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
+  <a href="#promptInput" class="skip-link">Skip to composer</a>
   <!-- Splash -->
   <div id="splash" class="splash" aria-hidden="false">
     <div class="splash-inner">
@@ -88,7 +89,7 @@
         <div class="brand">
           <div class="brand-mark"><i data-lucide="network"></i></div>
           <div class="brand-copy"><h1>MCP Terminal</h1><p><span class="pulse"></span> REMOTE PROTOCOL ACTIVE</p></div>
-          <button class="icon-btn sidebar-close" id="sidebarClose" aria-label="Close"><i data-lucide="x"></i></button>
+           <button class="icon-btn sidebar-close" id="sidebarClose" aria-label="Close workspace"><i data-lucide="x" aria-hidden="true"></i></button>
         </div>
         <div class="sidebar-search">
           <i data-lucide="search"></i>
@@ -100,7 +101,7 @@
         <div class="provider-mini" role="region" aria-label="AI Provider">
           <div class="provider-mini-head">
             <label><i data-lucide="cpu" style="width:12px;height:12px"></i> AI Provider</label>
-            <button class="icon-btn xs" id="providerSettingsBtn" title="Provider settings" style="width:26px;height:26px"><i data-lucide="settings-2" style="width:14px;height:14px"></i></button>
+            <button class="icon-btn xs" id="providerSettingsBtn" title="Provider settings" aria-label="Provider settings" style="width:26px;height:26px"><i data-lucide="settings-2" style="width:14px;height:14px" aria-hidden="true"></i></button>
           </div>
           <div class="provider-mini-selects">
             <select id="providerSelect" aria-label="Provider"></select>
@@ -119,9 +120,9 @@
               <h3><i data-lucide="message-square" style="width:14px;height:14px"></i> WORKSPACE <span class="count" id="chatCount">3</span></h3>
             </button>
             <div class="head-actions">
-              <button class="icon-btn sm" id="importChatBtn" title="Import"><i data-lucide="upload"></i></button>
+              <button class="icon-btn sm" id="importChatBtn" title="Import chat" aria-label="Import chat"><i data-lucide="upload" aria-hidden="true"></i></button>
               <input type="file" id="importFile" hidden accept=".json" />
-              <button class="icon-btn sm" id="archiveToggle" title="Show archived"><i data-lucide="archive"></i></button>
+              <button class="icon-btn sm" id="archiveToggle" title="Show archived" aria-label="Toggle archived chats" aria-pressed="false"><i data-lucide="archive" aria-hidden="true"></i></button>
             </div>
           </div>
           <div class="section-body" id="workspaceBody">
@@ -135,7 +136,7 @@
               <i data-lucide="chevron-down" class="section-chevron" style="width:14px;height:14px"></i>
               <h3><i data-lucide="server" style="width:14px;height:14px"></i> MCP NODES <span class="count" id="sidebarCount">3</span></h3>
             </button>
-            <button class="icon-btn sm" id="addServerSidebar" title="Add MCP server"><i data-lucide="plus"></i></button>
+            <button class="icon-btn sm" id="addServerSidebar" title="Add MCP server" aria-label="Add MCP server"><i data-lucide="plus" aria-hidden="true"></i></button>
           </div>
           <div class="section-body" id="mcpBody">
             <ul class="server-list" id="sidebarServerList"></ul>
@@ -143,7 +144,7 @@
         </div>
       </div>
 
-      <div class="sidebar-foot" id="userProfileCard" role="button" tabindex="0" aria-label="Open profile" aria-expanded="false">
+      <div class="sidebar-foot" id="userProfileCard" role="button" tabindex="0" aria-label="Open profile" aria-expanded="false" aria-haspopup="dialog">
         <div class="foot-avatar-wrap">
           <img id="profileAvatar" src="https://i.pravatar.cc/100?img=32" alt="avatar" />
           <span class="foot-status-dot" title="Online"></span>
@@ -157,20 +158,30 @@
     <div class="main">
       <header class="topbar">
         <div class="topbar-left">
-          <button class="icon-btn" id="menuBtn"><i data-lucide="menu"></i></button>
-          <div class="crumb"><span id="crumbTitle">MCP Chat</span><span class="live"><span class="dot"></span> Live</span></div>
+          <button class="icon-btn" id="menuBtn" aria-label="Open workspace" aria-expanded="false" aria-controls="sidebar"><i data-lucide="menu" aria-hidden="true"></i></button>
+          <div class="crumb"><span id="crumbTitle">MCP Chat</span><span class="live" aria-label="Live status"><span class="dot" aria-hidden="true"></span> Live</span></div>
         </div>
         <div class="topbar-right">
-          <button class="icon-btn live-dot-btn" id="liveBtn" title="Live conversation — talk hands-free"><i data-lucide="radio"></i><span style="font-size:11px;font-weight:800;letter-spacing:.06em;margin-left:4px" class="hide-mobile">LIVE</span></button>
-          <button class="icon-btn" id="providerTopBtn" title="AI Providers"><i data-lucide="cpu"></i></button>
-          <button class="icon-btn" id="promptLibraryBtn" title="Prompt suggestions"><i data-lucide="lightbulb"></i></button>
-          <button class="icon-btn" id="marketplaceBtn" title="Marketplace"><i data-lucide="store"></i></button>
-          <button class="icon-btn" id="serversBtn" title="MCP servers"><i data-lucide="sliders-horizontal"></i></button>
+          <button class="icon-btn live-dot-btn" id="liveBtn" title="Live conversation — talk hands-free" aria-label="Live conversation"><i data-lucide="radio" aria-hidden="true"></i><span style="font-size:11px;font-weight:800;letter-spacing:.06em;margin-left:4px" class="hide-mobile">LIVE</span></button>
+          <button class="icon-btn" id="marketplaceBtn" title="Marketplace" aria-label="Marketplace"><i data-lucide="store" aria-hidden="true"></i></button>
+          <button class="icon-btn hidden" id="providerTopBtn" aria-hidden="true" tabindex="-1" style="display:none"><i data-lucide="cpu"></i></button>
+          <button class="icon-btn" id="serversBtn" title="MCP servers" aria-label="MCP servers"><i data-lucide="sliders-horizontal" aria-hidden="true"></i></button>
+          <button class="icon-btn" id="promptLibraryBtn" title="Prompt suggestions" aria-label="Prompt suggestions"><i data-lucide="lightbulb" aria-hidden="true"></i></button>
+          <button id="undoBtn" hidden></button><button id="redoBtn" hidden></button>
+          <div class="dropdown">
+            <button class="icon-btn" id="topbarOverflowBtn" title="More actions" aria-label="More actions" aria-haspopup="menu" aria-expanded="false"><i data-lucide="more-horizontal" aria-hidden="true"></i></button>
+            <div class="dropdown-menu hidden" id="topbarOverflowMenu" role="menu" style="right:0;min-width:210px">
+              <button data-overflow="provider" role="menuitem"><i data-lucide="cpu"></i> AI Providers</button>
+              <button data-overflow="undo" role="menuitem"><i data-lucide="undo-2"></i> Undo <span style="margin-left:auto;font-size:11px;color:var(--faint)">Ctrl+Z</span></button>
+              <button data-overflow="redo" role="menuitem"><i data-lucide="redo-2"></i> Redo</button>
+              <div style="height:1px;background:var(--line);margin:4px 0"></div>
+              <button data-overflow="new" role="menuitem"><i data-lucide="plus"></i> New conversation</button>
+            </div>
+          </div>
+          <button id="newChatTopBtn" hidden></button>
           <div class="conv-actions">
-            <button class="icon-btn" id="undoBtn" title="Undo (Ctrl+Z)"><i data-lucide="undo-2"></i></button>
-            <button class="icon-btn" id="redoBtn" title="Redo"><i data-lucide="redo-2"></i></button>
             <div class="dropdown">
-              <button class="icon-btn" id="convMenuBtn"><i data-lucide="more-horizontal"></i></button>
+              <button class="icon-btn" id="convMenuBtn" aria-label="Conversation actions" aria-haspopup="menu" aria-expanded="false"><i data-lucide="more-vertical" aria-hidden="true"></i></button>
               <div class="dropdown-menu hidden" id="convMenu">
                 <button data-action="rename"><i data-lucide="pencil"></i> Rename</button>
                 <button data-action="export"><i data-lucide="download"></i> Export JSON</button>
@@ -180,7 +191,6 @@
               </div>
             </div>
           </div>
-          <button class="primary-btn hide-mobile" id="newChatTopBtn"><i data-lucide="plus"></i> New</button>
         </div>
       </header>
 
@@ -208,13 +218,13 @@
             <div class="speech-actions"><button class="ghost-btn sm" id="stopSpeech"><i data-lucide="square" style="width:12px;height:12px"></i> Stop</button><button class="icon-btn sm" id="cancelSpeech" title="Cancel recording"><i data-lucide="x" style="width:12px;height:12px"></i></button></div>
           </div>
           <div class="composer-box" id="composerInner">
-            <button class="attach-btn" id="attachBtn" title="Attach media"><i data-lucide="paperclip"></i></button>
-            <button class="icon-btn sm mic-btn" id="micBtn" title="Voice — click to toggle, hold to talk" aria-label="Voice input" aria-pressed="false"><i data-lucide="mic"></i></button>
+            <button class="attach-btn" id="attachBtn" title="Attach media" aria-label="Attach media"><i data-lucide="paperclip" aria-hidden="true"></i></button>
+            <button class="icon-btn sm mic-btn" id="micBtn" title="Voice — click to toggle, hold to talk" aria-label="Voice input" aria-pressed="false"><i data-lucide="mic" aria-hidden="true"></i></button>
             <input type="file" id="mediaInput" hidden multiple accept="image/*,video/*,audio/*,.pdf,.csv,.json,.txt,.md" />
             <textarea id="promptInput" placeholder="Ask MCP to run a tool…  •  type “/” for commands" rows="1"></textarea>
             <div class="composer-tools">
-              <button class="icon-btn sm" id="todoToggle" title="Todo checklist"><i data-lucide="list-todo"></i></button>
-              <button class="icon-btn sm slash-trigger" id="slashTrigger" title="Commands (/)"><i data-lucide="command" style="width:14px;height:14px"></i></button>
+              <button class="icon-btn sm" id="todoToggle" title="Todo checklist" aria-label="Toggle checklist" aria-pressed="false"><i data-lucide="list-todo" aria-hidden="true"></i></button>
+              <button class="icon-btn sm slash-trigger" id="slashTrigger" title="Commands (/)" aria-label="Show commands" aria-expanded="false" aria-haspopup="dialog"><i data-lucide="command" style="width:14px;height:14px" aria-hidden="true"></i></button>
               <div class="composer-mode-wrap" id="composerModeWrap" style="position:relative">
                 <button class="composer-mode-pill" id="composerModePill" title="Agent mode — click to switch" aria-haspopup="dialog" aria-expanded="false"><span class="composer-mode-icon" id="composerModeIcon" style="width:20px;height:20px;border-radius:999px;display:grid;place-items:center;background:var(--primary);color:#fff;flex-shrink:0"><i data-lucide="bot" style="width:12px;height:12px"></i></span><span id="composerModeLabel">Chat</span><i data-lucide="chevron-down" style="width:12px;height:12px;opacity:.55"></i></button>
                 <div class="composer-mode-popover hidden" id="composerModeMenu" role="menu" aria-label="Agent modes">
@@ -235,10 +245,10 @@
     </div>
 
     <!-- Profile Drawer -->
-    <div class="drawer hidden" id="profileView" role="dialog" aria-modal="true">
+    <div class="drawer hidden" id="profileView" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
       <div class="drawer-backdrop" id="profileBackdrop"></div>
       <div class="drawer-panel">
-        <div class="drawer-head"><h2><i data-lucide="user"></i> Profiles</h2><button class="icon-btn" id="closeProfile"><i data-lucide="x"></i></button></div>
+        <div class="drawer-head"><h2 id="profileTitle"><i data-lucide="user" aria-hidden="true"></i> Profiles</h2><button class="icon-btn" id="closeProfile" aria-label="Close profiles"><i data-lucide="x" aria-hidden="true"></i></button></div>
         <div class="drawer-body">
           <div id="profileHeader" class="profile-card" style="align-items:flex-start;text-align:left">
             <div style="display:flex;gap:12px;align-items:center;width:100%">
@@ -264,7 +274,7 @@
             <label>Name<input id="profileNameInput" value="Alex Rivera" /></label>
             <label>Email<input id="profileEmail" value="alex@local.dev" /></label>
             <label>Role<select id="profileRoleSelect"><option>Admin</option><option>Developer</option><option>Viewer</option></select></label>
-            <label>Theme<select id="themeSelect"><option value="light">Light</option><option value="dark">Dark (preview)</option></select></label>
+            <label>Theme<select id="themeSelect"><option value="light">Light</option><option value="dark" disabled>Dark — coming soon</option></select></label>
           </div>
           <div class="panel-card">
             <h3>Preferences</h3>
@@ -282,10 +292,10 @@
     </div>
 
     <!-- AI Provider Settings Drawer -->
-    <div class="drawer hidden" id="providerView" role="dialog" aria-modal="true">
+    <div class="drawer hidden" id="providerView" role="dialog" aria-modal="true" aria-labelledby="providerTitle">
       <div class="drawer-backdrop" id="providerBackdrop"></div>
       <div class="drawer-panel wide">
-        <div class="drawer-head"><h2><i data-lucide="cpu"></i> AI Providers</h2><div style="display:flex;gap:8px"><button class="ghost-btn sm" id="importProviderBtn"><i data-lucide="upload" style="width:12px;height:12px"></i> Import</button><input type="file" id="importProviderFile" hidden accept=".json" /><button class="primary-btn sm" id="addProviderBtn"><i data-lucide="plus" style="width:12px;height:12px"></i> Add provider</button><button class="icon-btn" id="closeProvider"><i data-lucide="x"></i></button></div></div>
+        <div class="drawer-head"><h2 id="providerTitle"><i data-lucide="cpu" aria-hidden="true"></i> AI Providers</h2><div style="display:flex;gap:8px"><button class="ghost-btn sm" id="importProviderBtn"><i data-lucide="upload" style="width:12px;height:12px" aria-hidden="true"></i> Import</button><input type="file" id="importProviderFile" hidden accept=".json" /><button class="primary-btn sm" id="addProviderBtn"><i data-lucide="plus" style="width:12px;height:12px" aria-hidden="true"></i> Add provider</button><button class="icon-btn" id="closeProvider" aria-label="Close providers"><i data-lucide="x" aria-hidden="true"></i></button></div></div>
         <div class="drawer-body">
           <div class="panel-card" style="background:linear-gradient(180deg,#eff6ff,#fff)"><h3>Active Configuration</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><span class="status on" id="activeProviderStatus"><span style="width:6px;height:6px;background:var(--ok);border-radius:50%"></span> <span id="activeProviderName">Anthropic • claude-3.5-sonnet</span></span><span id="activeProviderLatency" style="font-size:11px;color:var(--muted);font-family:var(--mono)">~210ms • streaming</span><button class="ghost-btn sm" id="testActiveProvider" style="margin-left:auto"><i data-lucide="zap" style="width:12px;height:12px"></i> Test</button><button class="ghost-btn sm" id="exportProvidersBtn"><i data-lucide="download" style="width:12px;height:12px"></i> Export</button></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"><label style="font-size:12px;font-weight:600">Default fallback<input id="fallbackProvider" style="margin-top:4px;width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px" placeholder="openai / gpt-4o-mini" /></label><label style="font-size:12px;font-weight:600">Global temperature <span id="globalTempVal" style="color:var(--primary)">0.7</span><input type="range" id="globalTemp" min="0" max="1" step="0.1" value="0.7" style="width:100%" /></label></div>
@@ -298,10 +308,10 @@
     </div>
 
     <!-- Marketplace Drawer — Discover -->
-    <div class="drawer hidden" id="marketplaceView" role="dialog" aria-modal="true">
+    <div class="drawer hidden" id="marketplaceView" role="dialog" aria-modal="true" aria-labelledby="marketplaceTitle">
       <div class="drawer-backdrop" id="marketplaceBackdrop"></div>
       <div class="drawer-panel wide" style="width:680px">
-        <div class="drawer-head"><h2><i data-lucide="store"></i> MCP Marketplace</h2><div style="display:flex;gap:6px;align-items:center"><span class="status on" style="font-size:11px"><span style="width:6px;height:6px;background:var(--ok);border-radius:50%"></span> Registry online</span><button class="icon-btn" id="closeMarketplace"><i data-lucide="x"></i></button></div></div>
+        <div class="drawer-head"><h2 id="marketplaceTitle"><i data-lucide="store" aria-hidden="true"></i> MCP Marketplace</h2><div style="display:flex;gap:6px;align-items:center"><span class="status on" style="font-size:11px"><span style="width:6px;height:6px;background:var(--ok);border-radius:50%" aria-hidden="true"></span> Registry online</span><button class="icon-btn" id="closeMarketplace" aria-label="Close marketplace"><i data-lucide="x" aria-hidden="true"></i></button></div></div>
         <div class="drawer-body">
           <div class="search-row"><i data-lucide="search"></i><input id="marketSearch" placeholder="Search integrations, tools, authors…" /><select id="marketFilter" style="border:none;background:transparent;font-size:12px"><option value="all">All categories</option><option value="db">Databases</option><option value="cloud">Cloud</option><option value="fs">Filesystem</option><option value="dev">Developer</option><option value="ai">AI</option></select><select id="marketSort" style="border:none;background:transparent;font-size:12px;border-left:1px solid var(--line);padding-left:8px"><option value="popular">Popular</option><option value="rating">Top rated</option><option value="new">Newest</option><option value="name">Name A-Z</option></select></div>
           <div class="market-tabs" id="marketTabs" style="display:flex;gap:6px;overflow:auto">
@@ -327,10 +337,10 @@
     </div>
 
     <!-- Agent Modes Drawer -->
-    <div class="drawer hidden" id="modesView" role="dialog" aria-modal="true">
+    <div class="drawer hidden" id="modesView" role="dialog" aria-modal="true" aria-labelledby="modesTitle">
       <div class="drawer-backdrop" id="modesBackdrop"></div>
       <div class="drawer-panel wide" style="width:640px">
-        <div class="drawer-head"><h2><i data-lucide="bot"></i> Agent Modes</h2><div style="display:flex;gap:8px"><button class="ghost-btn sm" id="importModesBtn"><i data-lucide="upload" style="width:12px;height:12px"></i> Import</button><input type="file" id="importModesFile" hidden accept=".json" /><button class="ghost-btn sm" id="exportModesBtn"><i data-lucide="download" style="width:12px;height:12px"></i> Export</button><button class="primary-btn sm" id="addModeBtn"><i data-lucide="plus" style="width:12px;height:12px"></i> New mode</button><button class="icon-btn" id="closeModes"><i data-lucide="x"></i></button></div></div>
+        <div class="drawer-head"><h2 id="modesTitle"><i data-lucide="bot" aria-hidden="true"></i> Agent Modes</h2><div style="display:flex;gap:8px"><button class="ghost-btn sm" id="importModesBtn"><i data-lucide="upload" style="width:12px;height:12px" aria-hidden="true"></i> Import</button><input type="file" id="importModesFile" hidden accept=".json" /><button class="ghost-btn sm" id="exportModesBtn"><i data-lucide="download" style="width:12px;height:12px" aria-hidden="true"></i> Export</button><button class="primary-btn sm" id="addModeBtn"><i data-lucide="plus" style="width:12px;height:12px" aria-hidden="true"></i> New mode</button><button class="icon-btn" id="closeModes" aria-label="Close modes"><i data-lucide="x" aria-hidden="true"></i></button></div></div>
         <div class="drawer-body">
           <div class="panel-card" style="background:linear-gradient(135deg,#eff6ff 0%, #f5f3ff 100%);border-color:#dbeafe"><div style="display:flex;gap:10px;align-items:center"><i data-lucide="sparkles" style="width:18px;height:18px;color:var(--primary)"></i><div><b style="font-size:13px">Active: <span id="activeModeName">Chat</span></b><p style="margin:2px 0 0;font-size:12px;color:var(--muted)" id="activeModeDesc">General chat — balanced, helpful</p></div><span id="activeModeBadge" style="margin-left:auto;background:var(--text);color:#fff;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:700">ACTIVE</span></div></div>
           <div class="search-row"><i data-lucide="search"></i><input id="modeSearch" placeholder="Search modes…" /><select id="modeFilter" style="border:none;background:transparent;font-size:12px;border-left:1px solid var(--line);padding-left:8px"><option value="all">All</option><option value="built-in">Built-in</option><option value="custom">Custom</option></select></div>
@@ -383,10 +393,10 @@
     </div>
 
     <!-- Prompt Library — Enhanced -->
-    <div class="drawer hidden" id="promptsView" role="dialog" aria-modal="true">
+    <div class="drawer hidden" id="promptsView" role="dialog" aria-modal="true" aria-labelledby="promptsTitle">
       <div class="drawer-backdrop" id="promptsBackdrop"></div>
       <div class="drawer-panel wide" style="width:680px">
-        <div class="drawer-head"><h2><i data-lucide="lightbulb"></i> Prompt Library</h2><div style="display:flex;gap:6px;align-items:center"><span class="status on" style="font-size:11px"><span style="width:6px;height:6px;background:var(--ok);border-radius:50%"></span> <span id="promptLibraryCount">14 prompts</span></span><button class="ghost-btn sm" id="newPromptBtn"><i data-lucide="plus" style="width:12px;height:12px"></i> New prompt</button><button class="icon-btn" id="closePrompts"><i data-lucide="x"></i></button></div></div>
+        <div class="drawer-head"><h2 id="promptsTitle"><i data-lucide="lightbulb" aria-hidden="true"></i> Prompt Library</h2><div style="display:flex;gap:6px;align-items:center"><span class="status on" style="font-size:11px"><span style="width:6px;height:6px;background:var(--ok);border-radius:50%" aria-hidden="true"></span> <span id="promptLibraryCount">14 prompts</span></span><button class="ghost-btn sm" id="newPromptBtn"><i data-lucide="plus" style="width:12px;height:12px" aria-hidden="true"></i> New prompt</button><button class="icon-btn" id="closePrompts" aria-label="Close prompts"><i data-lucide="x" aria-hidden="true"></i></button></div></div>
         <div class="drawer-body">
           <div class="search-row"><i data-lucide="search"></i><input id="promptSearch" placeholder="Search prompts, categories, keywords…" /><select id="promptSort" style="border:none;background:transparent;font-size:12px;border-left:1px solid var(--line);padding-left:8px"><option value="recommended">Recommended</option><option value="recent">Recently used</option><option value="favorites">Favorites</option><option value="az">Name A–Z</option><option value="cat">Category</option></select></div>
           <div class="prompt-cats" id="promptCats"></div>
@@ -424,10 +434,10 @@
     </div>
 
     <!-- MCP Servers Drawer — Enhanced -->
-    <div class="drawer hidden" id="settingsView" role="dialog" aria-modal="true">
+    <div class="drawer hidden" id="settingsView" role="dialog" aria-modal="true" aria-labelledby="serversTitle">
       <div class="drawer-backdrop" id="settingsBackdrop"></div>
       <div class="drawer-panel wide" style="width:540px">
-        <div class="drawer-head"><h2><i data-lucide="server"></i> MCP Servers</h2><div style="display:flex;gap:6px;align-items:center"><button class="ghost-btn sm" id="exportServersBtn"><i data-lucide="download" style="width:12px;height:12px"></i> Export</button><input type="file" id="importServersFile" hidden accept=".json" /><button class="ghost-btn sm" id="importServersBtn"><i data-lucide="upload" style="width:12px;height:12px"></i> Import</button><button class="icon-btn" id="closeSettings"><i data-lucide="x"></i></button></div></div>
+        <div class="drawer-head"><h2 id="serversTitle"><i data-lucide="server" aria-hidden="true"></i> MCP Servers</h2><div style="display:flex;gap:6px;align-items:center"><button class="ghost-btn sm" id="exportServersBtn"><i data-lucide="download" style="width:12px;height:12px" aria-hidden="true"></i> Export</button><input type="file" id="importServersFile" hidden accept=".json" /><button class="ghost-btn sm" id="importServersBtn"><i data-lucide="upload" style="width:12px;height:12px" aria-hidden="true"></i> Import</button><button class="icon-btn" id="closeSettings" aria-label="Close servers"><i data-lucide="x" aria-hidden="true"></i></button></div></div>
         <div class="drawer-body">
           <!-- Stats — improved with icons -->
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
@@ -540,7 +550,8 @@
       </div>
     </div>
 
-    <div class="toast hidden" id="toast"></div>
+    <div class="toast hidden" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
     <div class="drop-overlay hidden" id="dropOverlay"><div><i data-lucide="upload-cloud"></i><p>Drop to upload</p><small>Images, video, PDF, CSV</small></div></div>
 
     <!-- Live Speech Conversation Overlay -->

@@ -281,13 +281,75 @@ let recognition = null;
 let history = { undo: [], redo: [] };
 
 const safeParse = (key, fallback) => {
-  try { const v = localStorage.getItem(key); if(v===null) return fallback; const p = JSON.parse(v); return p ?? fallback; } catch(e){ console.warn('[mcp] corrupt storage', key, e); try{ localStorage.removeItem(key);}catch{} return fallback; }
+  try { const v = localStorage.getItem(key); if(v===null) return fallback; const p = JSON.parse(v); return p ?? fallback; } catch(e){
+    console.warn('[mcp] corrupt storage', key, e);
+    try{
+      const raw=localStorage.getItem(key);
+      if(raw) try{ localStorage.setItem(key+'_corrupt_backup', raw); }catch{}
+      localStorage.removeItem(key);
+      toast(`Corrupt ${key} reset — backup saved`, 3000);
+    }catch{} return fallback;
+  }
 };
 const safeSet = (key, val) => { try{ localStorage.setItem(key, val); } catch(e){ console.warn('[mcp] storage quota', key, e); }};
 const refreshIcons=()=>{ try{ if(window.lucide && window.lucide.createIcons) window.lucide.createIcons(); }catch(e){ /* icon load may fail if CDN blocked */ } };
-const toast=(m,d=2200)=>{ const el = (typeof toastEl !== 'undefined' ? toastEl : document.getElementById('toast')); if(!el) return; el.textContent=m; el.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.add('hidden'),d); };
+const toast=(m,d=2200)=>{
+  const stack=document.getElementById('toastStack');
+  if(stack){
+    const el=document.createElement('div');
+    el.className='toast';
+    el.setAttribute('role','status');
+    el.textContent=m;
+    stack.appendChild(el);
+    refreshIcons();
+    setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(4px)'; setTimeout(()=> el.remove(), 220); }, d);
+    // limit to 3
+    while(stack.children.length>3) stack.firstElementChild.remove();
+    return;
+  }
+  const el = (typeof toastEl !== 'undefined' ? toastEl : document.getElementById('toast')); if(!el) return; el.textContent=m; el.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.add('hidden'),d);
+};
 const esc=s=> String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const scrollBottom=()=>{ const el = (typeof messagesEl !== 'undefined' ? messagesEl : document.getElementById('messages')); if(el) el.scrollTo({top:el.scrollHeight, behavior:'smooth'}); };
+// ——— A11y: focus trap & restore ———
+let _lastFocus=null;
+let _trapHandler=null;
+function trapFocus(container){
+  if(!container) return;
+  _lastFocus=document.activeElement;
+  const sel='a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  const focusables=[...container.querySelectorAll(sel)].filter(el=> el.offsetParent!==null || el===container);
+  if(!focusables.length){ container.setAttribute('tabindex','-1'); container.focus(); return; }
+  // focus first
+  setTimeout(()=> focusables[0].focus(), 30);
+  _trapHandler=(e)=>{
+    if(e.key!=='Tab') return;
+    const first=focusables[0], last=focusables[focusables.length-1];
+    if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+  };
+  container.addEventListener('keydown', _trapHandler);
+}
+function releaseFocus(container){
+  if(_trapHandler && container) container.removeEventListener('keydown', _trapHandler);
+  _trapHandler=null;
+  if(_lastFocus && _lastFocus.focus) try{ _lastFocus.focus(); }catch{}
+  _lastFocus=null;
+}
+function openDrawerWithFocus(el, focusSel){
+  if(!el) return;
+  el.classList.remove('hidden');
+  const panel=el.querySelector('.drawer-panel, .modal-card, .sheet-panel, .live-panel');
+  if(panel) trapFocus(panel);
+  if(focusSel){ const t=el.querySelector(focusSel); if(t) setTimeout(()=> t.focus(), 40); }
+  refreshIcons();
+}
+function closeDrawerWithFocus(el){
+  if(!el || el.classList.contains('hidden')) return;
+  const panel=el.querySelector('.drawer-panel, .modal-card, .sheet-panel, .live-panel');
+  if(panel) releaseFocus(panel);
+  el.classList.add('hidden');
+}
 let speechStartTime=null, speechTimerInt=null;
 const fmtTimer=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 const startSpeechTimer=()=>{ speechStartTime=Date.now(); if(speechTimer) speechTimer.textContent='00:00'; clearInterval(speechTimerInt); speechTimerInt=setInterval(()=>{ if(!speechStartTime||!speechTimer) return; const sec=Math.floor((Date.now()-speechStartTime)/1000); speechTimer.textContent=fmtTimer(sec); }, 500); };
@@ -505,8 +567,8 @@ function renderProviderList(){
   }).join('') || `<p style="text-align:center;color:#94a3b8;padding:16px;background:#fff;border:1px dashed var(--line);border-radius:12px">No providers found<br><small>Try a different search or add a provider</small></p>`;
   refreshIcons();
 }
-function openProviderView(){ providerView?.classList.remove('hidden'); renderProviderList(); renderProviders(); refreshIcons(); }
-function closeProviderView(){ providerView?.classList.add('hidden'); }
+function openProviderView(){ renderProviderList(); renderProviders(); openDrawerWithFocus(providerView, '#providerSearch'); }
+function closeProviderView(){ closeDrawerWithFocus(providerView); }
 providerSettingsBtn?.addEventListener('click', openProviderView);
 providerTopBtn?.addEventListener('click', openProviderView);
 closeProvider?.addEventListener('click', closeProviderView);
@@ -541,7 +603,7 @@ importProviderFile?.addEventListener('change', e=>{
 providerList?.addEventListener('click', e=>{
   const test=e.target.closest('[data-provider-test]'); if(test){ const p=PROVIDERS.find(x=>x.id===test.dataset.providerTest); toast(p.apiKey?`Testing ${p.name}…`:'No API key', 1600); setTimeout(()=> toast(p.apiKey? `${p.name} ✓ ${p.latency}ms` : `${p.name}: add API key first`), 800); return; }
   const use=e.target.closest('[data-provider-use]'); if(use){ selectedProvider=use.dataset.providerUse; const pr=PROVIDERS.find(x=>x.id===selectedProvider); selectedModel=pr.models[0]; localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); renderProviders(); renderProviderList(); renderMessages(); toast(`Switched to ${pr.name}`); return; }
-  const edit=e.target.closest('[data-provider-edit]'); if(edit){ const p=PROVIDERS.find(x=>x.id===edit.dataset.providerEdit); if(p){ editingProviderId=p.id; $('#providerModalTitle').textContent='Edit Provider'; provName.value=p.name; provId.value=p.id; provId.disabled=true; provKey.value=p.apiKey; provBase.value=p.baseUrl; provModels.value=p.models.join(', '); provTemp.value=String(p.temp); if(provTempVal) provTempVal.textContent=String(p.temp); provMax.value=String(p.maxTokens); provStream.checked=p.streaming; provEnabled.checked=p.enabled; providerModal?.classList.remove('hidden'); refreshIcons(); } return; }
+  const edit=e.target.closest('[data-provider-edit]'); if(edit){ const p=PROVIDERS.find(x=>x.id===edit.dataset.providerEdit); if(p){ editingProviderId=p.id; $('#providerModalTitle').textContent='Edit Provider'; provName.value=p.name; provId.value=p.id; provId.disabled=true; provKey.value=p.apiKey; provBase.value=p.baseUrl; provModels.value=p.models.join(', '); provTemp.value=String(p.temp); if(provTempVal) provTempVal.textContent=String(p.temp); provMax.value=String(p.maxTokens); provStream.checked=p.streaming; provEnabled.checked=p.enabled; openDrawerWithFocus(providerModal, '#provName'); } return; }
   const del=e.target.closest('[data-provider-del]'); if(del){ const id=del.dataset.providerDel; if(PROVIDERS.length<=1) return toast('Keep at least one provider'); if(confirm('Delete provider?')){ PROVIDERS=PROVIDERS.filter(p=>p.id!==id); if(selectedProvider===id){ selectedProvider=PROVIDERS[0].id; selectedModel=PROVIDERS[0].models[0]; localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); } saveProviders(); renderProviders(); renderProviderList(); renderMessages(); toast('Provider deleted'); } return; }
 });
 providerList?.addEventListener('change', e=>{
@@ -551,11 +613,11 @@ addProviderBtn?.addEventListener('click', ()=>{
   editingProviderId=null;
   $('#providerModalTitle').textContent='Add AI Provider';
   provName.value=''; provId.value=''; provId.disabled=false; provKey.value=''; provBase.value='https://api.example.com/v1'; provModels.value=''; provTemp.value='0.7'; if(provTempVal) provTempVal.textContent='0.7'; provMax.value='4096'; provStream.checked=true; provEnabled.checked=true;
-  providerModal?.classList.remove('hidden'); refreshIcons();
+  openDrawerWithFocus(providerModal, '#provName');
 });
-closeProviderModal?.addEventListener('click', ()=> providerModal?.classList.add('hidden'));
-providerModalBackdrop?.addEventListener('click', ()=> providerModal?.classList.add('hidden'));
-cancelProvider?.addEventListener('click', ()=> providerModal?.classList.add('hidden'));
+closeProviderModal?.addEventListener('click', ()=> closeDrawerWithFocus(providerModal));
+providerModalBackdrop?.addEventListener('click', ()=> closeDrawerWithFocus(providerModal));
+cancelProvider?.addEventListener('click', ()=> closeDrawerWithFocus(providerModal));
 testProviderBtn?.addEventListener('click', async ()=>{
   const fake={id:provId.value, name:provName.value, apiKey:provKey.value};
   testProviderBtn.innerHTML=`<i data-lucide="loader-2" style="width:12px;height:12px"></i> Testing…`; refreshIcons();
@@ -591,7 +653,7 @@ providerForm?.addEventListener('submit', e=>{
     PROVIDERS.push(data);
     toast(`${name} added`);
   }
-  saveProviders(); renderProviders(); renderProviderList(); providerModal?.classList.add('hidden');
+  saveProviders(); renderProviders(); renderProviderList(); closeDrawerWithFocus(providerModal);
   if(data.enabled){ selectedProvider=data.id; selectedModel=data.models[0]; localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); renderProviders(); renderMessages(); }
 });
 
@@ -611,6 +673,26 @@ let editingModeId = null;
 const saveModes = ()=> safeSet('mcp_modes', JSON.stringify(MODES));
 function getMode(id){ return MODES.find(m=>m.id===id) || MODES[0]; }
 function getActiveMode(){ return getMode(selectedMode); }
+function confirmModeSwitch(targetId){
+  const m=getMode(targetId);
+  if(!m) return true;
+  if(m.provider && m.provider!==selectedProvider){
+    const p=PROVIDERS.find(x=>x.id===m.provider);
+    const name=p? p.name : m.provider;
+    const modelHint=m.model ? ` • ${m.model}` : '';
+    return confirm(`Switch to ${m.name} will change provider to ${name}${modelHint}. Continue?`);
+  }
+  return true;
+}
+function applyModeProviderOverride(m){
+  if(!m.provider) return false;
+  const p=PROVIDERS.find(x=>x.id===m.provider);
+  if(!p || !p.enabled) return false;
+  selectedProvider=p.id; localStorage.setItem('provider', selectedProvider);
+  if(m.model){ selectedModel=m.model; localStorage.setItem('model', selectedModel); }
+  renderProviders();
+  return true;
+}
 function renderModes(){
   const active = getActiveMode();
   // topbar pills — legacy header (removed, keep composer-only). Guard for null.
@@ -711,7 +793,7 @@ function renderModesGrid(){
   }).join('') || `<p style="grid-column:1/-1;text-align:center;color:var(--faint);padding:20px;background:#fff;border:1px dashed var(--line);border-radius:12px">No modes match<br><small>Try another search</small></p>`;
   refreshIcons();
 }
-function openModesView(){ modesView?.classList.remove('hidden'); renderModesGrid(); refreshIcons(); }
+function openModesView(){ renderModesGrid(); openDrawerWithFocus(modesView, '#modeSearch'); }
 function populateModeServers(){
   if(!modeServers) return;
   const active= editingModeId ? MODES.find(m=>m.id===editingModeId) : null;
@@ -724,13 +806,11 @@ function populateModeServers(){
 }
 agentModesEl?.addEventListener('click', e=>{
   const b=e.target.closest('[data-mode]'); if(!b) return;
-  selectedMode=b.dataset.mode; localStorage.setItem('agentMode', selectedMode);
+  const target=b.dataset.mode;
+  if(!confirmModeSwitch(target)) return;
+  selectedMode=target; localStorage.setItem('agentMode', selectedMode);
   const m=getMode(selectedMode);
-  // apply provider/model override if set
-  if(m.provider){
-    const p=PROVIDERS.find(x=>x.id===m.provider);
-    if(p && p.enabled){ selectedProvider=p.id; localStorage.setItem('provider', selectedProvider); if(m.model){ selectedModel=m.model; localStorage.setItem('model', selectedModel); } renderProviders(); }
-  }
+  applyModeProviderOverride(m);
   renderModes(); renderModesGrid(); toast(`Mode: ${m.name} — ${m.desc}`);
 });
 // Composer mode popover — quick switch without leaving input
@@ -768,34 +848,38 @@ composerModeList?.addEventListener('click', (e)=>{
   const b=e.target.closest('[data-composer-mode]'); if(!b) return;
   const id=b.dataset.composerMode;
   if(id===selectedMode){ closeComposerModeMenu(); return; }
+  if(!confirmModeSwitch(id)) return;
   selectedMode=id; localStorage.setItem('agentMode', selectedMode);
   const m=getMode(selectedMode);
-  if(m.provider){
-    const p=PROVIDERS.find(x=>x.id===m.provider);
-    if(p && p.enabled){ selectedProvider=p.id; localStorage.setItem('provider', selectedProvider); if(m.model){ selectedModel=m.model; localStorage.setItem('model', selectedModel); } renderProviders(); }
-  }
+  applyModeProviderOverride(m);
   renderModes(); renderModesGrid(); closeComposerModeMenu(); toast(`Mode: ${m.name} — ${m.desc}`);
   inputEl?.focus();
 });
 document.addEventListener('click', (e)=>{ if(!e.target.closest('#composerModeWrap') && !e.target.closest('#composerModeMenu')) closeComposerModeMenu(); });
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeComposerModeMenu(); });
-modesBackdrop?.addEventListener('click', ()=> modesView?.classList.add('hidden'));
-closeModes?.addEventListener('click', ()=> modesView?.classList.add('hidden'));
+modesBackdrop?.addEventListener('click', ()=> closeDrawerWithFocus(modesView));
+closeModes?.addEventListener('click', ()=> closeDrawerWithFocus(modesView));
 modeSearch?.addEventListener('input', renderModesGrid);
 modeFilter?.addEventListener('change', renderModesGrid);
 modesGrid?.addEventListener('click', e=>{
-  const use=e.target.closest('[data-mode-use]'); if(use){ selectedMode=use.dataset.modeUse; localStorage.setItem('agentMode', selectedMode); renderModes(); renderModesGrid(); const m=getMode(selectedMode); if(m.provider){ const p=PROVIDERS.find(x=>x.id===m.provider); if(p){ selectedProvider=p.id; localStorage.setItem('provider', p.id); if(m.model) { selectedModel=m.model; localStorage.setItem('model', m.model); } renderProviders(); } } toast(`Switched to ${getMode(selectedMode).name}`); return; }
-  const radio=e.target.closest('[data-mode-radio]'); if(radio){ selectedMode=radio.dataset.modeRadio; localStorage.setItem('agentMode', selectedMode); renderModes(); renderModesGrid(); return; }
+  const use=e.target.closest('[data-mode-use]'); if(use){
+    const target=use.dataset.modeUse;
+    if(!confirmModeSwitch(target)) return;
+    selectedMode=target; localStorage.setItem('agentMode', selectedMode); renderModes(); renderModesGrid(); const m=getMode(selectedMode); applyModeProviderOverride(m); toast(`Switched to ${getMode(selectedMode).name}`); return; }
+  const radio=e.target.closest('[data-mode-radio]'); if(radio){
+    const target=radio.dataset.modeRadio;
+    if(!confirmModeSwitch(target)) { renderModesGrid(); return; }
+    selectedMode=target; localStorage.setItem('agentMode', selectedMode); const mm=getMode(selectedMode); applyModeProviderOverride(mm); renderModes(); renderModesGrid(); return; }
   const edit=e.target.closest('[data-mode-edit]'); if(edit){ openEditMode(edit.dataset.modeEdit); return; }
   const dup=e.target.closest('[data-mode-dup]'); if(dup){ const src=MODES.find(m=>m.id===dup.dataset.modeDup); const copy={...JSON.parse(JSON.stringify(src)), id:src.id+'-copy', name:src.name+' Copy', builtin:false}; MODES.push(copy); saveModes(); renderModes(); renderModesGrid(); toast(`Duplicated ${src.name}`); return; }
   const del=e.target.closest('[data-mode-del]'); if(del){ const id=del.dataset.modeDel; const m=MODES.find(x=>x.id===id); if(m.builtin) return toast('Built-in cannot be deleted'); if(confirm(`Delete mode "${m.name}"?`)){ MODES=MODES.filter(x=>x.id!==id); if(selectedMode===id){ selectedMode=MODES[0].id; localStorage.setItem('agentMode', selectedMode); } saveModes(); renderModes(); renderModesGrid(); toast('Mode deleted'); } return; }
-  const card=e.target.closest('.mode-card'); if(card && !e.target.closest('button') && !e.target.closest('input')){ const id=card.dataset.modeId; selectedMode=id; localStorage.setItem('agentMode', selectedMode); renderModes(); renderModesGrid(); }
+  const card=e.target.closest('.mode-card'); if(card && !e.target.closest('button') && !e.target.closest('input')){ const id=card.dataset.modeId; if(!confirmModeSwitch(id)) return; selectedMode=id; localStorage.setItem('agentMode', selectedMode); const cc=getMode(id); applyModeProviderOverride(cc); renderModes(); renderModesGrid(); }
 });
 addModeBtn?.addEventListener('click', ()=>{
   editingModeId=null;
   modeModalTitle.textContent='New Agent Mode';
-  modeName.value=''; modeId.value=''; modeIcon.value='message-circle'; modeColor.value='#2563eb'; modeAccent.value='solid'; modeDesc.value=''; modePrompt.value=''; modeTemp.value='0.7'; if(modeTempVal) modeTempVal.textContent='0.7'; modeTokens.value='4096'; modeProvider.value=''; modeModel.value=''; modeToolSQL.checked=true; modeToolFS.checked=true; modeToolCloud.checked=true; modeToolWeb.checked=false; populateModeServers(); duplicateModeBtn.style.display='none';
-  modeModal?.classList.remove('hidden'); refreshIcons();
+  modeName.value=''; modeId.value=''; modeId.disabled=false; modeIcon.value='message-circle'; modeColor.value='#2563eb'; modeAccent.value='solid'; modeDesc.value=''; modePrompt.value=''; modeTemp.value='0.7'; if(modeTempVal) modeTempVal.textContent='0.7'; modeTokens.value='4096'; modeProvider.value=''; modeModel.value=''; modeToolSQL.checked=true; modeToolFS.checked=true; modeToolCloud.checked=true; modeToolWeb.checked=false; populateModeServers(); duplicateModeBtn.style.display='none';
+  openDrawerWithFocus(modeModal, '#modeName');
 });
 exportModesBtn?.addEventListener('click', ()=>{
   const blob=new Blob([JSON.stringify(MODES,null,2)],{type:'application/json'});
@@ -811,17 +895,17 @@ function openEditMode(id){
   editingModeId=id;
   modeModalTitle.textContent='Edit Mode — '+m.name;
   modeName.value=m.name; modeId.value=m.id; modeId.disabled=true; modeIcon.value=m.icon; modeColor.value=m.color; modeAccent.value=m.accent||'solid'; modeDesc.value=m.desc; modePrompt.value=m.prompt; modeTemp.value=String(m.temp); if(modeTempVal) modeTempVal.textContent=String(m.temp); modeTokens.value=String(m.tokens); modeProvider.value=m.provider||''; modeModel.value=m.model||''; modeToolSQL.checked=!!m.tools.sql; modeToolFS.checked=!!m.tools.fs; modeToolCloud.checked=!!m.tools.cloud; modeToolWeb.checked=!!m.tools.web; populateModeServers(); duplicateModeBtn.style.display='';
-  modeModal?.classList.remove('hidden'); refreshIcons();
+  openDrawerWithFocus(modeModal, '#modeName');
 }
 modeTemp?.addEventListener('input', e=>{ if(modeTempVal) modeTempVal.textContent=e.target.value; });
-closeModeModal?.addEventListener('click', ()=> modeModal?.classList.add('hidden'));
-modeModalBackdrop?.addEventListener('click', ()=> modeModal?.classList.add('hidden'));
-cancelMode?.addEventListener('click', ()=> modeModal?.classList.add('hidden'));
+closeModeModal?.addEventListener('click', ()=> closeDrawerWithFocus(modeModal));
+modeModalBackdrop?.addEventListener('click', ()=> closeDrawerWithFocus(modeModal));
+cancelMode?.addEventListener('click', ()=> closeDrawerWithFocus(modeModal));
 duplicateModeBtn?.addEventListener('click', ()=>{
   if(!editingModeId) return;
   const src=MODES.find(m=>m.id===editingModeId);
   const copy={...JSON.parse(JSON.stringify(src)), id:src.id+'-copy', name:src.name+' Copy', builtin:false};
-  MODES.push(copy); saveModes(); renderModes(); renderModesGrid(); modeModal?.classList.add('hidden'); toast('Duplicated '+src.name);
+  MODES.push(copy); saveModes(); renderModes(); renderModesGrid(); closeDrawerWithFocus(modeModal); toast('Duplicated '+src.name);
 });
 modeForm?.addEventListener('submit', e=>{
   e.preventDefault();
@@ -848,7 +932,7 @@ modeForm?.addEventListener('submit', e=>{
     MODES.push(data);
     toast(`${name} created`);
   }
-  saveModes(); renderModes(); renderModesGrid(); modeModal?.classList.add('hidden');
+  saveModes(); renderModes(); renderModesGrid(); closeDrawerWithFocus(modeModal);
   selectedMode=data.id; localStorage.setItem('agentMode', selectedMode); renderModes();
 });
 
@@ -931,7 +1015,15 @@ importFile?.addEventListener('change', e=>{
   const f=e.target.files[0]; if(!f) return;
   const r=new FileReader(); r.onerror=()=> toast('File read error'); r.onload=()=>{ try{ const data=JSON.parse(r.result); if(data.title && data.messages){ pushHistory(); data.id=uid(); data.created=Date.now(); chats.unshift(data); activeChatId=data.id; saveChats(); renderChats(); renderMessages(); toast('Imported'); } else toast('Invalid file'); } catch{ toast('Invalid JSON'); } }; r.readAsText(f); e.target.value='';
 });
-archiveToggle?.addEventListener('click', ()=>{ showArchived=!showArchived; archiveToggle.style.background=showArchived?'#0f172a':''; archiveToggle.style.color=showArchived?'#fff':''; renderChats(); toast(showArchived?'Showing archived':'Hiding archived'); });
+archiveToggle?.addEventListener('click', ()=>{
+  showArchived=!showArchived;
+  archiveToggle.style.background=showArchived?'#0f172a':'';
+  archiveToggle.style.color=showArchived?'#fff':'';
+  archiveToggle.setAttribute('aria-pressed', showArchived?'true':'false');
+  archiveToggle.setAttribute('title', showArchived?'Hiding archived — click to show':'Show archived');
+  renderChats();
+  toast(showArchived?'Showing archived':'Hiding archived');
+});
 
 // Servers render — enhanced
 let serverHealthTimer=null;
@@ -1057,10 +1149,17 @@ function renderServers(){
 }
 function initHealthPoll(){
   if(serverHealthTimer){ clearInterval(serverHealthTimer); serverHealthTimer=null; }
-  if(healthPoll?.checked){
-    serverHealthTimer=setInterval(()=> doHealthCheck(false), 30000);
+  if(healthPoll?.checked && !document.hidden){
+    serverHealthTimer=setInterval(()=> { if(!document.hidden) doHealthCheck(false); }, 30000);
   }
 }
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){
+    if(serverHealthTimer){ clearInterval(serverHealthTimer); serverHealthTimer=null; }
+  } else {
+    initHealthPoll();
+  }
+});
 function doHealthCheck(showToast=true){
   // mock: randomize latency/health for connected servers
   let changed=false;
@@ -1127,12 +1226,12 @@ function openServerDetail(id){
       </div>
     </div>
   `;
-  serverDetailModal?.classList.remove('hidden'); refreshIcons();
-  const _closeDetail = $('#closeServerDetail'); if(_closeDetail) _closeDetail.onclick = ()=> serverDetailModal?.classList.add('hidden');
+  openDrawerWithFocus(serverDetailModal, '#closeServerDetail');
+  const _closeDetail = $('#closeServerDetail'); if(_closeDetail) _closeDetail.onclick = ()=> closeDrawerWithFocus(serverDetailModal);
   const _copyEp = $('#copyEndpointBtn'); if(_copyEp) _copyEp.onclick = ()=>{ navigator.clipboard.writeText(s.endpoint).then(()=> toast('Endpoint copied')).catch(()=> toast('Copy failed')); };
   const _copyCfg = $('#copyServerConfig'); if(_copyCfg) _copyCfg.onclick = ()=>{ navigator.clipboard.writeText($('#serverConfigJson')?.textContent||'').catch(()=>{}); toast('Config copied'); };
-  const _detToggle = $('#detailToggle'); if(_detToggle) _detToggle.onclick = async ()=>{ await toggle(s.id); serverDetailModal?.classList.add('hidden'); };
-  const _detEdit = $('#detailEdit'); if(_detEdit) _detEdit.onclick = ()=>{ serverDetailModal?.classList.add('hidden'); openEditServer(s.id); };
+  const _detToggle = $('#detailToggle'); if(_detToggle) _detToggle.onclick = async ()=>{ await toggle(s.id); closeDrawerWithFocus(serverDetailModal); };
+  const _detEdit = $('#detailEdit'); if(_detEdit) _detEdit.onclick = ()=>{ closeDrawerWithFocus(serverDetailModal); openEditServer(s.id); };
 }
 function openEditServer(id){
   const s=servers.find(x=>x.id===id); if(!s) return;
@@ -1140,7 +1239,7 @@ function openEditServer(id){
   serverModalTitle.textContent='Edit MCP Server';
   srvName.value=s.name; srvTransport.value=s.transport; srvEndpoint.value=s.endpoint; srvTools.value=s.tools; if(srvDesc) srvDesc.value=s.desc||''; if(srvTimeout) srvTimeout.value=String(s.timeout); if(srvRetries) srvRetries.value=String(s.retries); if(srvAuto) srvAuto.checked=!!s.autoConnect; if(srvHealth) srvHealth.checked=!!s.healthCheck;
   envDraft=[...(s.env||[])];
-  renderEnv(); updateEndpointHint(); serverModal?.classList.remove('hidden'); refreshIcons();
+  renderEnv(); updateEndpointHint(); openDrawerWithFocus(serverModal, '#srvName');
 }
 function renderEnv(){
   if(!envList) return;
@@ -1194,11 +1293,14 @@ function renderTodo(){
   refreshIcons();
 }
 todoToggle?.addEventListener('click', ()=>{
+  const willShow=todoDraft?.classList.contains('hidden');
   todoDraft?.classList.toggle('hidden');
-  if(!todoDraft?.classList.contains('hidden')) todoInput.focus();
+  todoToggle.setAttribute('aria-pressed', willShow?'true':'false');
+  if(willShow) todoInput.focus();
+  else todoToggle.focus();
   refreshIcons();
 });
-clearTodo?.addEventListener('click', ()=>{ todos=[]; todoDraft?.classList.add('hidden'); renderTodo(); });
+clearTodo?.addEventListener('click', ()=>{ todos=[]; todoDraft?.classList.add('hidden'); todoToggle.setAttribute('aria-pressed','false'); renderTodo(); });
 addTodoBtn?.addEventListener('click', ()=>{
   const v=todoInput.value.trim(); if(!v) return;
   todos.push({text:v, done:false}); todoInput.value=''; renderTodo();
@@ -1220,10 +1322,16 @@ function syncComposer(){
   const hasText=(inputEl?.value||'').trim().length>0;
   const hasMedia=pending.length>0;
   if(sendBtn) sendBtn.disabled=(!hasText && !hasMedia && !todos.length) || isTyping;
-  if(charCount){ charCount.textContent=inputEl?.value?.length? `${inputEl.value.length}/2000` : ''; charCount.style.color=(inputEl?.value?.length||0)>1800?'#ef4444':'#94a3b8'; }
+  if(charCount){ charCount.textContent=inputEl?.value?.length? `${inputEl.value.length}/2000` : ''; charCount.style.color=(inputEl?.value?.length||0)>1800?'#ef4444':'#6b7a94'; }
   try{ localStorage.setItem('mcp_draft', inputEl?.value||''); }catch{}
-  // show prompt strip when empty
-  if(promptStrip){ if(!hasText && !hasMedia && !isTyping) promptStrip?.classList.remove('hidden'); else promptStrip?.classList.add('hidden'); }
+  // prompt strip: always visible but faded when typing (keeps discoverability)
+  if(promptStrip){
+    promptStrip.classList.remove('hidden');
+    if(!hasText && !hasMedia && !isTyping){ promptStrip.classList.remove('faded'); }
+    else { promptStrip.classList.add('faded'); }
+    // hide completely only when typing heavily or attachment preview? keep faded
+    if(isTyping) promptStrip.classList.add('hidden');
+  }
 }
 // Prompt suggestions — mode-aware + recents + inline autocomplete
 const PROMPT_RECENT_KEY = 'mcp_recent_prompts';
@@ -1374,14 +1482,14 @@ function renderSlash(){
   const foot=`<div class="slash-foot"><span><kbd>/</kbd> filter • <kbd>Tab</kbd> insert</span><span style="margin-left:auto;display:flex;gap:6px;align-items:center"><span style="color:var(--faint)">${recent.length? 'Recent: '+recent.slice(0,3).join(' ') : ''}</span></span></div>`;
   slashMenu.innerHTML = header + body + foot;
   slashMenu?.classList.remove('hidden');
-  if(slashTrigger) slashTrigger.classList.add('active');
+  if(slashTrigger){ slashTrigger.classList.add('active'); slashTrigger.setAttribute('aria-expanded','true'); }
   refreshIcons();
 }
 function hideSlash(){ 
   slashMenu?.classList.add('hidden'); 
   filtered=[]; 
   slashTriggerOpen=false;
-  if(slashTrigger) slashTrigger.classList.remove('active');
+  if(slashTrigger){ slashTrigger.classList.remove('active'); slashTrigger.setAttribute('aria-expanded','false'); }
 }
 function pickSlash(cmd){
   if(!cmd) return;
@@ -2532,9 +2640,12 @@ promptGridEl?.addEventListener('click', e=>{
 });
 
 // Profile
-userProfileCard?.addEventListener('click', ()=>{ profileView?.classList.remove('hidden'); refreshIcons(); });
-profileBackdrop?.addEventListener('click', ()=> profileView?.classList.add('hidden'));
-closeProfile?.addEventListener('click', ()=> profileView?.classList.add('hidden'));
+function openProfileView(){ openDrawerWithFocus(profileView, '#profileNameInput'); userProfileCard?.setAttribute('aria-expanded','true'); }
+function closeProfileView(){ closeDrawerWithFocus(profileView); userProfileCard?.setAttribute('aria-expanded','false'); }
+userProfileCard?.addEventListener('click', openProfileView);
+userProfileCard?.addEventListener('keydown', e=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); if(profileView.classList.contains('hidden')) openProfileView(); else closeProfileView(); }});
+profileBackdrop?.addEventListener('click', closeProfileView);
+closeProfile?.addEventListener('click', closeProfileView);
 changeAvatar?.addEventListener('click', ()=> avatarInput.click());
 avatarInput?.addEventListener('change', e=>{
   const f=e.target.files[0]; if(!f) return;
@@ -2568,22 +2679,23 @@ saveProfileBtn?.addEventListener('click', ()=>{
 themeSelect?.addEventListener('change', e=>{
   const v=e.target.value;
   try{ localStorage.setItem('mcp_theme', v); }catch{}
-  if(v==='dark'){ document.documentElement.style.filter='invert(1) hue-rotate(180deg)'; document.body.style.background='#0f172a'; toast('Dark preview — invert filter'); }
-  else { document.documentElement.style.filter=''; document.body.style.background=''; toast('Light theme'); }
+  // dark preview removed — keep light only; invert breaks a11y
+  if(v==='dark'){ themeSelect.value='light'; toast('Dark theme coming soon — stayed on Light'); try{ localStorage.setItem('mcp_theme','light'); }catch{} return; }
+  document.documentElement.style.filter=''; document.body.style.background=''; toast('Light theme');
 });
 
 // Servers drawer events
-function openSettings(){ settingsView?.classList.remove('hidden'); refreshIcons(); }
-function closeSettingsView(){ settingsView?.classList.add('hidden'); }
+function openSettings(){ openDrawerWithFocus(settingsView, '#serverSearch'); }
+function closeSettingsView(){ closeDrawerWithFocus(settingsView); }
 serversBtn?.addEventListener('click', openSettings);
 settingsBtn?.addEventListener('click', openSettings);
-marketplaceBtn?.addEventListener('click', ()=>{ marketplaceView?.classList.remove('hidden'); renderMarket(); refreshIcons(); });
-promptLibraryBtn?.addEventListener('click', ()=>{ promptsView?.classList.remove('hidden'); renderPromptCats(); renderPromptGrid(); refreshIcons(); });
+marketplaceBtn?.addEventListener('click', ()=>{ renderMarket(); openDrawerWithFocus(marketplaceView, '#marketSearch'); });
+promptLibraryBtn?.addEventListener('click', ()=>{ renderPromptCats(); renderPromptGrid(); openDrawerWithFocus(promptsView, '#promptSearch'); });
 showPromptsLink?.addEventListener('click', ()=> promptLibraryBtn.click());
-closeMarketplace?.addEventListener('click', ()=> marketplaceView?.classList.add('hidden'));
-marketplaceBackdrop?.addEventListener('click', ()=> marketplaceView?.classList.add('hidden'));
-promptsBackdrop?.addEventListener('click', ()=> promptsView?.classList.add('hidden'));
-closePrompts?.addEventListener('click', ()=> promptsView?.classList.add('hidden'));
+closeMarketplace?.addEventListener('click', ()=> closeDrawerWithFocus(marketplaceView));
+marketplaceBackdrop?.addEventListener('click', ()=> closeDrawerWithFocus(marketplaceView));
+promptsBackdrop?.addEventListener('click', ()=> closeDrawerWithFocus(promptsView));
+closePrompts?.addEventListener('click', ()=> closeDrawerWithFocus(promptsView));
 settingsBackdrop?.addEventListener('click', closeSettingsView);
 closeSettings?.addEventListener('click', closeSettingsView);
 serverSearch?.addEventListener('input', renderServers);
@@ -2596,9 +2708,21 @@ clearServerFilters?.addEventListener('click', ()=>{
   toast('Filters cleared');
 });
 sidebarSearch?.addEventListener('input', ()=>{
+  const q=sidebarSearch.value.trim();
+  // when searching, auto-expand both sections for visibility
+  if(q){
+    document.querySelectorAll('.section[data-section]').forEach(sec=>{
+      sec.classList.remove('collapsed');
+      const btn=sec.querySelector('[data-toggle]');
+      const body=sec.querySelector('.section-body');
+      if(btn) btn.setAttribute('aria-expanded','true');
+      if(body){ body.style.maxHeight='2000px'; body.style.opacity='1'; }
+      const ch=btn?.querySelector('.section-chevron'); if(ch) ch.style.transform='';
+    });
+  }
   renderChats(); renderServers();
   const sc=document.getElementById('sidebarSearchClear');
-  if(sc) sc.classList.toggle('hidden', !sidebarSearch.value.trim());
+  if(sc) sc.classList.toggle('hidden', !q);
 });
 document.getElementById('sidebarSearchClear')?.addEventListener('click', ()=>{
   sidebarSearch.value='';
@@ -2682,13 +2806,13 @@ addServerBtn?.addEventListener('click', ()=>{
   srvName.value=''; srvEndpoint.value=''; srvTools.value=''; if(srvDesc) srvDesc.value=''; if(srvTimeout) srvTimeout.value='10000'; if(srvRetries) srvRetries.value='2'; if(srvAuto) srvAuto.checked=true; if(srvHealth) srvHealth.checked=true;
   srvTransport.value='sse'; if(srvTemplate) srvTemplate.value='';
   envDraft=[]; renderEnv(); updateEndpointHint();
-  serverModal?.classList.remove('hidden'); refreshIcons();
+  openDrawerWithFocus(serverModal, '#srvName');
 });
 addServerSidebar?.addEventListener('click', ()=> addServerBtn.click());
-closeServerModalBtn?.addEventListener('click', ()=> serverModal?.classList.add('hidden'));
-cancelServer?.addEventListener('click', ()=> serverModal?.classList.add('hidden'));
-serverModalBackdrop?.addEventListener('click', ()=> serverModal?.classList.add('hidden'));
-serverDetailBackdrop?.addEventListener('click', ()=> serverDetailModal?.classList.add('hidden'));
+closeServerModalBtn?.addEventListener('click', ()=> closeDrawerWithFocus(serverModal));
+cancelServer?.addEventListener('click', ()=> closeDrawerWithFocus(serverModal));
+serverModalBackdrop?.addEventListener('click', ()=> closeDrawerWithFocus(serverModal));
+serverDetailBackdrop?.addEventListener('click', ()=> closeDrawerWithFocus(serverDetailModal));
 srvTemplate?.addEventListener('change', ()=>{
   const v=srvTemplate.value;
   const map={
@@ -2809,12 +2933,59 @@ $$('.quick-card, .tool').forEach(b=>{
   });
 });
 
-// Sidebar toggle
-menuBtn?.addEventListener('click', ()=> sidebar.classList.add('open'));
-sidebarClose?.addEventListener('click', ()=> sidebar.classList.remove('open'));
+// Sidebar toggle — with aria-expanded & focus
+menuBtn?.addEventListener('click', ()=>{
+  sidebar.classList.add('open');
+  menuBtn.setAttribute('aria-expanded','true');
+  const first=sidebar.querySelector('#sidebarSearch, #newChatBtn');
+  if(first) setTimeout(()=> first.focus(), 50);
+});
+sidebarClose?.addEventListener('click', ()=>{
+  sidebar.classList.remove('open');
+  menuBtn?.setAttribute('aria-expanded','false');
+  menuBtn?.focus();
+});
+// ——— Topbar overflow menu ———
+const topbarOverflowBtn=$('#topbarOverflowBtn');
+const topbarOverflowMenu=$('#topbarOverflowMenu');
+topbarOverflowBtn?.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  const willOpen=topbarOverflowMenu.classList.contains('hidden');
+  topbarOverflowMenu.classList.toggle('hidden', !willOpen);
+  topbarOverflowBtn.setAttribute('aria-expanded', willOpen?'true':'false');
+  if(willOpen) refreshIcons();
+});
+topbarOverflowMenu?.addEventListener('click', e=>{
+  const b=e.target.closest('[data-overflow]'); if(!b) return;
+  const act=b.dataset.overflow;
+  topbarOverflowMenu.classList.add('hidden');
+  topbarOverflowBtn.setAttribute('aria-expanded','false');
+  if(act==='provider') openProviderView();
+  else if(act==='undo') document.getElementById('undoBtn')?.click();
+  else if(act==='redo') document.getElementById('redoBtn')?.click();
+  else if(act==='new') { const c=getActiveChat(); if(!c || c.messages.length) document.getElementById('newChatBtn')?.click(); else toast('New chat ready'); }
+});
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#topbarOverflowBtn') && !e.target.closest('#topbarOverflowMenu')){
+    topbarOverflowMenu?.classList.add('hidden');
+    topbarOverflowBtn?.setAttribute('aria-expanded','false');
+  }
+});
+// also handle convMenu aria-expanded
+convMenuBtn?.addEventListener('click', ()=>{
+  const willOpen=convMenu.classList.contains('hidden');
+  // toggle already handled, just update aria
+  setTimeout(()=> convMenuBtn.setAttribute('aria-expanded', willOpen?'true':'false'), 10);
+});
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){ settingsView?.classList.add('hidden'); serverModal?.classList.add('hidden'); toolsModal?.classList.add('hidden'); marketplaceView?.classList.add('hidden'); promptsView?.classList.add('hidden'); profileView?.classList.add('hidden'); providerView?.classList.add('hidden'); providerModal?.classList.add('hidden'); serverDetailModal?.classList.add('hidden'); marketDetailModal?.classList.add('hidden'); modesView?.classList.add('hidden'); modeModal?.classList.add('hidden'); liveOverlay?.classList.add('hidden'); editMsgModal?.classList.add('hidden'); hideSlash(); sidebar.classList.remove('open'); convMenu.classList.add('hidden'); }
-  if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); openSettings(); }
+  if(e.key==='Escape'){
+    // close drawers with focus restore
+    [settingsView, serverModal, toolsModal, marketplaceView, promptsView, profileView, providerView, providerModal, serverDetailModal, marketDetailModal, modesView, modeModal, liveOverlay, editMsgModal].forEach(el=>{ if(el && !el.classList.contains('hidden')) closeDrawerWithFocus(el); });
+    // fallback hidden for any without trap
+    hideSlash(); sidebar.classList.remove('open'); menuBtn?.setAttribute('aria-expanded','false'); convMenu?.classList.add('hidden'); topbarOverflowMenu?.classList.add('hidden'); convMenuBtn?.setAttribute('aria-expanded','false'); topbarOverflowBtn?.setAttribute('aria-expanded','false');
+    closeComposerModeMenu();
+  }
+  if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); const s=document.getElementById('sidebarSearch'); if(s){ s.focus(); s.select(); toast('Search chats & servers'); } }
 });
 
 // Send
@@ -2826,7 +2997,7 @@ const ONBOARD_STEPS = [
   {icon:'network', color:'#2563eb', title:'Welcome to MCP Terminal', desc:'Connect AI models to tools and local resources via the Model Context Protocol — securely, locally, fast.', bullets:['TLS 1.3 secure tunnel','MCP nodes: Postgres, S3, FS & more','One chat, many tools']},
   {icon:'cpu', color:'#7c3aed', title:'AI Providers', desc:'Bring your own key — OpenAI, Anthropic, Google or local LLM. Switch instantly, per-mode overrides.', bullets:['Multiple providers & models','Per-mode provider & temp','Streaming & fallback']},
   {icon:'store', color:'#ff9900', title:'MCP Marketplace & Servers', desc:'Discover verified MCP servers, install with one click, connect / disconnect, health checks & logs.', bullets:['Browse 10+ verified servers','SSE / STDIO / HTTP','Env vars, timeout & retries']},
-  {icon:'bot', color:'#16a34a', title:'Agent Modes & Live', desc:'Modes shape tone & tools. Live speech gives hands-free conversation with turn-taking and TTS.', bullets:['8 modes: Chat, Code, Research…','Custom modes & prompts','Live mic — interrupt anytime']},
+  {icon:'bot', color:'#16a34a', title:'Agent Modes & Live', desc:'Modes shape tone & tools. Live speech gives hands-free conversation with turn-taking and TTS.', bullets:['8 modes: Chat, Code, Research…','Type / for 16 commands • 2+ letters for prompts','Live mic — interrupt anytime']},
 ];
 let onIndex = 0;
 function renderOnStep(){
@@ -3023,8 +3194,13 @@ async function initApp(){
   renderProviders(); renderModes(); renderChats(); renderMessages(); renderServers(); initHealthPoll(); renderPromptStrip(); renderMarket(); renderPromptCats(); renderPromptGrid(); renderProfilesList(); refreshIcons(); scrollBottom(); updateScrollFab(); updateUndoRedo();
   if(profileNameInput && !profileNameInput.value) profileNameInput.value=currentUser ? currentUser.name : (localStorage.getItem('profileName')||'Alex Rivera');
   if(profileEmail && !profileEmail.value) profileEmail.value=currentUser ? currentUser.email : (localStorage.getItem('profileEmail')||'alex@local.dev');
-  // restore theme
-  try{ const th=localStorage.getItem('mcp_theme'); if(th==='dark' && themeSelect){ themeSelect.value='dark'; document.documentElement.style.filter='invert(1) hue-rotate(180deg)'; document.body.style.background='#0f172a'; } }catch{}
+  // restore theme — dark preview disabled, force light
+  try{
+    const th=localStorage.getItem('mcp_theme');
+    if(themeSelect){ themeSelect.value='light'; }
+    if(th==='dark'){ try{ localStorage.setItem('mcp_theme','light'); }catch{} }
+    document.documentElement.style.filter=''; document.body.style.background='';
+  }catch{}
 }
 initApp();
 
