@@ -204,10 +204,25 @@
         <!-- Composer -->
         <div class="composer" id="composer">
           <div class="attach-preview hidden" id="attachPreview"></div>
-          <div class="todo-draft hidden" id="todoDraft">
-            <div class="todo-head"><i data-lucide="list-checks" style="width:14px;height:14px"></i> Checklist <span id="todoProgress">0/0</span><button class="icon-btn sm" id="clearTodo"><i data-lucide="x" style="width:12px;height:12px"></i></button></div>
-            <ul id="todoList"></ul>
-            <div class="todo-add"><input id="todoInput" placeholder="Add todo…  ⏎" /><button class="ghost-btn sm" id="addTodoBtn">Add</button></div>
+          <div class="todo-draft hidden" id="todoDraft" role="region" aria-label="Checklist draft">
+            <div class="todo-head"><i data-lucide="list-checks" style="width:14px;height:14px" aria-hidden="true"></i> Checklist <span id="todoProgress" aria-live="polite">0/0</span><button class="icon-btn sm" id="clearTodo" title="Clear all" aria-label="Clear all todos"><i data-lucide="x" style="width:12px;height:12px" aria-hidden="true"></i></button></div>
+            <div class="todo-progress-track hidden" id="todoProgressTrack" aria-hidden="true"><span id="todoProgressFill"></span></div>
+            <ul id="todoList" role="list" aria-label="Checklist items"></ul>
+            <div id="todoEmpty" class="todo-empty hidden" role="status" aria-live="polite">
+              <i data-lucide="clipboard-list" style="width:20px;height:20px;color:var(--primary);opacity:.7" aria-hidden="true"></i>
+              <b>No todos yet</b>
+              <p>Add tasks to track them with this message. Use <kbd style="font-size:10px;background:#fff;border:1px solid var(--line);padding:1px 4px;border-radius:4px">/</kbd> <code style="font-family:var(--mono);font-size:11px">todo</code> or type below.</p>
+            </div>
+            <div class="todo-add"><input id="todoInput" placeholder="Add todo…  ⏎" aria-label="New todo text" maxlength="120" /><button class="ghost-btn sm" id="addTodoBtn" aria-label="Add todo"><i data-lucide="plus" style="width:12px;height:12px" aria-hidden="true"></i> Add</button></div>
+            <div class="todo-foot hidden" id="todoFoot">
+              <div class="todo-foot-left">
+                <button class="ghost-btn sm" id="todoMarkAll" aria-label="Mark all complete"><i data-lucide="check-check" style="width:12px;height:12px" aria-hidden="true"></i> Mark all</button>
+                <button class="ghost-btn sm" id="todoClearDone" aria-label="Clear completed"><i data-lucide="eraser" style="width:12px;height:12px" aria-hidden="true"></i> Clear done</button>
+              </div>
+              <div class="todo-foot-right">
+                <span style="font-size:11px;color:var(--muted)" id="todoHint">↵ to add</span>
+              </div>
+            </div>
           </div>
           <div class="slash-menu hidden" id="slashMenu" role="listbox" aria-label="Slash commands"></div>
           <div class="prompt-suggest hidden" id="promptSuggest" role="listbox" aria-label="Prompt suggestions"></div>
@@ -223,7 +238,7 @@
             <input type="file" id="mediaInput" hidden multiple accept="image/*,video/*,audio/*,.pdf,.csv,.json,.txt,.md" />
             <textarea id="promptInput" placeholder="Ask MCP to run a tool…  •  type “/” for commands" rows="1" aria-label="Message composer" aria-autocomplete="list" aria-expanded="false" aria-haspopup="listbox"></textarea>
             <div class="composer-tools">
-              <button class="icon-btn sm" id="todoToggle" title="Todo checklist" aria-label="Toggle checklist" aria-pressed="false"><i data-lucide="list-todo" aria-hidden="true"></i></button>
+              <button class="icon-btn sm" id="todoToggle" title="Todo checklist" aria-label="Toggle checklist" aria-pressed="false"><i data-lucide="list-todo" aria-hidden="true"></i><span class="todo-badge hidden" id="todoBadge" aria-hidden="true">0</span></button>
               <button class="icon-btn sm slash-trigger" id="slashTrigger" title="Commands (/)" aria-label="Show commands" aria-expanded="false" aria-haspopup="dialog"><i data-lucide="command" style="width:14px;height:14px" aria-hidden="true"></i></button>
               <div class="composer-mode-wrap" id="composerModeWrap" style="position:relative">
                 <button class="composer-mode-pill" id="composerModePill" title="Agent mode — click to switch" aria-haspopup="dialog" aria-expanded="false"><span class="composer-mode-icon" id="composerModeIcon" style="width:20px;height:20px;border-radius:999px;display:grid;place-items:center;background:var(--primary);color:#fff;flex-shrink:0"><i data-lucide="bot" style="width:12px;height:12px"></i></span><span id="composerModeLabel">Chat</span><i data-lucide="chevron-down" style="width:12px;height:12px;opacity:.55"></i></button>

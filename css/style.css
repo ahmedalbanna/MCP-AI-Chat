@@ -306,11 +306,15 @@ tbody tr:hover td{background:#f8fafc}
 .task-actions .accept:hover{filter:brightness(1.05);transform:translateY(-1px)}
 .task-actions .cancel{background:#fff;color:var(--muted)}
 .task-actions .cancel:hover{background:#f8fafc}
-.todo-list{list-style:none;margin:0;padding:11px 12px;display:flex;flex-direction:column;gap:8px}
-.todo-item{display:flex;gap:9px;align-items:center;font-size:13px;padding:2px 0}
-.todo-item input[type=checkbox]{width:17px;height:17px;border-radius:6px;accent-color:var(--primary);flex-shrink:0}
-.todo-item.done span{color:var(--faint);text-decoration:line-through}
+.todo-list{list-style:none;margin:0;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.todo-item{display:flex;gap:10px;align-items:center;font-size:13px;padding:7px 8px;border-radius:10px;border:1px solid transparent;transition:all .12s;background:transparent}
+.todo-item:hover{background:#f8fafc;border-color:var(--line)}
+.todo-item input[type=checkbox]{width:18px;height:18px;border-radius:6px;accent-color:var(--primary);flex-shrink:0;cursor:pointer}
+.todo-item.done{background:#f8fafc;border-color:var(--line);opacity:.9}
+.todo-item.done span{color:var(--muted);text-decoration:line-through;text-decoration-color:#94a3b8;text-decoration-thickness:1.2px}
+.todo-item span:last-of-type{margin-left:auto}
 .todo-progress{font-size:11px;color:var(--muted);margin-left:6px;font-weight:600}
+.task-card .todo-empty{margin:0 12px 12px}
 .prompt-strip{position:relative;display:flex;gap:8px;overflow:auto;padding:0 24px 10px;max-width:780px;width:100%;margin:0 auto;scrollbar-width:none;scroll-padding:0 24px;align-items:center;scroll-behavior:smooth;transition:opacity .2s var(--ease), transform .2s var(--ease);mask-image:linear-gradient(90deg, #000 92%, transparent 100%);-webkit-mask-image:linear-gradient(90deg, #000 92%, transparent 100%)}
 .prompt-strip::-webkit-scrollbar{display:none}
 .prompt-strip.hidden{display:none !important}
@@ -356,17 +360,46 @@ tbody tr:hover td{background:#f8fafc}
 .preview .rm:hover{background:rgba(15,23,42,.9);transform:scale(1.05)}
 .preview .rm i{width:12px;height:12px}
 .preview .fn{font-size:10px;padding:8px;text-align:center;word-break:break-all;line-height:1.3;display:flex;flex-direction:column;gap:4px;align-items:center}
-.todo-draft{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;box-shadow:var(--shadow-md);animation:msgIn .22s var(--ease-out)}
+.todo-draft{background:linear-gradient(180deg,#fff,#fcfdfe);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;box-shadow:var(--shadow-md);animation:msgIn .22s var(--ease-out)}
 .todo-draft.hidden{display:none}
-.todo-head{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:750}
-.todo-head span{margin-left:auto;font-size:11px;color:var(--muted);background:#f1f5f9;padding:3px 8px;border-radius:999px;font-weight:700}
-#todoList{list-style:none;margin:9px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:160px;overflow:auto}
-#todoList li{display:flex;gap:8px;align-items:center;background:#f8fafc;border:1px solid var(--line);padding:8px 9px;border-radius:10px;font-size:13px;transition:all .12s}
+.todo-head{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:750;flex-wrap:wrap}
+.todo-head span{margin-left:auto;font-size:11px;color:var(--muted);background:#f1f5f9;padding:3px 8px;border-radius:999px;font-weight:700;border:1px solid var(--line);min-width:38px;text-align:center}
+.todo-progress-track{height:6px;background:#eef2f7;border-radius:999px;overflow:hidden;margin:10px 0 0;border:1px solid var(--line)}
+.todo-progress-track span{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--primary),#7c3aed);border-radius:999px;transition:width .28s var(--ease-out)}
+.todo-progress-track.hidden{display:none}
+#todoList{list-style:none;margin:9px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:176px;overflow:auto;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
+#todoList::-webkit-scrollbar{width:6px}
+#todoList::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px}
+#todoList::-webkit-scrollbar-track{background:transparent}
+#todoList:empty{display:none}
+#todoList li{display:flex;gap:8px;align-items:center;background:#f8fafc;border:1px solid var(--line);padding:6px 7px 6px 9px;border-radius:11px;font-size:13px;transition:all .14s var(--ease);position:relative}
+#todoList li:hover{border-color:#dbeafe;background:#fff;box-shadow:var(--shadow-xs);transform:translateY(-1px)}
 #todoList li:focus-within{border-color:#93c5fd;box-shadow:var(--shadow-focus);background:#fff}
-#todoList li input{flex:1;border:none;background:transparent;outline:none;font-size:13px;color:var(--text)}
+#todoList li.done{background:#f8fafc;border-color:#e2e8f0;opacity:.92}
+#todoList li.done .todo-text{color:var(--muted);text-decoration:line-through;text-decoration-color:#94a3b8;text-decoration-thickness:1.2px}
+#todoList li input[type="checkbox"]{width:18px;height:18px;flex-shrink:0;border-radius:6px;accent-color:var(--primary);cursor:pointer}
+#todoList li .todo-text{flex:1;border:none;background:transparent;outline:none;font-size:13px;color:var(--text);min-width:0;padding:4px 2px;border-radius:6px;transition:all .12s}
+#todoList li .todo-text:focus{background:#eff6ff}
+#todoList li .todo-del{opacity:0;pointer-events:none;transform:translateX(4px);transition:all .14s var(--ease)}
+#todoList li:hover .todo-del,#todoList li:focus-within .todo-del{opacity:1;pointer-events:auto;transform:none}
+#todoList li .todo-del:focus-visible{opacity:1;pointer-events:auto;transform:none}
+.todo-actions{display:flex;gap:6px;margin-left:4px}
+.todo-empty{margin:10px 0 0;padding:16px 12px;border:1px dashed #dbeafe;border-radius:12px;background:linear-gradient(180deg,#f8fbff,#f1f5f9);display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--muted);text-align:center}
+.todo-empty.hidden{display:none}
+.todo-empty b{font-size:12.5px;color:var(--text)}
+.todo-empty p{font-size:11.5px;line-height:1.45;max-width:260px;margin:0}
+.todo-foot{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2);flex-wrap:wrap}
+.todo-foot.hidden{display:none}
+.todo-foot-left{display:flex;gap:6px;flex-wrap:wrap}
+.todo-foot-right{margin-left:auto;display:flex;gap:6px;align-items:center}
+.todo-foot .ghost-btn{font-size:11.5px;padding:6px 10px}
 .todo-add{display:flex;gap:8px;margin-top:10px}
-.todo-add input{flex:1;border:1px solid var(--line);border-radius:999px;padding:9px 13px;font-size:13px;outline:none;transition:all .15s}
+.todo-add input{flex:1;border:1px solid var(--line);border-radius:999px;padding:9px 13px;font-size:13px;outline:none;transition:all .15s;background:#fff;min-width:0}
 .todo-add input:focus{border-color:#93c5fd;box-shadow:var(--shadow-focus)}
+.todo-add input::placeholder{color:var(--faint)}
+#todoToggle{position:relative}
+.todo-badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:linear-gradient(180deg,var(--primary),#1d4ed8);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(37,99,235,.28);line-height:1}
+.todo-badge.hidden{display:none}
 .slash-trigger{border:1px solid transparent}
 .slash-trigger.active{background:var(--primary-ghost);border-color:#dbeafe;color:var(--primary)}
 .slash-menu{position:absolute;bottom:100%;left:22px;right:22px;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden;max-height:360px;overflow-y:auto;z-index:8;padding:0;display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}

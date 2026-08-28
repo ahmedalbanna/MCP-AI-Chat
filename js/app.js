@@ -116,7 +116,14 @@ const todoDraft = $('#todoDraft');
 const todoList = $('#todoList');
 const todoInput = $('#todoInput');
 const todoProgress = $('#todoProgress');
+const todoProgressTrack = $('#todoProgressTrack');
+const todoProgressFill = $('#todoProgressFill');
+const todoEmpty = $('#todoEmpty');
+const todoFoot = $('#todoFoot');
+const todoMarkAll = $('#todoMarkAll');
+const todoClearDone = $('#todoClearDone');
 const todoToggle = $('#todoToggle');
+const todoBadge = $('#todoBadge');
 const clearTodo = $('#clearTodo');
 const addTodoBtn = $('#addTodoBtn');
 const splash = $('#splash');
@@ -275,7 +282,7 @@ let editingMsgId = null;
 let slashIndex = 0, filtered = [];
 let activeChatId = null;
 let showArchived = false;
-let todos = [];
+let todos = (()=>{ try{ const v=JSON.parse(localStorage.getItem('mcp_todos_draft')||'null'); return Array.isArray(v)? v.filter(t=>t&&typeof t.text==='string').slice(0,20).map(t=>({text:String(t.text).slice(0,120), done:!!t.done})) : []; }catch{ return []; }})();
 let isRecording = false;
 let recognition = null;
 let history = { undo: [], redo: [] };
@@ -1283,38 +1290,77 @@ attachPreview?.addEventListener('click', e=>{
 });
 mediaInput?.addEventListener('change', e=>{ if(e.target.files.length) addFiles([...e.target.files]); e.target.value=''; });
 
-// Todo draft
+// Todo draft — polished checklist with progress bar, badge, persistence, empty state
 function renderTodo(){
-  if(todoDraft && !todos.length && todoDraft?.classList.contains('hidden')){ if(todoProgress) todoProgress.textContent=`0/0`; return; }
-  if(!todoDraft || !todoList) return;
-  todoList.innerHTML=todos.map((t,i)=>`<li><input type="checkbox" ${t.done?'checked':''} data-i="${i}"><input value="${esc(t.text)}" data-input="${i}"><button class="icon-btn xs" data-del="${i}"><i data-lucide="x" style="width:12px;height:12px"></i></button></li>`).join('');
-  const done=todos.filter(t=>t.done).length;
-  todoProgress.textContent=`${done}/${todos.length}`;
+  const has = todos.length>0;
+  const done = todos.filter(t=>t.done).length;
+  if(todoProgress) todoProgress.textContent = has ? `${done}/${todos.length}` : `0/0`;
+  if(todoProgressFill) todoProgressFill.style.width = has ? `${Math.round(done/todos.length*100)}%` : '0%';
+  if(todoProgressTrack) todoProgressTrack.classList.toggle('hidden', !has);
+  if(todoList){
+    if(!has) todoList.innerHTML='';
+    else todoList.innerHTML = todos.map((t,i)=>`<li class="${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} data-i="${i}" aria-label="Mark '${esc(t.text).replace(/'/g,"&#39;")}' as ${t.done?'incomplete':'complete'}"><input class="todo-text" value="${esc(t.text)}" data-input="${i}" aria-label="Todo ${i+1}: ${esc(t.text).replace(/"/g,'&quot;')}" maxlength="120" placeholder="Todo…"><div class="todo-actions"><button class="icon-btn xs todo-del" data-del="${i}" aria-label="Delete todo ${i+1}" title="Delete"><i data-lucide="x" style="width:12px;height:12px" aria-hidden="true"></i></button></div></li>`).join('');
+  }
+  if(todoEmpty) todoEmpty.classList.toggle('hidden', has);
+  if(todoFoot) todoFoot.classList.toggle('hidden', !has);
+  if(todoBadge){
+    if(has){ todoBadge.textContent=String(todos.length); todoBadge.classList.remove('hidden'); todoBadge.setAttribute('aria-label', `${done} of ${todos.length} completed`); todoToggle?.setAttribute('aria-label', `Checklist ${done}/${todos.length}${done===todos.length&&has?' — all done ✓':''}`); }
+    else{ todoBadge.classList.add('hidden'); todoToggle?.setAttribute('aria-label','Toggle checklist'); }
+  }
+  try{ localStorage.setItem('mcp_todos_draft', JSON.stringify(todos)); }catch{}
+  syncComposer();
   refreshIcons();
 }
 todoToggle?.addEventListener('click', ()=>{
   const willShow=todoDraft?.classList.contains('hidden');
   todoDraft?.classList.toggle('hidden');
   todoToggle.setAttribute('aria-pressed', willShow?'true':'false');
-  if(willShow) todoInput.focus();
+  if(willShow){ todoInput?.focus(); renderTodo(); }
   else todoToggle.focus();
   refreshIcons();
 });
-clearTodo?.addEventListener('click', ()=>{ todos=[]; todoDraft?.classList.add('hidden'); todoToggle.setAttribute('aria-pressed','false'); renderTodo(); });
-addTodoBtn?.addEventListener('click', ()=>{
-  const v=todoInput.value.trim(); if(!v) return;
-  todos.push({text:v, done:false}); todoInput.value=''; renderTodo();
+clearTodo?.addEventListener('click', ()=>{
+  if(todos.length && !confirm(`Clear all ${todos.length} todos?`)) return;
+  todos=[]; todoDraft?.classList.add('hidden'); todoToggle?.setAttribute('aria-pressed','false'); renderTodo(); toast('Checklist cleared');
 });
-todoInput?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addTodoBtn.click(); }});
+addTodoBtn?.addEventListener('click', ()=>{
+  const v=todoInput.value.trim().slice(0,120); if(!v) return;
+  if(todos.length>=20){ toast('Max 20 todos'); return; }
+  if(todos.some(t=>t.text.toLowerCase()===v.toLowerCase())){ toast('Already in list'); return; }
+  todos.push({text:v, done:false}); todoInput.value=''; renderTodo(); todoDraft?.classList.remove('hidden'); todoToggle?.setAttribute('aria-pressed','true'); toast('Todo added');
+});
+todoInput?.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); addTodoBtn.click(); }
+  if(e.key==='Escape'){ todoDraft?.classList.add('hidden'); todoToggle?.setAttribute('aria-pressed','false'); todoToggle?.focus(); }
+});
+todoInput?.addEventListener('input', ()=>{
+  const len=todoInput.value.length; todoInput.setAttribute('aria-label', `New todo text — ${len}/120`);
+});
+todoMarkAll?.addEventListener('click', ()=>{
+  if(!todos.length) return;
+  const allDone=todos.every(t=>t.done);
+  todos.forEach(t=> t.done=!allDone);
+  renderTodo(); toast(allDone?'Marked incomplete':'Marked all done ✓');
+});
+todoClearDone?.addEventListener('click', ()=>{
+  const doneCt=todos.filter(t=>t.done).length;
+  if(!doneCt){ toast('No completed todos'); return; }
+  todos=todos.filter(t=>!t.done); renderTodo(); toast(`Cleared ${doneCt} completed`);
+});
 todoList?.addEventListener('change', e=>{
   const c=e.target.closest('[data-i]'); if(c && e.target.type==='checkbox'){ todos[Number(c.dataset.i)].done=e.target.checked; renderTodo(); }
 });
 todoList?.addEventListener('input', e=>{
-  const inp=e.target.closest('[data-input]'); if(inp) todos[Number(inp.dataset.input)].text=inp.value;
+  const inp=e.target.closest('[data-input]'); if(inp){ todos[Number(inp.dataset.input)].text=inp.value.slice(0,120); try{ localStorage.setItem('mcp_todos_draft', JSON.stringify(todos)); }catch{} syncComposer(); }
 });
 todoList?.addEventListener('click', e=>{
-  const b=e.target.closest('[data-del]'); if(b){ todos.splice(Number(b.dataset.del),1); renderTodo(); }
+  const b=e.target.closest('[data-del]'); if(b){ const idx=Number(b.dataset.del); const t=todos[idx]?.text||''; todos.splice(idx,1); renderTodo(); toast(t?`Removed “${t.slice(0,24)}”`:'Removed'); }
 });
+todoDraft?.addEventListener('keydown', e=>{
+  if(e.key==='Escape' && !todoDraft.classList.contains('hidden')){ e.stopPropagation(); todoDraft.classList.add('hidden'); todoToggle?.setAttribute('aria-pressed','false'); todoToggle?.focus(); }
+});
+// initial paint from persistence (badge, empty state)
+try{ renderTodo(); }catch{}
 
 // Composer
 let isComposing=false;
@@ -2026,13 +2072,13 @@ function renderMessages(){
           <span class="who">You</span><span class="msg-avatar user">Y</span>
         </div>
         ${m.files? `<div class="user-media">${m.files.map(f=> f.type?.startsWith('image/')?`<img src="${f.url}" alt="${esc(f.name)}" loading="lazy">`: `<span class="file-chip"><i data-lucide="file" style="width:12px;height:12px"></i> ${esc(f.name)}</span>`).join('')}</div>`:''}
-        ${m.todos && m.todos.length? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-checks" style="width:13px;height:13px"></i> Todos</b><span>${m.todos.filter(t=>t.done).length}/${m.todos.length}</span></div><ul class="todo-list">${m.todos.map(t=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} disabled><span>${esc(t.text)}</span></li>`).join('')}</ul></div>`:''}
+        ${m.todos && m.todos.length? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-checks" style="width:13px;height:13px" aria-hidden="true"></i> Todos</b><span aria-label="${m.todos.filter(t=>t.done).length} of ${m.todos.length} completed">${m.todos.filter(t=>t.done).length}/${m.todos.length}</span></div><div class="todo-progress-track" style="margin:0 12px 0" aria-hidden="true"><span style="width:${Math.round(m.todos.filter(t=>t.done).length/m.todos.length*100)}%"></span></div><ul class="todo-list" role="list" aria-label="Todos">${m.todos.map(t=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} disabled aria-label="${esc(t.text)}"><span>${esc(t.text)}</span></li>`).join('')}</ul></div>`:''}
         <div class="bubble">${esc(m.text).replace(/\n/g,'<br>')}</div>
       </div>`;
     } else {
       const html = m.html==='pg'? pgHTML(m) : m.html==='aws'? awsHTML() : m.html==='fs'? fsHTML() : generalHTML(m.text||'');
-      const tasks = m.tasks? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-checks" style="width:13px;height:13px"></i> Tasks</b><span>${m.tasks.filter(t=>t.done).length}/${m.tasks.length} done</span><div class="task-actions"><button class="accept" data-accept="${m.id}">Accept</button><button class="cancel" data-cancel="${m.id}">Dismiss</button></div></div><ul class="todo-list">${m.tasks.map(t=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} data-task="${m.id}:${t.id}"><span>${esc(t.text)}</span><span style="margin-left:auto;font-size:11px;color:${t.status==='accepted'?'#16a34a': t.status==='cancelled'?'#ef4444':'#94a3b8'}">${t.status||''}</span></li>`).join('')}</ul></div>` : '';
-      const todosHtml = m.todos? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-todo" style="width:13px;height:13px"></i> Todos</b><span>${m.todos.filter(t=>t.done).length}/${m.todos.length}</span></div><ul class="todo-list">${m.todos.map((t,i)=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} data-todo="${m.id}:${i}"><span>${esc(t.text)}</span></li>`).join('')}</ul></div>` : '';
+      const tasks = m.tasks? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-checks" style="width:13px;height:13px" aria-hidden="true"></i> Tasks</b><span aria-label="${m.tasks.filter(t=>t.done).length} of ${m.tasks.length} done">${m.tasks.filter(t=>t.done).length}/${m.tasks.length} done</span><div class="task-actions"><button class="accept" data-accept="${m.id}">Accept</button><button class="cancel" data-cancel="${m.id}">Dismiss</button></div></div><div class="todo-progress-track" style="margin:0 12px 0" aria-hidden="true"><span style="width:${Math.round(m.tasks.filter(t=>t.done).length/m.tasks.length*100)}%"></span></div><ul class="todo-list" role="list" aria-label="Tasks">${m.tasks.map(t=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} data-task="${m.id}:${t.id}" aria-label="${esc(t.text)}"><span>${esc(t.text)}</span><span style="margin-left:auto;font-size:11px;color:${t.status==='accepted'?'#16a34a': t.status==='cancelled'?'#ef4444':'#94a3b8'}">${t.status||''}</span></li>`).join('')}</ul></div>` : '';
+      const todosHtml = m.todos? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-todo" style="width:13px;height:13px" aria-hidden="true"></i> Todos</b><span aria-label="${m.todos.filter(t=>t.done).length} of ${m.todos.length} completed">${m.todos.filter(t=>t.done).length}/${m.todos.length}</span></div><div class="todo-progress-track" style="margin:0 12px 0" aria-hidden="true"><span style="width:${Math.round(m.todos.filter(t=>t.done).length/m.todos.length*100)}%"></span></div><ul class="todo-list" role="list" aria-label="Todos">${m.todos.map((t,i)=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} data-todo="${m.id}:${i}" aria-label="${esc(t.text)}"><span>${esc(t.text)}</span></li>`).join('')}</ul></div>` : '';
       const isStream = m.status==='streaming';
       return `<div class="message assistant" data-id="${m.id}">
         <div class="msg-head"><span class="msg-avatar assistant ${isStream?'streaming':''}"><i data-lucide="bot" style="width:14px;height:14px"></i></span><span class="who">${esc(selectedModel)} <small>• ${esc(selectedMode)}</small></span><span class="badge ${isStream?'streaming':''}">${esc(m.status||'done')}</span><span class="when">${esc(m.time||'')}</span>
