@@ -2551,7 +2551,61 @@ closePrompts?.addEventListener('click', ()=> promptsView?.classList.add('hidden'
 settingsBackdrop?.addEventListener('click', closeSettingsView);
 closeSettings?.addEventListener('click', closeSettingsView);
 serverSearch?.addEventListener('input', renderServers);
-sidebarSearch?.addEventListener('input', ()=>{ renderChats(); renderServers(); });
+sidebarSearch?.addEventListener('input', ()=>{
+  renderChats(); renderServers();
+  const sc=document.getElementById('sidebarSearchClear');
+  if(sc) sc.classList.toggle('hidden', !sidebarSearch.value.trim());
+});
+document.getElementById('sidebarSearchClear')?.addEventListener('click', ()=>{
+  sidebarSearch.value='';
+  sidebarSearch.dispatchEvent(new Event('input'));
+  sidebarSearch.focus();
+  document.getElementById('sidebarSearchClear')?.classList.add('hidden');
+});
+// Collapsible sections — improved left drawer
+(function initSidebarSections(){
+  const sections=document.querySelectorAll('.section[data-section]');
+  sections.forEach(sec=>{
+    const key=sec.dataset.section;
+    const btn=sec.querySelector('[data-toggle]');
+    const body=sec.querySelector('.section-body');
+    const stored=localStorage.getItem('sidebar_sec_'+key);
+    const expanded = stored===null ? true : stored==='1';
+    sec.classList.toggle('collapsed', !expanded);
+    if(btn){ btn.setAttribute('aria-expanded', expanded?'true':'false'); const ch=btn.querySelector('.section-chevron'); if(ch) ch.style.transform = expanded? '' : 'rotate(-90deg)'; }
+    if(body && !sec.classList.contains('collapsed')) body.style.maxHeight = '2000px';
+    else if(body) body.style.maxHeight='0px';
+  });
+  document.addEventListener('click', e=>{
+    const toggle=e.target.closest('[data-toggle]');
+    if(!toggle) return;
+    const key=toggle.dataset.toggle;
+    const sec=document.querySelector(`.section[data-section="${key}"]`);
+    if(!sec) return;
+    const body=sec.querySelector('.section-body');
+    const isCollapsed=sec.classList.contains('collapsed');
+    const willExpand=isCollapsed;
+    sec.classList.toggle('collapsed', !willExpand);
+    toggle.setAttribute('aria-expanded', willExpand?'true':'false');
+    const ch=toggle.querySelector('.section-chevron');
+    if(ch) ch.style.transform = willExpand? '' : 'rotate(-90deg)';
+    if(body){
+      if(willExpand){ body.style.maxHeight='2000px'; body.style.opacity='1'; }
+      else { body.style.maxHeight='0px'; body.style.opacity='0'; }
+    }
+    try{ localStorage.setItem('sidebar_sec_'+key, willExpand?'1':'0'); }catch{}
+    refreshIcons();
+  });
+})();
+// improve sidebar close on backdrop click for mobile
+document.addEventListener('click', e=>{
+  if(window.innerWidth<=1024 && sidebar?.classList.contains('open') && !sidebar.contains(e.target) && !menuBtn.contains(e.target)){
+    // if click outside sidebar on mobile, close
+    // ignore if clicking drawer/modal
+    if(!e.target.closest('.drawer') && !e.target.closest('.modal')) sidebar.classList.remove('open');
+  }
+});
+
 serverSort?.addEventListener('change', renderServers);
 serverTabs?.addEventListener('click', e=>{
   const b=e.target.closest('[data-stab]'); if(!b) return;

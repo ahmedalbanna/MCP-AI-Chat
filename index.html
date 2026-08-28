@@ -92,48 +92,64 @@
         </div>
         <div class="sidebar-search">
           <i data-lucide="search"></i>
-          <input id="sidebarSearch" type="text" placeholder="Search chats, servers…" />
+          <input id="sidebarSearch" type="text" placeholder="Search chats, servers…" autocomplete="off" spellcheck="false" />
+          <button class="search-clear hidden" id="sidebarSearchClear" aria-label="Clear search"><i data-lucide="x" style="width:12px;height:12px"></i></button>
           <kbd>⌘K</kbd>
         </div>
-        <button class="primary-btn full" id="newChatBtn"><i data-lucide="plus"></i> New conversation</button>
-        <div class="provider-mini">
-          <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between">
-            <label style="margin:0">AI Provider</label>
+        <button class="primary-btn full" id="newChatBtn"><i data-lucide="plus"></i> New conversation <span style="margin-left:auto;font-size:11px;opacity:.85;font-family:var(--mono)">⌘N</span></button>
+        <div class="provider-mini" role="region" aria-label="AI Provider">
+          <div class="provider-mini-head">
+            <label><i data-lucide="cpu" style="width:12px;height:12px"></i> AI Provider</label>
             <button class="icon-btn xs" id="providerSettingsBtn" title="Provider settings" style="width:26px;height:26px"><i data-lucide="settings-2" style="width:14px;height:14px"></i></button>
           </div>
-          <select id="providerSelect"></select>
-          <select id="modelSelect"></select>
-          <div class="provider-status" id="providerStatus" style="grid-column:1/-1;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)"><span class="dot" style="width:6px;height:6px;background:var(--ok);border-radius:50%;box-shadow:0 0 6px rgba(22,163,74,.4)"></span><span id="providerStatusText">Ready • 0.2s latency</span><span style="margin-left:auto;font-family:var(--mono);background:#f1f5f9;padding:2px 6px;border-radius:6px" id="providerTemp">0.7 temp</span></div>
+          <div class="provider-mini-selects">
+            <select id="providerSelect" aria-label="Provider"></select>
+            <select id="modelSelect" aria-label="Model"></select>
+          </div>
+          <div class="provider-status" id="providerStatus"><span class="dot"></span><span id="providerStatusText">Ready • 0.2s latency</span><span class="temp-badge" id="providerTemp">0.7 temp</span></div>
         </div>
       </div>
 
       <div class="sidebar-scroll">
         <!-- Workspace Chats -->
-        <div class="section">
+        <div class="section" data-section="workspace">
           <div class="section-head">
-            <h3><i data-lucide="message-square" style="width:14px;height:14px"></i> WORKSPACE <span class="count" id="chatCount">3</span></h3>
+            <button class="section-toggle" data-toggle="workspace" aria-expanded="true" aria-controls="workspaceBody">
+              <i data-lucide="chevron-down" class="section-chevron" style="width:14px;height:14px"></i>
+              <h3><i data-lucide="message-square" style="width:14px;height:14px"></i> WORKSPACE <span class="count" id="chatCount">3</span></h3>
+            </button>
             <div class="head-actions">
               <button class="icon-btn sm" id="importChatBtn" title="Import"><i data-lucide="upload"></i></button>
               <input type="file" id="importFile" hidden accept=".json" />
               <button class="icon-btn sm" id="archiveToggle" title="Show archived"><i data-lucide="archive"></i></button>
             </div>
           </div>
-          <div class="chat-groups" id="chatList"></div>
+          <div class="section-body" id="workspaceBody">
+            <div class="chat-groups" id="chatList"></div>
+          </div>
         </div>
 
-        <div class="section">
+        <div class="section" data-section="mcp">
           <div class="section-head">
-            <h3><i data-lucide="server" style="width:14px;height:14px"></i> MCP NODES <span class="count" id="sidebarCount">3</span></h3>
+            <button class="section-toggle" data-toggle="mcp" aria-expanded="true" aria-controls="mcpBody">
+              <i data-lucide="chevron-down" class="section-chevron" style="width:14px;height:14px"></i>
+              <h3><i data-lucide="server" style="width:14px;height:14px"></i> MCP NODES <span class="count" id="sidebarCount">3</span></h3>
+            </button>
             <button class="icon-btn sm" id="addServerSidebar" title="Add MCP server"><i data-lucide="plus"></i></button>
           </div>
-          <ul class="server-list" id="sidebarServerList"></ul>
+          <div class="section-body" id="mcpBody">
+            <ul class="server-list" id="sidebarServerList"></ul>
+          </div>
         </div>
       </div>
 
-      <div class="sidebar-foot" id="userProfileCard" role="button" tabindex="0" aria-label="Open profile">
-        <img id="profileAvatar" src="https://i.pravatar.cc/100?img=32" alt="avatar" />
-        <div><strong id="profileName">Alex Rivera</strong><p id="profileRole">Admin • Claude 3.5 • Research mode</p></div>
-        <i data-lucide="chevron-up" style="width:14px;height:14px;color:#94a3b8"></i>
+      <div class="sidebar-foot" id="userProfileCard" role="button" tabindex="0" aria-label="Open profile" aria-expanded="false">
+        <div class="foot-avatar-wrap">
+          <img id="profileAvatar" src="https://i.pravatar.cc/100?img=32" alt="avatar" />
+          <span class="foot-status-dot" title="Online"></span>
+        </div>
+        <div class="foot-meta"><strong id="profileName">Alex Rivera</strong><p id="profileRole">Admin • Claude 3.5 • Research mode</p></div>
+        <i data-lucide="chevron-up" class="foot-chevron" style="width:14px;height:14px;color:#94a3b8"></i>
       </div>
     </aside>
 
