@@ -1508,33 +1508,124 @@ function updateEndpointHint(){
   else srvEndpointHint.textContent='HTTP: https:// URL for Streamable HTTP';
 }
 
-// Media
-function addFiles(files){
-  for(const f of files){
-    if(pending.length>=6){ toast('Max 6 files'); break; }
-    if(f.size>12*1024*1024){ toast(`${f.name} too large`); continue; }
-    const id=uid(); const url=f.type.startsWith('image/')||f.type.startsWith('video/')?URL.createObjectURL(f):null;
-    pending.push({id,file:f,url});
+// Media — polished with file-type cards, badge, validation, duplicate guard, size format
+const attachCountBadge = document.getElementById('attachCountBadge');
+const fmtSize = (b)=>{
+  if(b<1024) return b+' B';
+  if(b<1024*1024) return (b/1024).toFixed(b>10*1024?0:1)+' KB';
+  return (b/1024/1024).toFixed(b>10*1024*1024?1:2)+' MB';
+};
+const getExt = (name)=> (name.split('.').pop()||'').toLowerCase();
+const getFileKind = (f)=>{
+  const t=(f.type||'').toLowerCase();
+  const ext=getExt(f.name);
+  if(t.startsWith('image/')) return 'image';
+  if(t.startsWith('video/')) return 'video';
+  if(t.startsWith('audio/')) return 'audio';
+  if(ext==='pdf' || t==='application/pdf') return 'pdf';
+  if(ext==='csv' || t==='text/csv') return 'csv';
+  if(ext==='json' || t==='application/json') return 'json';
+  if(['txt','md'].includes(ext) || t.startsWith('text/')) return 'txt';
+  return 'file';
+};
+const ALLOWED_EXTS = new Set(['jpg','jpeg','png','gif','webp','avif','svg','mp4','mov','webm','mkv','mp3','wav','ogg','m4a','flac','pdf','csv','json','txt','md']);
+const isAllowedFile = (f)=>{
+  const t=(f.type||'').toLowerCase();
+  if(t.startsWith('image/')||t.startsWith('video/')||t.startsWith('audio/')) return true;
+  const ext=getExt(f.name);
+  return ALLOWED_EXTS.has(ext);
+};
+const syncAttachBadge=()=>{
+  const n=pending.length;
+  if(attachCountBadge){
+    attachCountBadge.textContent=String(n);
+    attachCountBadge.classList.toggle('hidden', n===0);
   }
-  drawPreview(); syncComposer();
+  if(attachBtn){
+    attachBtn.classList.toggle('has-files', n>0);
+    attachBtn.setAttribute('aria-label', n? `Attach media — ${n} file${n>1?'s':''} pending` : 'Attach media');
+    attachBtn.title = n? `${n} file${n>1?'s':''} pending — click to add more` : 'Attach media — tap, paste or drag';
+  }
+};
+function addFiles(files){
+  const incoming=[...files];
+  let added=0, rejected=[];
+  for(const f of incoming){
+    if(pending.length>=6){ rejected.push(`${f.name}: max 6 files reached`); continue; }
+    if(!isAllowedFile(f)){ rejected.push(`${f.name}: type not allowed`); continue; }
+    if(f.size>12*1024*1024){ rejected.push(`${f.name}: ${fmtSize(f.size)} exceeds 12 MB`); continue; }
+    const dup=pending.some(p=> p.file.name===f.name && p.file.size===f.size && p.file.lastModified===f.lastModified);
+    if(dup){ rejected.push(`${f.name}: already added`); continue; }
+    const kind=getFileKind(f);
+    const needsUrl = kind==='image' || kind==='video';
+    const url=needsUrl ? URL.createObjectURL(f) : null;
+    pending.push({id:uid(), file:f, url, kind});
+    added++;
+  }
+  if(rejected.length){
+    const msg = rejected.slice(0,2).join(' • ') + (rejected.length>2? ` +${rejected.length-2} more` : '');
+    toast(msg, 3200);
+  }
+  if(added){
+    if(pending.length===6) toast('6 files attached — limit reached', 2200);
+    else if(added===1) toast(`Attached ${pending[pending.length-1].file.name.slice(0,28)}`, 1800);
+    else toast(`Added ${added} files`, 1800);
+  }
+  drawPreview(); syncComposer(); syncAttachBadge();
 }
 function drawPreview(){
-  if(!pending.length){ attachPreview?.classList.add('hidden'); attachPreview.innerHTML=''; return; }
-  attachPreview?.classList.remove('hidden');
-  attachPreview.innerHTML=pending.map(p=>{
+  if(!pending.length){
+    attachPreview?.classList.add('hidden');
+    if(attachPreview) attachPreview.innerHTML='';
+    syncAttachBadge();
+    return;
+  }
+  const total=pending.reduce((s,p)=>s+p.file.size,0);
+  const head=`<div class="attach-preview-head"><i data-lucide="paperclip" style="width:13px;height:13px;color:var(--primary)"></i><span class="attach-count">${pending.length}</span><span>${pending.length===1?'file':'files'} • ${fmtSize(total)}</span><small>${pending.length>=6?'limit reached':'• paste or drag to add'}</small><button class="ghost-btn sm attach-clear" data-clear-all type="button"><i data-lucide="x" style="width:12px;height:12px"></i> Clear</button></div>`;
+  const grid=pending.map(p=>{
+    const kind=p.kind||getFileKind(p.file);
+    const size=fmtSize(p.file.size);
+    const name=esc(p.file.name);
+    const ext=getExt(p.file.name).toUpperCase()||'FILE';
     let inner='';
-    if(p.file.type.startsWith('image/')) inner=`<img src="${p.url}" alt="">`;
-    else if(p.file.type.startsWith('video/')) inner=`<video src="${p.url}" muted></video>`;
-    else inner=`<div class="fn"><i data-lucide="file"></i><span>${esc(p.file.name.slice(0,18))}</span><small>${(p.file.size/1024).toFixed(1)} KB</small></div>`;
-    return `<div class="preview">${inner}<button class="rm" data-rm="${p.id}"><i data-lucide="x"></i></button></div>`;
-  }).join(''); refreshIcons();
+    if(kind==='image'){
+      inner=`<img src="${p.url}" alt="${name}" loading="lazy"><div class="preview-meta"><span>${ext||'IMG'}</span><span class="size">${size}</span></div>`;
+      return `<div class="preview" tabindex="0" aria-label="${name} ${size} — image"><div style="position:absolute;inset:0">${inner}</div><button class="rm" data-rm="${p.id}" aria-label="Remove ${name}" title="Remove"><i data-lucide="x"></i></button></div>`;
+    }
+    if(kind==='video'){
+      inner=`<video src="${p.url}" muted preload="metadata"></video><div class="preview-meta"><i data-lucide="play" style="width:10px;height:10px"></i><span>VIDEO</span><span class="size">${size}</span></div>`;
+      return `<div class="preview" tabindex="0" aria-label="${name} ${size} — video"><div style="position:absolute;inset:0;display:grid;place-items:center;background:#0f172a">${inner}</div><button class="rm" data-rm="${p.id}" aria-label="Remove ${name}"><i data-lucide="x"></i></button></div>`;
+    }
+    // file-type cards for audio/pdf/csv/json/txt/generic
+    const iconMap={audio:'audio', pdf:'pdf', csv:'csv', json:'json', txt:'txt'};
+    const iconCls=iconMap[kind]||'generic';
+    const iconLabel={audio:'♫', pdf:'PDF', csv:'CSV', json:'JSON', txt:'TXT'}[kind]||ext.slice(0,4);
+    const lucideIcon={audio:'music', pdf:'file-text', csv:'table', json:'braces', txt:'file-text', file:'file'}[kind]||'file';
+    const fileInner=`<div class="preview-icon ${iconCls}"><i data-lucide="${lucideIcon}" style="width:16px;height:16px"></i></div><div class="fn" style="text-align:left;align-items:flex-start"><strong title="${name}">${esc(p.file.name.length>22?p.file.name.slice(0,20)+'…':p.file.name)}</strong><small>${ext} • ${size}</small></div>`;
+    return `<div class="preview preview--file" tabindex="0" aria-label="${name} ${size} — ${kind}"><div style="display:flex;gap:10px;align-items:center;width:100%">${fileInner}</div><button class="rm" data-rm="${p.id}" aria-label="Remove ${name}" title="Remove ${name}"><i data-lucide="x"></i></button></div>`;
+  }).join('');
+  if(attachPreview){
+    attachPreview.classList.remove('hidden');
+    attachPreview.innerHTML=head+`<div class="attach-preview-grid">${grid}</div>`;
+  }
+  syncAttachBadge();
+  refreshIcons();
+  // after render, trap focus on grid? keep composer
 }
+attachBtn?.addEventListener('click', ()=> mediaInput?.click());
 attachPreview?.addEventListener('click', e=>{
+  const clear=e.target.closest('[data-clear-all]'); if(clear){ if(pending.length && confirm(`Remove all ${pending.length} files?`)){ pending.forEach(p=>{ if(p.url) try{URL.revokeObjectURL(p.url);}catch{} }); pending=[]; drawPreview(); syncComposer(); toast('Attachments cleared'); } return; }
   const b=e.target.closest('[data-rm]'); if(!b) return;
   const id=b.dataset.rm; const i=pending.findIndex(p=>p.id===id);
-  if(i>=0){ if(pending[i].url) URL.revokeObjectURL(pending[i].url); pending.splice(i,1); drawPreview(); syncComposer(); }
+  if(i>=0){ const name=pending[i].file.name; if(pending[i].url) try{URL.revokeObjectURL(pending[i].url);}catch{} pending.splice(i,1); drawPreview(); syncComposer(); toast(`Removed ${name.slice(0,22)}`); }
 });
 mediaInput?.addEventListener('change', e=>{ if(e.target.files.length) addFiles([...e.target.files]); e.target.value=''; });
+attachPreview?.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){ e.stopPropagation(); attachPreview.querySelector('.attach-clear')?.focus(); }
+  if((e.key==='Enter'||e.key===' ') && e.target.classList.contains('preview')){ e.preventDefault(); e.target.querySelector('.rm')?.click(); }
+});
+// initial badge sync
+try{ syncAttachBadge(); }catch{}
 
 // Todo draft — polished checklist with progress bar, badge, persistence, empty state
 function renderTodo(){
@@ -2257,11 +2348,35 @@ liveSettingsBtn?.addEventListener('click', ()=> liveSettings.classList.toggle('h
 liveVoiceSelect?.addEventListener('change', ()=> toast('Voice: '+liveVoiceSelect.value));
 liveLangSelect?.addEventListener('change', ()=>{ if(recognition) recognition.lang=liveLangSelect.value; });
 
-// Drag & paste
-;;['dragenter','dragover'].forEach(ev=> document.addEventListener(ev, e=>{ e.preventDefault(); if(ev==='dragenter') dropOverlay?.classList.remove('hidden'); composerInner?.classList.add('drag'); }));
-;['dragleave','drop'].forEach(ev=> document.addEventListener(ev, e=>{ if(ev==='dragleave' && e.target===dropOverlay) dropOverlay?.classList.add('hidden'); if(ev==='drop') dropOverlay?.classList.add('hidden'); composerInner?.classList.remove('drag'); }));
-document.addEventListener('drop', e=>{ e.preventDefault(); if(e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]); });
-document.addEventListener('paste', e=>{ const files=[...(e.clipboardData?.files||[])]; if(files.length) addFiles(files); });
+// Drag & paste — counter-based to avoid flicker, with paste guard + keyboard focus
+let dragCounter=0;
+const showDrop=()=>{ dropOverlay?.classList.remove('hidden'); composerInner?.classList.add('drag'); if(dropOverlay) dropOverlay.setAttribute('aria-hidden','false'); refreshIcons(); };
+const hideDrop=()=>{ dropOverlay?.classList.add('hidden'); composerInner?.classList.remove('drag'); if(dropOverlay) dropOverlay.setAttribute('aria-hidden','true'); };
+document.addEventListener('dragenter', e=>{
+  e.preventDefault();
+  if(e.dataTransfer?.types?.includes('Files')){ dragCounter++; showDrop(); }
+});
+document.addEventListener('dragover', e=>{ e.preventDefault(); if(e.dataTransfer?.types?.includes('Files')) showDrop(); });
+document.addEventListener('dragleave', e=>{
+  // only decrement when leaving window/document
+  if(e.target===document.documentElement || e.target===document.body || !e.relatedTarget){ dragCounter=Math.max(0, dragCounter-1); if(dragCounter===0) hideDrop(); }
+  else if(e.target===dropOverlay){ dragCounter=Math.max(0, dragCounter-1); if(dragCounter===0) hideDrop(); }
+});
+document.addEventListener('drop', e=>{
+  e.preventDefault(); dragCounter=0; hideDrop();
+  const files=[...(e.dataTransfer?.files||[])];
+  if(files.length) addFiles(files);
+  else toast('No files dropped');
+});
+document.addEventListener('paste', e=>{
+  const files=[...(e.clipboardData?.files||[])];
+  if(files.length){ e.preventDefault(); addFiles(files); }
+});
+// Escape hides drop overlay + clears draft preview? keep focused
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape' && dropOverlay && !dropOverlay.classList.contains('hidden')){ e.preventDefault(); dragCounter=0; hideDrop(); }
+});
+dropOverlay?.addEventListener('click', ()=>{ dragCounter=0; hideDrop(); });
 
 // History undo/redo
 function pushHistory(){
@@ -2320,7 +2435,22 @@ function renderMessages(){
           <button class="msg-action" data-retry="${m.id}" title="Retry"><i data-lucide="refresh-cw" style="width:11px;height:11px"></i> Retry</button>
           <span class="who">You</span><span class="msg-avatar user">Y</span>
         </div>
-        ${m.files? `<div class="user-media">${m.files.map(f=> f.type?.startsWith('image/')?`<img src="${f.url}" alt="${esc(f.name)}" loading="lazy">`: `<span class="file-chip"><i data-lucide="file" style="width:12px;height:12px"></i> ${esc(f.name)}</span>`).join('')}</div>`:''}
+        ${m.files? `<div class="user-media">${m.files.map(f=>{
+          const t=(f.type||'').toLowerCase(); const n=(f.name||''); const ext=(n.split('.').pop()||'').toLowerCase();
+          const isImg=t.startsWith('image/');
+          const isVid=t.startsWith('video/');
+          const isAud=t.startsWith('audio/');
+          if(isImg) return `<img src="${f.url}" alt="${esc(n)}" loading="lazy" title="${esc(n)}">`;
+          if(isVid) return `<video src="${f.url}" controls preload="metadata" title="${esc(n)}" style="width:200px"></video>`;
+          if(isAud) return `<span class="file-chip" title="${esc(n)}"><span class="chip-icon audio"><i data-lucide="music" style="width:14px;height:14px"></i></span><span class="chip-meta"><strong>${esc(n.length>20?n.slice(0,18)+'…':n)}</strong><small>audio • ${esc(ext.toUpperCase())}</small></span><audio src="${f.url}" controls style="width:120px;height:28px;margin-left:6px"></audio></span>`;
+          // generic file chips — pdf/csv/json/txt
+          let chipCls='generic', luc='file', label=ext.toUpperCase()||'FILE';
+          if(ext==='pdf'){ chipCls='pdf'; luc='file-text'; }
+          else if(ext==='csv'){ chipCls='csv'; luc='table'; }
+          else if(ext==='json'){ chipCls='json'; luc='braces'; }
+          else if(['txt','md'].includes(ext)){ chipCls='generic'; luc='file-text'; }
+          return `<span class="file-chip" title="${esc(n)}"><span class="chip-icon ${chipCls}"><i data-lucide="${luc}" style="width:14px;height:14px"></i></span><span class="chip-meta"><strong>${esc(n.length>20?n.slice(0,18)+'…':n)}</strong><small>${label} • ${esc(t||ext)}</small></span></span>`;
+        }).join('')}</div>`:''}
         ${m.todos && m.todos.length? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-checks" style="width:13px;height:13px" aria-hidden="true"></i> Todos</b><span aria-label="${m.todos.filter(t=>t.done).length} of ${m.todos.length} completed">${m.todos.filter(t=>t.done).length}/${m.todos.length}</span></div><div class="todo-progress-track" style="margin:0 12px 0" aria-hidden="true"><span style="width:${Math.round(m.todos.filter(t=>t.done).length/m.todos.length*100)}%"></span></div><ul class="todo-list" role="list" aria-label="Todos">${m.todos.map(t=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} disabled aria-label="${esc(t.text)}"><span>${esc(t.text)}</span></li>`).join('')}</ul></div>`:''}
         <div class="bubble">${bubbleHtml}</div>
       </div>`;

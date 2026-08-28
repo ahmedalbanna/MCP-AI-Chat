@@ -254,7 +254,7 @@
             <div class="speech-actions"><button class="ghost-btn sm" id="stopSpeech"><i data-lucide="square" style="width:12px;height:12px"></i> Stop</button><button class="icon-btn sm" id="cancelSpeech" title="Cancel recording"><i data-lucide="x" style="width:12px;height:12px"></i></button></div>
           </div>
           <div class="composer-box" id="composerInner">
-            <button class="attach-btn" id="attachBtn" title="Attach media" aria-label="Attach media"><i data-lucide="paperclip" aria-hidden="true"></i></button>
+            <button class="attach-btn" id="attachBtn" title="Attach media — tap, paste or drag" aria-label="Attach media"><i data-lucide="paperclip" aria-hidden="true"></i><span class="attach-count-badge hidden" id="attachCountBadge" aria-hidden="true">0</span></button>
             <button class="icon-btn sm mic-btn" id="micBtn" title="Voice — click to toggle, hold to talk" aria-label="Voice input" aria-pressed="false"><i data-lucide="mic" aria-hidden="true"></i></button>
             <input type="file" id="mediaInput" hidden multiple accept="image/*,video/*,audio/*,.pdf,.csv,.json,.txt,.md" />
             <textarea id="promptInput" placeholder="Ask MCP to run a tool…  •  type “/” for commands" rows="1" aria-label="Message composer" aria-autocomplete="list" aria-expanded="false" aria-haspopup="listbox"></textarea>
@@ -588,7 +588,7 @@
 
     <div class="toast hidden" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
     <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
-    <div class="drop-overlay hidden" id="dropOverlay"><div><i data-lucide="upload-cloud"></i><p>Drop to upload</p><small>Images, video, PDF, CSV</small></div></div>
+    <div class="drop-overlay hidden" id="dropOverlay" aria-hidden="true"><div role="status" aria-live="polite"><i data-lucide="upload-cloud"></i><p>Drop to attach</p><small>Images • Video • Audio • PDF • CSV • JSON • TXT • MD<br>Max 6 files • 12 MB each</small><div class="drop-hint"><span>Drop here</span><span>paste (⌘V)</span></div></div></div>
 
     <!-- Live Speech Conversation Overlay -->
     <div class="live-overlay hidden" id="liveOverlay" role="dialog" aria-modal="true" aria-label="Live conversation">
