@@ -1091,8 +1091,9 @@ function openServerDetail(id){
     <div class="server-detail-hero">
       <div style="display:flex;gap:12px;align-items:center">
         <div style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.12);display:grid;place-items:center"><i data-lucide="${s.color==='pg'?'database': s.color==='aws'?'cloud':'folder-open'}" style="width:20px;height:20px;color:#fff"></i></div>
-        <div><h3 style="margin:0;font-size:16px;font-weight:800">${esc(s.name)}</h3><p style="margin:4px 0 0;font-size:12px;opacity:.8">${esc(s.transport)} • ${esc(s.endpoint)} • ${s.status}</p></div>
-        <button class="icon-btn" id="closeServerDetail" style="margin-left:auto;background:rgba(255,255,255,.12);color:#fff"><i data-lucide="x"></i></button>
+        <div style="flex:1;min-width:0"><h3 style="margin:0;font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px">${esc(s.name)} <span style="font-size:11px;background:rgba(255,255,255,.14);padding:2px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.18)">${esc(s.transport)}</span></h3><p style="margin:4px 0 0;font-size:12px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(s.endpoint)}">${esc(s.endpoint)} • ${s.status} • <span style="font-family:var(--mono)">${s.lastSeen? new Date(s.lastSeen).toLocaleTimeString():''}</span></p></div>
+        <button class="ghost-btn sm" id="copyEndpointBtn" title="Copy endpoint" style="background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.18)"><i data-lucide="copy" style="width:12px;height:12px"></i></button>
+        <button class="icon-btn" id="closeServerDetail" style="background:rgba(255,255,255,.12);color:#fff"><i data-lucide="x"></i></button>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         <span style="background:rgba(34,197,94,.14);color:#86efac;border:1px solid rgba(34,197,94,.2);padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700">${s.health==='ok'?'✓ Healthy': s.health==='warn'?'⚠ Degraded':'● '+s.health} • ${s.latency}ms</span>
@@ -1128,6 +1129,7 @@ function openServerDetail(id){
   `;
   serverDetailModal?.classList.remove('hidden'); refreshIcons();
   const _closeDetail = $('#closeServerDetail'); if(_closeDetail) _closeDetail.onclick = ()=> serverDetailModal?.classList.add('hidden');
+  const _copyEp = $('#copyEndpointBtn'); if(_copyEp) _copyEp.onclick = ()=>{ navigator.clipboard.writeText(s.endpoint).then(()=> toast('Endpoint copied')).catch(()=> toast('Copy failed')); };
   const _copyCfg = $('#copyServerConfig'); if(_copyCfg) _copyCfg.onclick = ()=>{ navigator.clipboard.writeText($('#serverConfigJson')?.textContent||'').catch(()=>{}); toast('Config copied'); };
   const _detToggle = $('#detailToggle'); if(_detToggle) _detToggle.onclick = async ()=>{ await toggle(s.id); serverDetailModal?.classList.add('hidden'); };
   const _detEdit = $('#detailEdit'); if(_detEdit) _detEdit.onclick = ()=>{ serverDetailModal?.classList.add('hidden'); openEditServer(s.id); };
