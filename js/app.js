@@ -1735,34 +1735,37 @@ document.addEventListener('keydown', e=>{
 // Messages rendering with tasks/todos/stream
 function renderMessages(){
   const chat=getActiveChat();
-  if(!chat || !messagesEl){ if(messagesEl) messagesEl.innerHTML=`<div class="date-sep"><span>No conversation selected</span></div><div style="text-align:center;padding:24px"><button class="primary-btn" onclick="document.getElementById('newChatBtn')?.click()">Start new chat</button></div>`; return; }
+  if(!chat || !messagesEl){ if(messagesEl) messagesEl.innerHTML=`<div class="date-sep"><span>No conversation selected</span></div><div class="chat-empty"><div class="chat-empty-icon"><i data-lucide="message-circle" style="width:26px;height:26px"></i></div><h3>No chat selected</h3><p>Select a conversation or start a new one.</p><button class="primary-btn" style="margin-top:6px" onclick="document.getElementById('newChatBtn')?.click()"><i data-lucide="plus" style="width:14px;height:14px"></i> New conversation</button></div>`; refreshIcons(); return; }
   const title=chat.title;
-  messagesEl.innerHTML=`<div class="date-sep"><span>${esc(title)} • ${chat.messages.length} messages • ${selectedModel}</span></div>` + chat.messages.map(m=>{
+  const isStreaming = chat.messages.some(mm=>mm.status==='streaming');
+  messagesEl.innerHTML=`<div class="date-sep"><span>${esc(title)} • ${chat.messages.length} messages • ${esc(selectedModel)}</span></div>` + chat.messages.map(m=>{
     if(m.role==='user'){
+      const isLast = chat.messages[chat.messages.length-1]?.id===m.id;
       return `<div class="message user" data-id="${m.id}">
-        <div class="msg-head"><span class="who">You</span><span class="when">${m.time||''}</span>
-          <button class="msg-action" data-edit="${m.id}"><i data-lucide="pencil" style="width:12px;height:12px"></i> Edit</button>
-          <button class="msg-action" data-retry="${m.id}"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Retry</button>
+        <div class="msg-head"><span class="when">${esc(m.time||'')}</span>
+          <button class="msg-action" data-edit="${m.id}" title="Edit"><i data-lucide="pencil" style="width:11px;height:11px"></i> Edit</button>
+          <button class="msg-action" data-retry="${m.id}" title="Retry"><i data-lucide="refresh-cw" style="width:11px;height:11px"></i> Retry</button>
+          <span class="who">You</span><span class="msg-avatar user">Y</span>
         </div>
-        ${m.files? `<div class="user-media">${m.files.map(f=> f.type?.startsWith('image/')?`<img src="${f.url}" alt="">`: `<span class="file-chip">${esc(f.name)}</span>`).join('')}</div>`:''}
-        ${m.todos && m.todos.length? `<div class="task-card"><div class="task-head"><b>Checklist</b><span>${m.todos.filter(t=>t.done).length}/${m.todos.length}</span></div><ul class="todo-list">${m.todos.map(t=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} disabled><span>${esc(t.text)}</span></li>`).join('')}</ul></div>`:''}
+        ${m.files? `<div class="user-media">${m.files.map(f=> f.type?.startsWith('image/')?`<img src="${f.url}" alt="${esc(f.name)}" loading="lazy">`: `<span class="file-chip"><i data-lucide="file" style="width:12px;height:12px"></i> ${esc(f.name)}</span>`).join('')}</div>`:''}
+        ${m.todos && m.todos.length? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-checks" style="width:13px;height:13px"></i> Todos</b><span>${m.todos.filter(t=>t.done).length}/${m.todos.length}</span></div><ul class="todo-list">${m.todos.map(t=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} disabled><span>${esc(t.text)}</span></li>`).join('')}</ul></div>`:''}
         <div class="bubble">${esc(m.text).replace(/\n/g,'<br>')}</div>
       </div>`;
     } else {
-      // assistant
       const html = m.html==='pg'? pgHTML(m) : m.html==='aws'? awsHTML() : m.html==='fs'? fsHTML() : generalHTML(m.text||'');
-      const tasks = m.tasks? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-checks" style="width:14px;height:14px"></i> Tasks</b><span>${m.tasks.filter(t=>t.done).length}/${m.tasks.length} done</span><div class="task-actions"><button class="accept" data-accept="${m.id}">Accept all</button><button class="cancel" data-cancel="${m.id}">Cancel</button></div></div><ul class="todo-list">${m.tasks.map(t=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} data-task="${m.id}:${t.id}"><span>${esc(t.text)}</span><span style="margin-left:auto;font-size:11px;color:${t.status==='accepted'?'#16a34a': t.status==='cancelled'?'#ef4444':'#94a3b8'}">${t.status||''}</span></li>`).join('')}</ul></div>` : '';
-      const todosHtml = m.todos? `<div class="task-card"><div class="task-head"><b>Todos</b><span>${m.todos.filter(t=>t.done).length}/${m.todos.length}</span></div><ul class="todo-list">${m.todos.map((t,i)=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} data-todo="${m.id}:${i}"><span>${esc(t.text)}</span></li>`).join('')}</ul></div>` : '';
+      const tasks = m.tasks? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-checks" style="width:13px;height:13px"></i> Tasks</b><span>${m.tasks.filter(t=>t.done).length}/${m.tasks.length} done</span><div class="task-actions"><button class="accept" data-accept="${m.id}">Accept</button><button class="cancel" data-cancel="${m.id}">Dismiss</button></div></div><ul class="todo-list">${m.tasks.map(t=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} data-task="${m.id}:${t.id}"><span>${esc(t.text)}</span><span style="margin-left:auto;font-size:11px;color:${t.status==='accepted'?'#16a34a': t.status==='cancelled'?'#ef4444':'#94a3b8'}">${t.status||''}</span></li>`).join('')}</ul></div>` : '';
+      const todosHtml = m.todos? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-todo" style="width:13px;height:13px"></i> Todos</b><span>${m.todos.filter(t=>t.done).length}/${m.todos.length}</span></div><ul class="todo-list">${m.todos.map((t,i)=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} data-todo="${m.id}:${i}"><span>${esc(t.text)}</span></li>`).join('')}</ul></div>` : '';
+      const isStream = m.status==='streaming';
       return `<div class="message assistant" data-id="${m.id}">
-        <div class="msg-head"><span class="who"><i data-lucide="bot" style="width:14px;height:14px"></i> ${esc(selectedModel)} • ${esc(selectedMode)}</span><span class="badge">${m.status||'done'}</span><span class="when">${m.time||''}</span>
-          <button class="msg-action" data-copy="${m.id}"><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button>
-          <button class="msg-action" data-retry="${m.id}"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Retry</button>
-          <button class="msg-action danger" data-delete="${m.id}"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>
+        <div class="msg-head"><span class="msg-avatar assistant ${isStream?'streaming':''}"><i data-lucide="bot" style="width:14px;height:14px"></i></span><span class="who">${esc(selectedModel)} <small>• ${esc(selectedMode)}</small></span><span class="badge ${isStream?'streaming':''}">${esc(m.status||'done')}</span><span class="when">${esc(m.time||'')}</span>
+          <button class="msg-action" data-copy="${m.id}" title="Copy"><i data-lucide="copy" style="width:11px;height:11px"></i> Copy</button>
+          <button class="msg-action" data-retry="${m.id}" title="Retry"><i data-lucide="refresh-cw" style="width:11px;height:11px"></i></button>
+          <button class="msg-action danger" data-delete="${m.id}" title="Delete"><i data-lucide="trash-2" style="width:11px;height:11px"></i></button>
         </div>
         <div class="stream-wrap" id="stream-${m.id}">${html}${tasks}${todosHtml}</div>
         <div class="message-assist-actions">
-          <button class="msg-action" data-tts="${m.id}"><i data-lucide="volume-2" style="width:12px;height:12px"></i> Speak</button>
-          <button class="msg-action" data-exportmsg="${m.id}"><i data-lucide="download" style="width:12px;height:12px"></i> Export</button>
+          <button class="msg-action" data-tts="${m.id}" title="Speak"><i data-lucide="volume-2" style="width:11px;height:11px"></i> Speak</button>
+          <button class="msg-action" data-exportmsg="${m.id}" title="Export"><i data-lucide="download" style="width:11px;height:11px"></i> Export</button>
         </div>
       </div>`;
     }
@@ -1775,12 +1778,73 @@ function clearCurrentChat(){
 }
 
 function pgHTML(m){
-  // if streaming not done, show skeleton; but for rendered after done, full table
-  return `<div class="card"><div class="card-head"><h4>Retrieved 5 records from <code>remote_db.users</code></h4><p>Parsing metadata • 184ms • TLS 1.3 • ${esc(selectedModel)}</p></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>USERNAME</th><th>REGISTERED</th></tr></thead><tbody><tr><td>101</td><td>k_morgan</td><td>2023-10-21</td></tr><tr><td>102</td><td>j_doe</td><td>2023-10-21</td></tr><tr><td>103</td><td>m_smith</td><td>2023-10-22</td></tr><tr><td>104</td><td>a_wilson</td><td>2023-10-22</td></tr><tr><td>105</td><td>s_chen</td><td>2023-10-23</td></tr></tbody></table></div><div class="card-foot"><button class="chip" data-copy-table><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button><button class="chip"><i data-lucide="download" style="width:12px;height:12px"></i> CSV</button><span class="tls">✓ TLS 1.3</span></div></div>`;
+  return `<div class="card">
+    <div class="card-head">
+      <div class="card-head-top"><span class="card-icon pg"><i data-lucide="database" style="width:14px;height:14px"></i></span><h4>Retrieved 5 records <span style="font-weight:500;color:var(--muted)">from</span> <code>remote_db.users</code></h4><span class="badge" style="margin-left:auto">SQL</span></div>
+      <p class="card-head-desc">Parsing metadata • 184ms • TLS 1.3 • ${esc(selectedModel)} <span style="margin-left:auto;display:inline-flex;gap:4px;align-items:center"><span style="width:6px;height:6px;background:var(--ok);border-radius:50%"></span> live</span></p>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>ID</th><th>USERNAME</th><th>REGISTERED</th></tr></thead><tbody><tr><td>101</td><td>k_morgan</td><td>2023-10-21</td></tr><tr><td>102</td><td>j_doe</td><td>2023-10-21</td></tr><tr><td>103</td><td>m_smith</td><td>2023-10-22</td></tr><tr><td>104</td><td>a_wilson</td><td>2023-10-22</td></tr><tr><td>105</td><td>s_chen</td><td>2023-10-23</td></tr></tbody></table></div>
+    <div class="card-foot"><button class="chip" data-copy-table><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button><button class="chip"><i data-lucide="download" style="width:12px;height:12px"></i> Export CSV</button><span class="tls"><i data-lucide="shield-check" style="width:12px;height:12px"></i> TLS 1.3</span></div>
+  </div>`;
 }
-function awsHTML(){ return `<div class="card"><div class="card-head"><h4>Found 3 buckets in <code>us-east-1</code></h4><p>via aws-connector • 184ms</p></div><div class="table-wrap"><table><thead><tr><th>BUCKET</th><th>SIZE</th><th>OBJECTS</th></tr></thead><tbody><tr><td>mcp-app-data</td><td>2.4 GB</td><td>342</td></tr><tr><td>user-avatars-prod</td><td>18.7 GB</td><td>12.4k</td></tr><tr><td>logs-archive-2023</td><td>412 GB</td><td>89k</td></tr></tbody></table></div></div>`; }
-function fsHTML(){ return `<div class="card"><div class="card-head"><h4>Listed 5 entries in <code>/data</code></h4><p>read-only mount</p></div><div class="table-wrap"><table><thead><tr><th>NAME</th><th>TYPE</th><th>SIZE</th></tr></thead><tbody><tr><td>config.json</td><td>file</td><td>1.2 KB</td></tr><tr><td>datasets/</td><td>dir</td><td>—</td></tr><tr><td>users.csv</td><td>file</td><td>4.8 KB</td></tr><tr><td>README.md</td><td>file</td><td>2.1 KB</td></tr><tr><td>exports/</td><td>dir</td><td>—</td></tr></tbody></table></div></div>`; }
-function generalHTML(t){ return `<div class="card"><div class="card-head"><h4>MCP Router • ${esc(selectedMode)}</h4><p>Received: <code>${esc((t||'').slice(0,80))}</code></p></div><div style="padding:12px"><p style="margin:0 0 8px;font-size:13px">Try <code>/sql</code>, <code>/s3</code>, <code>/fs</code> or upload media.</p><div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:10px;padding:10px;font-size:12px">Suggested: <code>/sql SELECT * FROM users LIMIT 5</code> • <code>/s3 list buckets</code></div></div></div>`; }
+function awsHTML(){ return `<div class="card">
+  <div class="card-head">
+    <div class="card-head-top"><span class="card-icon aws"><i data-lucide="cloud" style="width:14px;height:14px"></i></span><h4>Found 3 buckets <span style="font-weight:500;color:var(--muted)">in</span> <code>us-east-1</code></h4><span class="badge" style="margin-left:auto;background:#fffbeb;color:#92400e;border-color:#fde68a">S3</span></div>
+    <p class="card-head-desc">via <code>aws-us-east</code> • 184ms • 3 regions</p>
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>BUCKET</th><th>SIZE</th><th>OBJECTS</th></tr></thead><tbody><tr><td>mcp-app-data</td><td>2.4 GB</td><td>342</td></tr><tr><td>user-avatars-prod</td><td>18.7 GB</td><td>12.4k</td></tr><tr><td>logs-archive-2023</td><td>412 GB</td><td>89k</td></tr></tbody></table></div>
+  <div class="card-foot"><button class="chip"><i data-lucide="copy" style="width:12px;height:12px"></i> Copy names</button><span class="tls">✓ 3 buckets</span></div>
+</div>`; }
+function fsHTML(){ return `<div class="card">
+  <div class="card-head">
+    <div class="card-head-top"><span class="card-icon fs"><i data-lucide="folder-open" style="width:14px;height:14px"></i></span><h4>Listed 5 entries <span style="font-weight:500;color:var(--muted)">in</span> <code>/data</code></h4><span class="badge" style="margin-left:auto;background:#eff6ff;color:#1d4ed8;border-color:#dbeafe">FS</span></div>
+    <p class="card-head-desc"><code>/data</code> • read-only mount • 5 items</p>
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>NAME</th><th>TYPE</th><th>SIZE</th></tr></thead><tbody><tr><td>config.json</td><td>file</td><td>1.2 KB</td></tr><tr><td>datasets/</td><td>dir</td><td>—</td></tr><tr><td>users.csv</td><td>file</td><td>4.8 KB</td></tr><tr><td>README.md</td><td>file</td><td>2.1 KB</td></tr><tr><td>exports/</td><td>dir</td><td>—</td></tr></tbody></table></div>
+  <div class="card-foot"><button class="chip"><i data-lucide="folder-open" style="width:12px;height:12px"></i> Open /data</button></div>
+</div>`; }
+function mdInline(s){
+  let out = esc(s);
+  out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
+  out = out.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  return out;
+}
+function formatMessageText(t){
+  if(!t) return '';
+  const parts = t.split(/```/);
+  let html='';
+  for(let i=0;i<parts.length;i++){
+    if(i%2===1){
+      const code = parts[i].replace(/^\n|\n$/g,'');
+      html += `<pre><code>${esc(code)}</code></pre>`;
+    } else {
+      const segs = esc(parts[i]).split(/\n\n+/).filter(Boolean);
+      segs.forEach(seg=>{
+        // handle single line breaks
+        const line = seg.replace(/\n/g,'<br>');
+        // detect blockquote
+        if(line.trim().startsWith('&gt;')){
+          html += `<blockquote style="border-left:3px solid var(--line);padding:6px 10px;margin:8px 0;background:#f8fafc;border-radius:0 8px 8px 0;color:var(--muted);font-style:italic">${line.replace(/^&gt;\s?/gm,'')}</blockquote>`;
+        } else {
+          html += `<p class="md-text">${line.replace(/`([^`]+)`/g,'<code>$1</code>')}</p>`;
+        }
+      });
+    }
+  }
+  return html || `<p class="md-text">${esc(t).replace(/\n/g,'<br>')}</p>`;
+}
+function generalHTML(t){
+  const formatted = formatMessageText(t);
+  return `<div class="card">
+    <div class="card-head">
+      <div class="card-head-top"><span class="card-icon gen"><i data-lucide="sparkles" style="width:14px;height:14px"></i></span><h4>MCP Router <span style="font-weight:500;color:var(--muted)">• ${esc(selectedMode)}</span></h4><span class="badge" style="margin-left:auto">${esc(selectedMode)}</span></div>
+      <p class="card-head-desc">Received: <code>${esc((t||'').slice(0,64))}${(t||'').length>64?'…':''}</code></p>
+    </div>
+    <div style="padding:14px 16px">${formatted}
+      <div style="margin-top:12px;background:#eff6ff;border:1px solid #dbeafe;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5"><b style="font-size:11px;letter-spacing:.06em;color:var(--primary)">QUICK COMMANDS</b><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><code style="background:#fff;border:1px solid #bfdbfe;padding:3px 7px;border-radius:6px">/sql SELECT * FROM users LIMIT 5</code><code style="background:#fff;border:1px solid #bfdbfe;padding:3px 7px;border-radius:6px">/s3 list buckets</code></div></div>
+    </div>
+  </div>`; }
+
 
 // Message actions delegation
 messagesEl?.addEventListener('click', e=>{
