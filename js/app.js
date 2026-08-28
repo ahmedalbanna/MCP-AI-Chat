@@ -2303,33 +2303,196 @@ marketGrid?.addEventListener('click', e=>{
 marketDetailBackdrop?.addEventListener('click', ()=> marketDetailModal?.classList.add('hidden'));
 document.getElementById('closeMarketplace')?.addEventListener('click', ()=> document.getElementById('marketplaceView').classList.add('hidden'));
 
-// Prompts
+// Prompts — enhanced library with search, recents, favorites & custom prompts
+let CUSTOM_PROMPTS = safeParse('mcp_custom_prompts', []);
+let PROMPT_FAVS = safeParse('mcp_prompt_favs', []);
+const saveCustomPrompts = ()=> safeSet('mcp_custom_prompts', JSON.stringify(CUSTOM_PROMPTS));
+const savePromptFavs = ()=> safeSet('mcp_prompt_favs', JSON.stringify(PROMPT_FAVS));
+const getAllPrompts = ()=> [...PROMPTS, ...CUSTOM_PROMPTS];
 const promptCatsEl=promptCats, promptGridEl=promptGrid;
+const promptSearch = document.getElementById('promptSearch');
+const promptSort = document.getElementById('promptSort');
+const promptQuickFilters = document.getElementById('promptQuickFilters');
+const promptStatsCount = document.getElementById('promptStatsCount');
+const promptStatsFav = document.getElementById('promptStatsFav');
+const promptLibraryCount = document.getElementById('promptLibraryCount');
+const promptClearRecents = document.getElementById('promptClearRecents');
+const promptHelpBtn = document.getElementById('promptHelpBtn');
+const newPromptBtn = document.getElementById('newPromptBtn');
+const promptModal = document.getElementById('promptModal');
+const promptModalBackdrop = document.getElementById('promptModalBackdrop');
+const closePromptModal = document.getElementById('closePromptModal');
+const cancelPrompt = document.getElementById('cancelPrompt');
+const promptForm = document.getElementById('promptForm');
+const promptTitle = document.getElementById('promptTitle');
+const promptCat = document.getElementById('promptCat');
+const promptText = document.getElementById('promptText');
+const promptIcon = document.getElementById('promptIcon');
+const promptModes = document.getElementById('promptModes');
 let activePromptCat='All';
+let activePromptFilter='all';
+let editingPromptIdx=null;
+function getPromptFiltered(){
+  let list = getAllPrompts();
+  const q=(promptSearch?.value||'').toLowerCase().trim();
+  // category via top cats
+  if(activePromptCat!=='All') list = list.filter(p=>p.cat===activePromptCat);
+  // quick filter
+  if(activePromptFilter==='favorites') list = list.filter(p=>PROMPT_FAVS.includes(p.title));
+  else if(activePromptFilter==='recent') {
+    const rec=getRecentPrompts();
+    list = list.filter(p=>rec.includes(p.title)).sort((a,b)=> rec.indexOf(a.title)-rec.indexOf(b.title));
+    if(!list.length) list = [];
+  } else if(activePromptFilter==='mcp') list = list.filter(p=>p.cat==='MCP');
+  // search
+  if(q){
+    list = list.filter(p=> (p.title.toLowerCase().includes(q) || p.prompt.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q) || (p.modes||[]).join(' ').toLowerCase().includes(q)));
+  }
+  // sort
+  const sortVal=promptSort?.value||'recommended';
+  if(sortVal==='az') list = [...list].sort((a,b)=>a.title.localeCompare(b.title));
+  else if(sortVal==='cat') list = [...list].sort((a,b)=>a.cat.localeCompare(b.cat)||a.title.localeCompare(b.title));
+  else if(sortVal==='favorites') list = [...list].sort((a,b)=> (PROMPT_FAVS.includes(b.title)?1:0) - (PROMPT_FAVS.includes(a.title)?1:0) || a.title.localeCompare(b.title));
+  else if(sortVal==='recent'){
+    const rec=getRecentPrompts();
+    list = [...list].sort((a,b)=> (rec.indexOf(a.title)===-1?999:rec.indexOf(a.title)) - (rec.indexOf(b.title)===-1?999:rec.indexOf(b.title)));
+  } else { // recommended: recents first, then favs, then mode-relevant
+    const rec=getRecentPrompts();
+    const mode=getActiveMode()?.id;
+    list = [...list].sort((a,b)=>{
+      const aRec=rec.includes(a.title)?0:1;
+      const bRec=rec.includes(b.title)?0:1;
+      if(aRec!==bRec) return aRec-bRec;
+      const aFav=PROMPT_FAVS.includes(a.title)?0:1;
+      const bFav=PROMPT_FAVS.includes(b.title)?0:1;
+      if(aFav!==bFav) return aFav-bFav;
+      const aMode=(a.modes||[]).includes(mode)?0:1;
+      const bMode=(b.modes||[]).includes(mode)?0:1;
+      if(aMode!==bMode) return aMode-bMode;
+      return a.title.localeCompare(b.title);
+    });
+  }
+  return list;
+}
 function renderPromptCats(){
-  const cats=['All', ...new Set(PROMPTS.map(p=>p.cat))];
-  promptCatsEl.innerHTML=cats.map(c=>`<button class="${activePromptCat===c?'active':''}" data-cat="${c}">${c}</button>`).join('');
+  const cats=['All', ...new Set(getAllPrompts().map(p=>p.cat))];
+  if(promptCatsEl) promptCatsEl.innerHTML=cats.map(c=>`<button class="${activePromptCat===c?'active':''}" data-cat="${c}">${esc(c)}</button>`).join('');
+  // sync quick filters active
+  if(promptQuickFilters){
+    promptQuickFilters.querySelectorAll('[data-pf]').forEach(b=> b.classList.toggle('active', b.dataset.pf===activePromptFilter));
+    // style active pill like cats
+    promptQuickFilters.querySelectorAll('[data-pf]').forEach(b=>{
+      if(b.dataset.pf===activePromptFilter){ b.style.background='var(--text)'; b.style.color='#fff'; b.style.borderColor='var(--text)'; }
+      else { b.style.background=''; b.style.color=''; b.style.borderColor=''; }
+    });
+  }
+  const total=getAllPrompts().length;
+  const favs=PROMPT_FAVS.length;
+  if(promptStatsCount) promptStatsCount.textContent=`${total} prompts`;
+  if(promptStatsFav) promptStatsFav.textContent=`${favs} favorites`;
+  if(promptLibraryCount) promptLibraryCount.textContent=`${total} prompts`;
 }
 function renderPromptGrid(){
-  const filtered= activePromptCat==='All'? PROMPTS : PROMPTS.filter(p=>p.cat===activePromptCat);
-  promptGridEl.innerHTML=filtered.map(p=>`
-    <div class="prompt-item" data-prompt="${esc(p.prompt)}">
-      <b><i data-lucide="${p.icon}" style="width:14px;height:14px"></i> ${esc(p.title)}</b>
-      <p>${esc(p.prompt)}</p>
-      <button class="primary-btn sm use">Use prompt</button>
-    </div>
-  `).join('');
+  const filtered= getPromptFiltered();
+  if(promptGridEl){
+    if(!filtered.length){
+      const q=(promptSearch?.value||'').trim();
+      promptGridEl.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:28px 16px;background:#fff;border:1px dashed var(--line);border-radius:14px"><i data-lucide="search-x" style="width:24px;height:24px;color:#cbd5e1;margin:0 auto;display:block"></i><p style="margin:10px 0 0;font-weight:700">No prompts found</p><p style="font-size:12px;color:var(--muted);margin:4px 0 0">${q?`No match for "${esc(q)}"`:'Try another filter'}</p><button class="ghost-btn sm" style="margin-top:10px" onclick="document.getElementById('promptSearch').value=''; document.getElementById('promptSearch').dispatchEvent(new Event('input'))">Clear search</button></div>`;
+    } else {
+      promptGridEl.innerHTML=filtered.map(p=>{
+        const isFav=PROMPT_FAVS.includes(p.title);
+        const isRecent=getRecentPrompts().includes(p.title);
+        const catCls=(p.cat||'MCP').toLowerCase();
+        const modesBadge=(p.modes||[]).slice(0,3).map(m=>`<span class="mode">${esc(m)}</span>`).join('');
+        return `<div class="prompt-item ${isFav?'favorited':''} ${isRecent?'recent':''}" data-prompt="${esc(p.prompt)}" data-title="${esc(p.title)}">
+          <div class="prompt-item-head">
+            <div class="prompt-item-icon ${catCls}"><i data-lucide="${p.icon||'lightbulb'}" style="width:16px;height:16px"></i></div>
+            <div class="prompt-item-meta"><b>${esc(p.title)}</b><small>${esc(p.cat)} • ${esc((p.modes||[]).join(', ')||'general')}</small></div>
+            <button class="icon-btn xs" data-fav="${esc(p.title)}" title="${isFav?'Unfavorite':'Favorite'}" style="color:${isFav?'#f59e0b':'var(--faint)'}"><i data-lucide="${isFav?'star':'star'}" style="width:14px;height:14px;${isFav?'fill:#f59e0b;color:#f59e0b':''}"></i></button>
+          </div>
+          <p class="prompt-item-desc">${esc(p.prompt)}</p>
+          <div class="prompt-item-badges"><span class="cat ${catCls}">${esc(p.cat)}</span>${modesBadge}${isRecent?'<span class="mono-badge" style="background:var(--primary-ghost);color:var(--primary);border-color:#dbeafe">recent</span>':''}<span style="margin-left:auto;font-size:10px;color:var(--faint);font-family:var(--mono)">${Math.ceil(p.prompt.length/4.2)} tok</span></div>
+          <div class="prompt-item-actions">
+            <button class="ghost-btn" data-copy="${esc(p.title)}" title="Copy"><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button>
+            <button class="icon-btn sm" data-del-custom="${esc(p.title)}" title="Delete" style="${CUSTOM_PROMPTS.find(cp=>cp.title===p.title)?'':'display:none'};color:var(--bad)"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>
+            <button class="primary-btn sm" data-use="${esc(p.title)}" style="margin-left:auto"><i data-lucide="arrow-right" style="width:12px;height:12px"></i> Use prompt</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
   refreshIcons();
 }
 promptCatsEl?.addEventListener('click', e=>{
   const b=e.target.closest('[data-cat]'); if(!b) return;
-  activePromptCat=b.dataset.cat; renderPromptCats(); renderPromptGrid();
+  activePromptCat=b.dataset.cat; activePromptFilter='all'; renderPromptCats(); renderPromptGrid();
+});
+promptQuickFilters?.addEventListener('click', e=>{
+  const b=e.target.closest('[data-pf]'); if(!b) return;
+  activePromptFilter=b.dataset.pf;
+  if(b.dataset.pf==='mcp') activePromptCat='MCP'; else if(b.dataset.pf==='all') activePromptCat='All';
+  renderPromptCats(); renderPromptGrid();
+});
+promptSearch?.addEventListener('input', ()=> renderPromptGrid());
+promptSort?.addEventListener('change', ()=> renderPromptGrid());
+promptClearRecents?.addEventListener('click', ()=>{ safeSet(PROMPT_RECENT_KEY, JSON.stringify([])); toast('Recent cleared'); renderPromptGrid(); renderPromptStrip(); });
+promptHelpBtn?.addEventListener('click', ()=> toast('Tip: Star favorites, type 2+ letters in chat for inline suggestions'));
+newPromptBtn?.addEventListener('click', ()=>{
+  editingPromptIdx=null;
+  if(promptModal){
+    document.getElementById('promptModalTitle').textContent='New Prompt';
+    promptTitle.value=''; promptCat.value='MCP'; promptText.value=''; promptIcon.value='sparkles'; promptModes.value='';
+    promptModal.classList.remove('hidden'); refreshIcons();
+  }
+});
+closePromptModal?.addEventListener('click', ()=> promptModal?.classList.add('hidden'));
+promptModalBackdrop?.addEventListener('click', ()=> promptModal?.classList.add('hidden'));
+cancelPrompt?.addEventListener('click', ()=> promptModal?.classList.add('hidden'));
+promptForm?.addEventListener('submit', e=>{
+  e.preventDefault();
+  const pr={title:promptTitle.value.trim(), cat:promptCat.value, icon:promptIcon.value, prompt:promptText.value.trim(), modes: promptModes.value.split(',').map(s=>s.trim()).filter(Boolean)};
+  if(!pr.title || !pr.prompt) return toast('Title and prompt required');
+  if(editingPromptIdx!==null){
+    CUSTOM_PROMPTS[editingPromptIdx]=pr;
+    toast('Prompt updated');
+  } else {
+    if(getAllPrompts().find(p=>p.title===pr.title)) return toast('Title exists — choose another');
+    CUSTOM_PROMPTS.push(pr);
+    toast('Prompt created');
+  }
+  saveCustomPrompts(); renderPromptCats(); renderPromptGrid(); renderPromptStrip(); promptModal?.classList.add('hidden');
 });
 promptGridEl?.addEventListener('click', e=>{
+  const fav=e.target.closest('[data-fav]'); if(fav){
+    e.stopPropagation();
+    const title=fav.dataset.fav;
+    if(PROMPT_FAVS.includes(title)) PROMPT_FAVS=PROMPT_FAVS.filter(x=>x!==title);
+    else PROMPT_FAVS.push(title);
+    savePromptFavs(); renderPromptGrid(); return;
+  }
+  const copy=e.target.closest('[data-copy]'); if(copy){
+    e.stopPropagation();
+    const title=copy.dataset.copy;
+    const pr=getAllPrompts().find(p=>p.title===title);
+    if(pr){ navigator.clipboard.writeText(pr.prompt).then(()=> toast('Copied')).catch(()=> toast('Copy failed')); }
+    return;
+  }
+  const del=e.target.closest('[data-del-custom]'); if(del){
+    e.stopPropagation();
+    const title=del.dataset.delCustom;
+    const idx=CUSTOM_PROMPTS.findIndex(p=>p.title===title);
+    if(idx>=0 && confirm(`Delete "${title}"?`)){ CUSTOM_PROMPTS.splice(idx,1); saveCustomPrompts(); renderPromptCats(); renderPromptGrid(); renderPromptStrip(); toast('Deleted'); }
+    return;
+  }
+  const use=e.target.closest('[data-use]'); if(use){
+    const title=use.dataset.use;
+    const pr=getAllPrompts().find(p=>p.title===title);
+    if(pr){ pushRecentPrompt(pr.title); inputEl.value=pr.prompt; autoResize(); syncComposer(); promptsView?.classList.add('hidden'); toast('Prompt inserted'); inputEl.focus(); hidePromptSuggest(); }
+    return;
+  }
   const card=e.target.closest('.prompt-item'); if(!card) return;
-  inputEl.value=card.dataset.prompt; autoResize(); syncComposer();
-  promptsView?.classList.add('hidden'); toast('Prompt inserted');
-  inputEl.focus();
+  const pr=getAllPrompts().find(p=>p.title===card.dataset.title);
+  if(pr){ pushRecentPrompt(pr.title); inputEl.value=pr.prompt; autoResize(); syncComposer(); promptsView?.classList.add('hidden'); toast('Prompt inserted'); inputEl.focus(); }
 });
 
 // Profile

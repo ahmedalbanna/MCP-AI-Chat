@@ -516,17 +516,41 @@ tbody tr:hover td{background:#f8fafc}
 .market-tools li{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f8fafc;border:1px solid var(--line);border-radius:8px;font-size:12.5px;font-family:var(--mono)}
 .install-progress{height:6px;background:var(--line-2);border-radius:999px;overflow:hidden}
 .install-progress span{display:block;height:100%;background:linear-gradient(90deg,var(--primary),#06b6d4);border-radius:999px;transition:width .3s var(--ease)}
-.prompt-cats{display:flex;gap:7px;overflow:auto;scrollbar-width:none;padding-bottom:2px}
+.prompt-cats{display:flex;gap:7px;overflow:auto;scrollbar-width:none;padding-bottom:2px;scroll-behavior:smooth}
 .prompt-cats::-webkit-scrollbar{display:none}
 .prompt-cats button{padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12px;font-weight:650;white-space:nowrap;cursor:pointer;transition:all .15s}
-.prompt-cats button:hover{border-color:#cbd5e1}
+.prompt-cats button:hover{border-color:#cbd5e1;background:#f8fafc}
 .prompt-cats button.active{background:var(--text);color:#fff;border-color:var(--text);box-shadow:0 4px 12px rgba(15,23,42,.12)}
-.prompt-grid{display:grid;grid-template-columns:1fr;gap:10px}
-.prompt-item{border:1px solid var(--line);background:#fff;border-radius:13px;padding:14px;cursor:pointer;transition:all .18s var(--ease)}
-.prompt-item:hover{border-color:var(--primary);background:linear-gradient(180deg,#fff,#eff6ff);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
-.prompt-item b{font-size:13px;font-weight:700;display:flex;gap:7px;align-items:center}
-.prompt-item p{margin:6px 0 0;font-size:12.5px;color:var(--muted);line-height:1.55}
-.prompt-item .use{margin-top:10px}
+.prompt-quick-filters{scrollbar-width:none;padding-bottom:2px}
+.prompt-quick-filters::-webkit-scrollbar{display:none}
+.prompt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.prompt-grid{grid-template-columns:1fr}}
+.prompt-item{border:1px solid var(--line);background:#fff;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;cursor:pointer;transition:all .18s var(--ease);position:relative;overflow:hidden}
+.prompt-item:hover{border-color:#cbd5e1;background:#fff;transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.prompt-item.favorited{border-color:#fde68a;background:linear-gradient(180deg,#fffbeb 0%, #fff 100%)}
+.prompt-item.favorited::before{content:"★";position:absolute;top:8px;right:10px;font-size:10px;color:#f59e0b}
+.prompt-item.recent{border-color:#bfdbfe;box-shadow:0 0 0 2px var(--primary-ring)}
+.prompt-item-head{display:flex;gap:10px;align-items:flex-start}
+.prompt-item-icon{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;flex-shrink:0;box-shadow:var(--shadow-xs)}
+.prompt-item-icon.mcp{background:linear-gradient(180deg,#2563eb,#1d4ed8)}
+.prompt-item-icon.analysis{background:linear-gradient(180deg,#7c3aed,#6d28d9)}
+.prompt-item-icon.code{background:linear-gradient(180deg,#0f172a,#1e293b)}
+.prompt-item-icon.write{background:linear-gradient(180deg,#db2777,#be185d)}
+.prompt-item-icon.creative{background:linear-gradient(180deg,#f59e0b,#d97706)}
+.prompt-item-meta{flex:1;min-width:0}
+.prompt-item-meta b{font-size:13px;font-weight:750;display:flex;align-items:center;gap:6px;letter-spacing:-.01em}
+.prompt-item-meta small{font-size:11px;color:var(--faint);font-weight:600}
+.prompt-item-desc{margin:0;font-size:12.5px;color:var(--muted);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:36px}
+.prompt-item-badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.prompt-item-badges .cat{font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 7px;border-radius:999px;border:1px solid var(--line);background:#f8fafc;color:var(--muted);text-transform:uppercase}
+.prompt-item-badges .cat.mcp{color:#2563eb;border-color:#dbeafe;background:#eff6ff}
+.prompt-item-badges .cat.analysis{color:#7c3aed;border-color:#e9d5ff;background:#f5f3ff}
+.prompt-item-badges .cat.code{color:#0f172a;border-color:#e2e8f0;background:#f8fafc}
+.prompt-item-badges .cat.write{color:#db2777;border-color:#fce7f3;background:#fdf2f8}
+.prompt-item-badges .mode{font-family:var(--mono);font-size:10px;background:#f1f5f9;border:1px solid var(--line);padding:2px 6px;border-radius:999px;color:var(--muted)}
+.prompt-item-actions{display:flex;gap:6px;align-items:center;margin-top:auto;padding-top:8px;border-top:1px dashed var(--line-2)}
+.prompt-item-actions .ghost-btn{padding:6px 10px;font-size:11px}
+.prompt-item-actions .primary-btn{padding:6px 12px;font-size:11px}
 .profile-card{display:flex;flex-direction:column;align-items:center;gap:12px;background:linear-gradient(180deg,#fff,#fcfcfe);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow-sm)}
 .profile-card img{width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 4px 16px rgba(0,0,0,.08)}
 .dropdown{position:relative}

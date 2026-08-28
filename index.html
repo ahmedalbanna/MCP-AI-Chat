@@ -366,15 +366,44 @@
       </div>
     </div>
 
-    <!-- Prompt Library -->
+    <!-- Prompt Library — Enhanced -->
     <div class="drawer hidden" id="promptsView" role="dialog" aria-modal="true">
       <div class="drawer-backdrop" id="promptsBackdrop"></div>
-      <div class="drawer-panel wide">
-        <div class="drawer-head"><h2><i data-lucide="lightbulb"></i> Prompt Library</h2><button class="icon-btn" id="closePrompts"><i data-lucide="x"></i></button></div>
+      <div class="drawer-panel wide" style="width:680px">
+        <div class="drawer-head"><h2><i data-lucide="lightbulb"></i> Prompt Library</h2><div style="display:flex;gap:6px;align-items:center"><span class="status on" style="font-size:11px"><span style="width:6px;height:6px;background:var(--ok);border-radius:50%"></span> <span id="promptLibraryCount">14 prompts</span></span><button class="ghost-btn sm" id="newPromptBtn"><i data-lucide="plus" style="width:12px;height:12px"></i> New prompt</button><button class="icon-btn" id="closePrompts"><i data-lucide="x"></i></button></div></div>
         <div class="drawer-body">
+          <div class="search-row"><i data-lucide="search"></i><input id="promptSearch" placeholder="Search prompts, categories, keywords…" /><select id="promptSort" style="border:none;background:transparent;font-size:12px;border-left:1px solid var(--line);padding-left:8px"><option value="recommended">Recommended</option><option value="recent">Recently used</option><option value="favorites">Favorites</option><option value="az">Name A–Z</option><option value="cat">Category</option></select></div>
           <div class="prompt-cats" id="promptCats"></div>
+          <div style="display:flex;gap:6px;overflow:auto;scrollbar-width:none" id="promptQuickFilters" class="prompt-quick-filters">
+            <button class="mono-badge active" data-pf="all" style="cursor:pointer;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;background:var(--text);color:#fff;border-color:var(--text)">All</button>
+            <button class="mono-badge" data-pf="favorites" style="cursor:pointer;border-radius:999px;padding:6px 12px;font-size:12px">★ Favorites</button>
+            <button class="mono-badge" data-pf="recent" style="cursor:pointer;border-radius:999px;padding:6px 12px;font-size:12px">↻ Recent</button>
+            <button class="mono-badge" data-pf="mcp" style="cursor:pointer;border-radius:999px;padding:6px 12px;font-size:12px">MCP</button>
+          </div>
+          <div id="promptStats" style="font-size:11px;color:var(--muted);font-family:var(--mono);display:flex;gap:10px;align-items:center"><span id="promptStatsCount">14 prompts</span><span>•</span><span id="promptStatsFav">0 favorites</span><span style="margin-left:auto;cursor:pointer;color:var(--primary)" id="promptClearRecents">Clear recent</span></div>
           <div class="prompt-grid" id="promptGrid"></div>
+          <div class="panel-card" style="display:flex;align-items:center;gap:10px;padding:12px"><i data-lucide="lightbulb" style="width:16px;height:16px;color:var(--primary)"></i><div style="font-size:12px;line-height:1.5"><b>Tip:</b> Use <code>/</code> in the composer for quick commands or type 2+ letters to see inline suggestions.</div><button class="ghost-btn sm" id="promptHelpBtn" style="margin-left:auto">Tips</button></div>
         </div>
+      </div>
+    </div>
+
+    <!-- New / Edit Prompt Modal -->
+    <div class="modal hidden" id="promptModal" role="dialog" aria-modal="true">
+      <div class="modal-backdrop" id="promptModalBackdrop"></div>
+      <div class="modal-card" style="width:520px">
+        <div class="modal-head"><h3 id="promptModalTitle">New Prompt</h3><button class="icon-btn" id="closePromptModal"><i data-lucide="x"></i></button></div>
+        <form id="promptForm" class="form" style="padding:16px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label>Title<input id="promptTitle" placeholder="SQL audit" required /></label>
+            <label>Category<select id="promptCat"><option>MCP</option><option>Analysis</option><option>Code</option><option>Write</option><option>Creative</option><option>System</option></select></label>
+          </div>
+          <label>Prompt<textarea id="promptText" rows="3" placeholder="Enter prompt text…" required style="font-size:13px"></textarea></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label>Icon<select id="promptIcon"><option value="database">database</option><option value="cloud">cloud</option><option value="folder-open">folder</option><option value="activity">activity</option><option value="bar-chart-3">bar-chart</option><option value="trending-up">trending-up</option><option value="wallet">wallet</option><option value="code-2">code</option><option value="bug">bug</option><option value="wrench">wrench</option><option value="pen-tool">pen-tool</option><option value="book-open">book</option><option value="lightbulb">lightbulb</option><option value="git-branch">git-branch</option><option value="sparkles">sparkles</option></select></label>
+            <label>Modes (comma)<input id="promptModes" placeholder="Chat, Code, Research" /></label>
+          </div>
+          <div class="form-actions"><button type="button" class="ghost-btn" id="cancelPrompt">Cancel</button><button type="submit" class="primary-btn">Save prompt</button></div>
+        </form>
       </div>
     </div>
 
