@@ -944,8 +944,95 @@ modeForm?.addEventListener('submit', e=>{
 });
 
 
-// Chats
+// Chats — improved dropdown + inline rename
+let openChatMenuId = null;
+let editingChatId = null;
+let inlineRenameValue = '';
 function getActiveChat(){ return chats.find(c=>c.id===activeChatId); }
+function formatChatDate(ts){
+  const d=new Date(ts);
+  const now=new Date();
+  if(d.toDateString()===now.toDateString()) return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  if(Date.now()-ts<604800000) return d.toLocaleDateString([], {weekday:'short'});
+  return d.toLocaleDateString();
+}
+function renderConvMenu(){
+  const chat=getActiveChat();
+  const titleEl=$('#convMenuTitle');
+  const metaEl=$('#convMenuMeta');
+  const countEl=$('#convMenuMsgCount');
+  const dateEl=$('#convMenuDate');
+  const archLabel=$('#convArchiveLabel');
+  const archBtn=$('#convArchiveBtn');
+  if(!chat){
+    if(titleEl) titleEl.textContent='No chat';
+    if(countEl) countEl.textContent='0 messages';
+    if(dateEl) dateEl.textContent='—';
+    if(archLabel) archLabel.textContent='Archive';
+    if(archBtn) archBtn.disabled=true;
+    return;
+  }
+  if(titleEl) titleEl.textContent=chat.title;
+  if(countEl) countEl.textContent=`${chat.messages.length} message${chat.messages.length===1?'':'s'}`;
+  if(dateEl) dateEl.textContent= new Date(chat.created).toLocaleDateString();
+  if(archLabel) archLabel.textContent= chat.archived ? 'Unarchive' : 'Archive';
+  if(archBtn){
+    archBtn.disabled=false;
+    archBtn.querySelector('i')?.setAttribute('data-lucide', chat.archived? 'archive-restore':'archive');
+  }
+  // crumb inline rename sync
+  if(crumbTitle && editingChatId!==chat.id){
+    crumbTitle.textContent=chat.title;
+  }
+}
+function renderTopbarOverflow(){
+  const oc=$('#overflowChatCount');
+  const undoBtnEl=$('#overflowUndoBtn');
+  const redoBtnEl=$('#overflowRedoBtn');
+  if(oc) oc.textContent=`${chats.length} chat${chats.length===1?'':'s'} • ${chats.filter(c=>!c.archived).length} active`;
+  const canUndo = history.undo.length>0;
+  const canRedo = history.redo.length>0;
+  if(undoBtnEl){ undoBtnEl.disabled=!canUndo; undoBtnEl.style.opacity= canUndo? '1':'.45'; undoBtnEl.title= canUndo? 'Undo (Ctrl+Z)' : 'Nothing to undo'; }
+  if(redoBtnEl){ redoBtnEl.disabled=!canRedo; redoBtnEl.style.opacity= canRedo? '1':'.45'; redoBtnEl.title= canRedo? 'Redo (⇧+Ctrl+Z)' : 'Nothing to redo'; }
+}
+function startChatInlineRename(id){
+  editingChatId=id;
+  const chat=chats.find(c=>c.id===id);
+  if(!chat) return;
+  inlineRenameValue=chat.title;
+  renderChats();
+  // after render focus input
+  setTimeout(()=>{
+    const inp=document.querySelector(`[data-rename-input="${id}"]`) || document.querySelector('.chat-rename-input');
+    const crumbInp=document.getElementById('crumbRenameInput');
+    const target = crumbInp || inp;
+    if(target){ target.focus(); target.select(); }
+  }, 30);
+}
+function commitChatRename(id, newTitle){
+  const chat=chats.find(c=>c.id===id);
+  if(!chat) { editingChatId=null; renderChats(); return; }
+  const t=(newTitle||'').trim().slice(0,64);
+  if(!t || t===chat.title){ editingChatId=null; renderChats(); return; }
+  pushHistory();
+  chat.title=t;
+  saveChats(); editingChatId=null; renderChats(); renderMessages(); renderConvMenu(); toast('Renamed ✓');
+}
+function cancelChatRename(){
+  editingChatId=null; renderChats(); renderConvMenu();
+}
+function closeAllChatMenus(){
+  openChatMenuId=null;
+  $$('.chat-item-menu').forEach(m=> m.classList.add('hidden'));
+}
+function toggleChatMenu(id, e){
+  if(e) e.stopPropagation();
+  if(openChatMenuId===id){ closeAllChatMenus(); return; }
+  closeAllChatMenus();
+  openChatMenuId=id;
+  const menu=document.getElementById(`chat-menu-${id}`);
+  if(menu){ menu.classList.remove('hidden'); refreshIcons(); }
+}
 function renderChats(){
   const q=(sidebarSearch.value||'').toLowerCase();
   let filtered = chats.filter(c=> showArchived ? true : !c.archived);
@@ -960,36 +1047,123 @@ function renderChats(){
     else groups.Earlier.push(c);
   });
   chatCountEl.textContent = filtered.length;
-  crumbTitle.textContent = getActiveChat()?.title || 'MCP Chat';
+  const active=getActiveChat();
+  // crumb inline rename handling: if editing active chat, show input
+  if(active && editingChatId===active.id){
+    crumbTitle.innerHTML=`<input id="crumbRenameInput" class="crumb-rename-input" value="${esc(inlineRenameValue)}" maxlength="64" aria-label="Rename conversation" />`;
+  } else {
+    crumbTitle.textContent = active?.title || 'MCP Chat';
+  }
   chatListEl.innerHTML = Object.entries(groups).filter(([k,v])=>v.length).map(([g, arr])=>`
     <div><p class="group-title">${g.toUpperCase()}</p>
-    ${arr.map(c=>`
-      <div class="chat-item ${c.id===activeChatId?'active':''} ${c.archived?'archived':''}" data-id="${c.id}">
-        <div class="chat-item-main"><b>${esc(c.title)}</b><p>${esc(c.messages[c.messages.length-1]?.text || c.messages[c.messages.length-1]?.html || 'No messages')}</p></div>
-        <span class="chat-item-meta">${new Date(c.created).toLocaleDateString()}</span>
+    ${arr.map(c=>{
+      const isEditing = editingChatId===c.id;
+      const isOpen = openChatMenuId===c.id;
+      const preview = c.messages[c.messages.length-1]?.text || c.messages[c.messages.length-1]?.html || 'No messages';
+      const titleHtml = isEditing ? `<input class="chat-rename-input" data-rename-input="${c.id}" value="${esc(inlineRenameValue)}" maxlength="64" aria-label="Rename ${esc(c.title)}" />` : `<b title="${esc(c.title)}">${esc(c.title)}</b>`;
+      return `
+      <div class="chat-item ${c.id===activeChatId?'active':''} ${c.archived?'archived':''}" data-id="${c.id}" role="button" tabindex="0" aria-label="${esc(c.title)} — ${c.messages.length} messages">
+        <div class="chat-item-main">${titleHtml}<p title="${esc(preview)}">${esc(preview.slice(0,64))}</p></div>
+        <span class="chat-item-meta">${formatChatDate(c.created)}</span>
         <div class="chat-item-actions">
-          <button class="icon-btn xs" data-act="more" data-id="${c.id}"><i data-lucide="more-horizontal" style="width:12px;height:12px"></i></button>
+          <button class="icon-btn xs" data-act="more" data-id="${c.id}" aria-label="More for ${esc(c.title)}" aria-expanded="${isOpen?'true':'false'}" aria-haspopup="menu"><i data-lucide="more-horizontal" style="width:12px;height:12px"></i></button>
         </div>
-      </div>
-    `).join('')}
+        <div class="dropdown-menu chat-item-menu ${isOpen?'':'hidden'}" id="chat-menu-${c.id}" role="menu" aria-label="Chat actions">
+          <button data-chat-act="rename" data-id="${c.id}" role="menuitem"><i data-lucide="pencil" style="width:13px;height:13px"></i> Rename <span class="kbd-hint">↵</span></button>
+          <button data-chat-act="duplicate" data-id="${c.id}" role="menuitem"><i data-lucide="copy" style="width:13px;height:13px"></i> Duplicate</button>
+          <button data-chat-act="export" data-id="${c.id}" role="menuitem"><i data-lucide="download" style="width:13px;height:13px"></i> Export JSON</button>
+          <div class="dropdown-sep"></div>
+          <button data-chat-act="archive" data-id="${c.id}" role="menuitem"><i data-lucide="${c.archived?'archive-restore':'archive'}" style="width:13px;height:13px"></i> ${c.archived?'Unarchive':'Archive'}</button>
+          <div class="dropdown-sep"></div>
+          <button class="danger" data-chat-act="delete" data-id="${c.id}" role="menuitem"><i data-lucide="trash-2" style="width:13px;height:13px"></i> Delete</button>
+        </div>
+      </div>`;
+    }).join('')}
     </div>
   `).join('') || `<div style="text-align:center;padding:20px 12px;background:#fff;border:1px dashed var(--line);border-radius:12px"><i data-lucide="inbox" style="width:20px;height:20px;color:#cbd5e1;margin:0 auto;display:block"></i><p style="font-size:12px;color:var(--muted);margin:8px 0 0">${q?'No matches':'No chats yet'}</p><button class="ghost-btn sm" style="margin-top:8px" onclick="document.getElementById('newChatBtn').click()">New chat</button></div>`;
+  // archive toggle badge
+  const archivedCount = chats.filter(c=>c.archived).length;
+  if(archiveToggle){
+    const cntEl=archiveToggle.querySelector('.count-badge') || (()=>{ const s=document.createElement('span'); s.className='count-badge'; archiveToggle.appendChild(s); return s; })();
+    if(archivedCount>0){ cntEl.textContent=String(archivedCount); cntEl.style.display=''; } else cntEl.style.display='none';
+  }
+  renderConvMenu(); renderTopbarOverflow();
   refreshIcons(); updateScrollFab();
+  // after paint, keep focus if editing
+  if(editingChatId){
+    const inp=document.querySelector(`[data-rename-input="${editingChatId}"]`);
+    if(inp && document.activeElement!==inp){ /* keep */ }
+  }
 }
 chatListEl?.addEventListener('click', e=>{
-  const item=e.target.closest('.chat-item'); if(!item) return;
-  const more=e.target.closest('[data-act="more"]');
-  if(more){
-    const id=more.dataset.id;
+  // chat item menu actions first
+  const actBtn=e.target.closest('[data-chat-act]');
+  if(actBtn){
+    e.stopPropagation();
+    const id=actBtn.dataset.id;
+    const act=actBtn.dataset.chatAct;
     const chat=chats.find(c=>c.id===id);
-    const act=prompt(`Actions for "${chat.title}"\n1 rename\n2 export\n3 archive/unarchive\n4 delete\nType 1-4`);
-    if(act==='1'){ const t=prompt('New title', chat.title); if(t){ pushHistory(); chat.title=t; saveChats(); renderChats(); renderMessages(); } }
-    else if(act==='2') doExport(chat);
-    else if(act==='3'){ chat.archived=!chat.archived; saveChats(); renderChats(); }
-    else if(act==='4'){ if(confirm('Delete?')){ pushHistory(); chats=chats.filter(c=>c.id!==id); if(activeChatId===id) activeChatId=chats[0]?.id||null; saveChats(); if(activeChatId) try{ localStorage.setItem('activeChat', activeChatId);}catch{} else try{ localStorage.removeItem('activeChat');}catch{}; renderChats(); renderMessages(); } }
+    if(!chat) return;
+    closeAllChatMenus();
+    if(act==='rename'){ startChatInlineRename(id); }
+    else if(act==='export') doExport(chat);
+    else if(act==='duplicate'){ pushHistory(); const copy=JSON.parse(JSON.stringify(chat)); copy.id=uid(); copy.title=chat.title+' (copy)'; copy.created=Date.now(); copy.archived=false; chats.unshift(copy); activeChatId=copy.id; saveChats(); if(activeChatId) try{ localStorage.setItem('activeChat', activeChatId);}catch{} renderChats(); renderMessages(); toast('Duplicated'); }
+    else if(act==='archive'){ pushHistory(); chat.archived=!chat.archived; saveChats(); renderChats(); toast(chat.archived?'Archived':'Unarchived'); }
+    else if(act==='delete'){ if(confirm(`Delete "${chat.title}"?`)){ pushHistory(); chats=chats.filter(c=>c.id!==id); if(activeChatId===id) activeChatId=chats[0]?.id||null; saveChats(); if(activeChatId) try{ localStorage.setItem('activeChat', activeChatId);}catch{} else try{ localStorage.removeItem('activeChat');}catch{} renderChats(); renderMessages(); toast('Deleted'); } }
     return;
   }
-  activeChatId=item.dataset.id; localStorage.setItem('activeChat', activeChatId); renderChats(); renderMessages(); pushHistory();
+  const more=e.target.closest('[data-act="more"]');
+  if(more){
+    toggleChatMenu(more.dataset.id, e);
+    return;
+  }
+  const renameInp=e.target.closest('[data-rename-input]');
+  if(renameInp) { e.stopPropagation(); return; }
+  const item=e.target.closest('.chat-item'); if(!item) return;
+  // ignore if click was inside menu already handled
+  if(e.target.closest('.chat-item-menu')) return;
+  const id=item.dataset.id;
+  if(editingChatId){
+    // commit pending before switch
+    const pendingInp=document.querySelector(`[data-rename-input="${editingChatId}"]`);
+    if(pendingInp) commitChatRename(editingChatId, pendingInp.value);
+  }
+  if(activeChatId===id) return;
+  activeChatId=id; localStorage.setItem('activeChat', activeChatId); closeAllChatMenus(); renderChats(); renderMessages(); pushHistory();
+});
+chatListEl?.addEventListener('keydown', e=>{
+  if(e.target.closest('[data-rename-input]')) return;
+  const item=e.target.closest('.chat-item');
+  if(item && (e.key==='Enter' || e.key===' ')){
+    e.preventDefault();
+    item.click();
+  }
+  if(e.key==='Escape' && openChatMenuId){
+    e.preventDefault(); closeAllChatMenus(); const btn=item?.querySelector('[data-act="more"]'); if(btn) btn.focus();
+  }
+});
+chatListEl?.addEventListener('input', e=>{
+  const inp=e.target.closest('[data-rename-input]');
+  if(inp){ inlineRenameValue=inp.value; const crumbInp=document.getElementById('crumbRenameInput'); if(crumbInp) crumbInp.value=inp.value; }
+});
+chatListEl?.addEventListener('keydown', e=>{
+  const inp=e.target.closest('[data-rename-input]');
+  if(inp){
+    if(e.key==='Enter'){ e.preventDefault(); commitChatRename(inp.dataset.renameInput, inp.value); }
+    else if(e.key==='Escape'){ e.preventDefault(); cancelChatRename(); }
+    e.stopPropagation();
+  }
+});
+document.addEventListener('click', e=>{
+  if(!e.target.closest('.chat-item') && !e.target.closest('#crumbTitle')){
+    if(editingChatId){
+      const pendingInp=document.querySelector(`[data-rename-input="${editingChatId}"]`);
+      const crumbInp=document.getElementById('crumbRenameInput');
+      const val = (pendingInp?.value) ?? (crumbInp?.value) ?? inlineRenameValue;
+      commitChatRename(editingChatId, val);
+    }
+    closeAllChatMenus();
+  }
 });
 newChatBtn?.addEventListener('click', ()=> createChat());
 newChatTopBtn?.addEventListener('click', ()=> createChat());
@@ -1004,18 +1178,90 @@ function doExport(chat){
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=`${chat.title}.json`; a.click(); URL.revokeObjectURL(url); toast('Exported');
 }
-convMenuBtn?.addEventListener('click', ()=> convMenu.classList.toggle('hidden'));
-document.addEventListener('click', e=>{ if(!e.target.closest('.dropdown')) convMenu.classList.add('hidden'); });
+// ——— Conversation menu — grouped, kbd hints, inline rename, focus trap ———
+function openConvMenu(){
+  renderConvMenu();
+  convMenu.classList.remove('hidden');
+  convMenuBtn.setAttribute('aria-expanded','true');
+  refreshIcons();
+  // focus first
+  const first=convMenu.querySelector('[data-action]');
+  if(first) setTimeout(()=> first.focus(), 30);
+}
+function closeConvMenu(){
+  convMenu?.classList.add('hidden');
+  convMenuBtn?.setAttribute('aria-expanded','false');
+}
+convMenuBtn?.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  if(convMenu.classList.contains('hidden')) openConvMenu();
+  else closeConvMenu();
+});
 convMenu?.addEventListener('click', e=>{
   const b=e.target.closest('[data-action]'); if(!b) return;
   const act=b.dataset.action;
   const chat=getActiveChat(); if(!chat) return;
-  convMenu.classList.add('hidden');
-  if(act==='rename'){ const t=prompt('Rename', chat.title); if(t){ pushHistory(); chat.title=t; saveChats(); renderChats(); renderMessages(); } }
+  closeConvMenu();
+  if(act==='rename'){
+    // inline rename via crumb + chat item
+    startChatInlineRename(chat.id);
+    // also focus crumb input
+    setTimeout(()=>{
+      const inp=document.getElementById('crumbRenameInput');
+      if(inp){ inp.focus(); inp.select(); }
+    }, 40);
+  }
   if(act==='export') doExport(chat);
-  if(act==='duplicate'){ pushHistory(); const copy=JSON.parse(JSON.stringify(chat)); copy.id=uid(); copy.title=chat.title+' (copy)'; copy.created=Date.now(); chats.unshift(copy); activeChatId=copy.id; saveChats(); renderChats(); renderMessages(); toast('Duplicated'); }
+  if(act==='duplicate'){ pushHistory(); const copy=JSON.parse(JSON.stringify(chat)); copy.id=uid(); copy.title=chat.title+' (copy)'; copy.created=Date.now(); copy.archived=false; chats.unshift(copy); activeChatId=copy.id; saveChats(); localStorage.setItem('activeChat', activeChatId); renderChats(); renderMessages(); toast('Duplicated'); }
   if(act==='archive'){ pushHistory(); chat.archived=!chat.archived; saveChats(); renderChats(); renderMessages(); toast(chat.archived?'Archived':'Unarchived'); }
-  if(act==='delete'){ if(confirm('Delete conversation?')){ pushHistory(); chats=chats.filter(c=>c.id!==chat.id); activeChatId=chats[0]?.id||null; saveChats(); if(activeChatId) try{ localStorage.setItem('activeChat', activeChatId);}catch{} else try{ localStorage.removeItem('activeChat');}catch{}; renderChats(); renderMessages(); toast('Deleted'); } }
+  if(act==='delete'){ if(confirm(`Delete "${chat.title}"?`)){ pushHistory(); chats=chats.filter(c=>c.id!==chat.id); activeChatId=chats[0]?.id||null; saveChats(); if(activeChatId) try{ localStorage.setItem('activeChat', activeChatId);}catch{} else try{ localStorage.removeItem('activeChat');}catch{} renderChats(); renderMessages(); toast('Deleted'); } }
+});
+convMenu?.addEventListener('keydown', e=>{
+  const items=[...convMenu.querySelectorAll('[data-action]:not([disabled])')];
+  if(!items.length) return;
+  const cur=document.activeElement;
+  const idx=items.indexOf(cur);
+  if(e.key==='ArrowDown'){ e.preventDefault(); const next=items[(idx+1)%items.length]; next.focus(); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); const prev=items[(idx-1+items.length)%items.length]; prev.focus(); }
+  else if(e.key==='Home'){ e.preventDefault(); items[0].focus(); }
+  else if(e.key==='End'){ e.preventDefault(); items[items.length-1].focus(); }
+  else if(e.key==='Escape'){ e.preventDefault(); closeConvMenu(); convMenuBtn.focus(); }
+});
+// crumb title double-click to rename
+crumbTitle?.addEventListener('dblclick', ()=>{
+  const chat=getActiveChat(); if(!chat) return;
+  startChatInlineRename(chat.id);
+});
+crumbTitle?.addEventListener('click', e=>{
+  // single click on text does nothing — double to edit. But if already editing, focus
+  const inp=document.getElementById('crumbRenameInput');
+  if(inp) e.stopPropagation();
+});
+crumbTitle?.addEventListener('keydown', e=>{
+  const inp=e.target.closest('#crumbRenameInput');
+  if(!inp) return;
+  if(e.key==='Enter'){ e.preventDefault(); commitChatRename(editingChatId, inp.value); }
+  else if(e.key==='Escape'){ e.preventDefault(); cancelChatRename(); }
+  e.stopPropagation();
+});
+crumbTitle?.addEventListener('input', e=>{
+  const inp=e.target.closest('#crumbRenameInput');
+  if(inp){ inlineRenameValue=inp.value; const sideInp=document.querySelector(`[data-rename-input="${editingChatId}"]`); if(sideInp) sideInp.value=inp.value; }
+});
+document.addEventListener('click', e=>{
+  const insideConv = e.target.closest('#convMenu') || e.target.closest('#convMenuBtn');
+  if(!insideConv) closeConvMenu();
+  const insideChatList = e.target.closest('.chat-item');
+  const insideCrumb = e.target.closest('#crumbTitle');
+  if(!insideChatList && !insideCrumb && editingChatId){
+    const pendingInp=document.querySelector(`[data-rename-input="${editingChatId}"]`);
+    const crumbInp=document.getElementById('crumbRenameInput');
+    const val = (crumbInp?.value) ?? (pendingInp?.value) ?? inlineRenameValue;
+    // only commit if click outside composer as well? keep simple
+    if(document.activeElement!==pendingInp && document.activeElement!==crumbInp){
+      commitChatRename(editingChatId, val);
+    }
+  }
 });
 importChatBtn?.addEventListener('click', ()=> importFile.click());
 importFile?.addEventListener('change', e=>{
@@ -1024,10 +1270,10 @@ importFile?.addEventListener('change', e=>{
 });
 archiveToggle?.addEventListener('click', ()=>{
   showArchived=!showArchived;
-  archiveToggle.style.background=showArchived?'#0f172a':'';
-  archiveToggle.style.color=showArchived?'#fff':'';
+  archiveToggle.classList.toggle('active', showArchived);
   archiveToggle.setAttribute('aria-pressed', showArchived?'true':'false');
-  archiveToggle.setAttribute('title', showArchived?'Hiding archived — click to show':'Show archived');
+  archiveToggle.setAttribute('title', showArchived?'Hiding archived — click to hide':'Show archived');
+  archiveToggle.setAttribute('aria-label', showArchived? 'Hide archived chats' : 'Show archived chats');
   renderChats();
   toast(showArchived?'Showing archived':'Hiding archived');
 });
@@ -2030,6 +2276,7 @@ function updateUndoRedo(){
   redoBtn.disabled=history.redo.length===0;
   undoBtn.style.opacity=history.undo.length?1:0.4;
   redoBtn.style.opacity=history.redo.length?1:0.4;
+  try{ renderTopbarOverflow(); }catch{}
 }
 function undo(){
   if(!history.undo.length) return toast('Nothing to undo');
@@ -3073,44 +3320,62 @@ sidebarClose?.addEventListener('click', ()=>{
   menuBtn?.setAttribute('aria-expanded','false');
   menuBtn?.focus();
 });
-// ——— Topbar overflow menu ———
+// ——— Topbar overflow menu — grouped, disabled states, keyboard ———
 const topbarOverflowBtn=$('#topbarOverflowBtn');
 const topbarOverflowMenu=$('#topbarOverflowMenu');
+function openTopbarOverflow(){
+  renderTopbarOverflow();
+  topbarOverflowMenu.classList.remove('hidden');
+  topbarOverflowBtn.setAttribute('aria-expanded','true');
+  refreshIcons();
+  const first=topbarOverflowMenu.querySelector('[data-overflow]:not([disabled])');
+  if(first) setTimeout(()=> first.focus(), 30);
+}
+function closeTopbarOverflow(){
+  topbarOverflowMenu?.classList.add('hidden');
+  topbarOverflowBtn?.setAttribute('aria-expanded','false');
+}
 topbarOverflowBtn?.addEventListener('click', (e)=>{
   e.stopPropagation();
-  const willOpen=topbarOverflowMenu.classList.contains('hidden');
-  topbarOverflowMenu.classList.toggle('hidden', !willOpen);
-  topbarOverflowBtn.setAttribute('aria-expanded', willOpen?'true':'false');
-  if(willOpen) refreshIcons();
+  if(topbarOverflowMenu.classList.contains('hidden')) openTopbarOverflow();
+  else closeTopbarOverflow();
 });
 topbarOverflowMenu?.addEventListener('click', e=>{
   const b=e.target.closest('[data-overflow]'); if(!b) return;
+  if(b.disabled || b.getAttribute('aria-disabled')==='true') return;
   const act=b.dataset.overflow;
-  topbarOverflowMenu.classList.add('hidden');
-  topbarOverflowBtn.setAttribute('aria-expanded','false');
+  closeTopbarOverflow();
   if(act==='provider') openProviderView();
   else if(act==='undo') document.getElementById('undoBtn')?.click();
   else if(act==='redo') document.getElementById('redoBtn')?.click();
   else if(act==='new') { const c=getActiveChat(); if(!c || c.messages.length) document.getElementById('newChatBtn')?.click(); else toast('New chat ready'); }
 });
+topbarOverflowMenu?.addEventListener('keydown', e=>{
+  const items=[...topbarOverflowMenu.querySelectorAll('[data-overflow]:not([disabled])')];
+  if(!items.length) return;
+  const cur=document.activeElement;
+  const idx=items.indexOf(cur);
+  if(e.key==='ArrowDown'){ e.preventDefault(); const next=items[(idx+1)%items.length]; next.focus(); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); const prev=items[(idx-1+items.length)%items.length]; prev.focus(); }
+  else if(e.key==='Home'){ e.preventDefault(); items[0].focus(); }
+  else if(e.key==='End'){ e.preventDefault(); items[items.length-1].focus(); }
+  else if(e.key==='Escape'){ e.preventDefault(); closeTopbarOverflow(); topbarOverflowBtn.focus(); }
+});
 document.addEventListener('click', e=>{
   if(!e.target.closest('#topbarOverflowBtn') && !e.target.closest('#topbarOverflowMenu')){
-    topbarOverflowMenu?.classList.add('hidden');
-    topbarOverflowBtn?.setAttribute('aria-expanded','false');
+    closeTopbarOverflow();
   }
-});
-// also handle convMenu aria-expanded
-convMenuBtn?.addEventListener('click', ()=>{
-  const willOpen=convMenu.classList.contains('hidden');
-  // toggle already handled, just update aria
-  setTimeout(()=> convMenuBtn.setAttribute('aria-expanded', willOpen?'true':'false'), 10);
 });
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
+    if(editingChatId){ e.preventDefault(); cancelChatRename(); return; }
+    if(openChatMenuId){ e.preventDefault(); closeAllChatMenus(); return; }
+    if(!convMenu.classList.contains('hidden')){ e.preventDefault(); closeConvMenu(); convMenuBtn?.focus(); return; }
+    if(!topbarOverflowMenu.classList.contains('hidden')){ e.preventDefault(); closeTopbarOverflow(); topbarOverflowBtn?.focus(); return; }
     // close drawers with focus restore
     [settingsView, serverModal, toolsModal, marketplaceView, promptsView, profileView, providerView, providerModal, serverDetailModal, marketDetailModal, modesView, modeModal, liveOverlay, editMsgModal].forEach(el=>{ if(el && !el.classList.contains('hidden')) closeDrawerWithFocus(el); });
     // fallback hidden for any without trap
-    hideSlash(); sidebar.classList.remove('open'); menuBtn?.setAttribute('aria-expanded','false'); convMenu?.classList.add('hidden'); topbarOverflowMenu?.classList.add('hidden'); convMenuBtn?.setAttribute('aria-expanded','false'); topbarOverflowBtn?.setAttribute('aria-expanded','false');
+    hideSlash(); sidebar.classList.remove('open'); menuBtn?.setAttribute('aria-expanded','false'); closeConvMenu(); closeTopbarOverflow();
     closeComposerModeMenu();
   }
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); const s=document.getElementById('sidebarSearch'); if(s){ s.focus(); s.select(); toast('Search chats & servers'); } }

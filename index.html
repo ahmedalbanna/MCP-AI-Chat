@@ -170,24 +170,45 @@
           <button id="undoBtn" hidden></button><button id="redoBtn" hidden></button>
           <div class="dropdown">
             <button class="icon-btn" id="topbarOverflowBtn" title="More actions" aria-label="More actions" aria-haspopup="menu" aria-expanded="false"><i data-lucide="more-horizontal" aria-hidden="true"></i></button>
-            <div class="dropdown-menu hidden" id="topbarOverflowMenu" role="menu" style="right:0;min-width:210px">
-              <button data-overflow="provider" role="menuitem"><i data-lucide="cpu"></i> AI Providers</button>
-              <button data-overflow="undo" role="menuitem"><i data-lucide="undo-2"></i> Undo <span style="margin-left:auto;font-size:11px;color:var(--faint)">Ctrl+Z</span></button>
-              <button data-overflow="redo" role="menuitem"><i data-lucide="redo-2"></i> Redo</button>
-              <div style="height:1px;background:var(--line);margin:4px 0"></div>
-              <button data-overflow="new" role="menuitem"><i data-lucide="plus"></i> New conversation</button>
+            <div class="dropdown-menu hidden" id="topbarOverflowMenu" role="menu" aria-label="App menu" style="right:0;min-width:220px">
+              <div class="dropdown-header"><strong>Workspace</strong><small>Quick actions • <span id="overflowChatCount">3 chats</span></small></div>
+              <div class="dropdown-section">
+                <button data-overflow="provider" role="menuitem"><i data-lucide="cpu" style="width:14px;height:14px"></i> AI Providers</button>
+                <button data-overflow="new" role="menuitem"><i data-lucide="plus" style="width:14px;height:14px"></i> New conversation <span class="kbd-hint">⌘N</span></button>
+              </div>
+              <div class="dropdown-sep" aria-hidden="true"></div>
+              <div class="dropdown-section">
+                <div class="dropdown-section-label">History</div>
+                <button data-overflow="undo" role="menuitem" id="overflowUndoBtn"><i data-lucide="undo-2" style="width:14px;height:14px"></i> Undo <span class="kbd-hint">Ctrl+Z</span></button>
+                <button data-overflow="redo" role="menuitem" id="overflowRedoBtn"><i data-lucide="redo-2" style="width:14px;height:14px"></i> Redo <span class="kbd-hint">⇧+Ctrl+Z</span></button>
+              </div>
             </div>
           </div>
           <button id="newChatTopBtn" hidden></button>
           <div class="conv-actions">
             <div class="dropdown">
-              <button class="icon-btn" id="convMenuBtn" aria-label="Conversation actions" aria-haspopup="menu" aria-expanded="false"><i data-lucide="more-vertical" aria-hidden="true"></i></button>
-              <div class="dropdown-menu hidden" id="convMenu">
-                <button data-action="rename"><i data-lucide="pencil"></i> Rename</button>
-                <button data-action="export"><i data-lucide="download"></i> Export JSON</button>
-                <button data-action="duplicate"><i data-lucide="copy"></i> Duplicate</button>
-                <button data-action="archive"><i data-lucide="archive"></i> Archive</button>
-                <button class="danger" data-action="delete"><i data-lucide="trash-2"></i> Delete</button>
+              <button class="icon-btn" id="convMenuBtn" aria-label="Conversation options" aria-haspopup="menu" aria-expanded="false"><i data-lucide="more-vertical" aria-hidden="true"></i></button>
+              <div class="dropdown-menu hidden" id="convMenu" role="menu" aria-label="Conversation options" style="right:0;min-width:240px">
+                <div class="dropdown-header" id="convMenuHeader">
+                  <strong id="convMenuTitle">MCP Chat</strong>
+                  <small id="convMenuMeta"><span id="convMenuMsgCount">0 messages</span> • <span id="convMenuDate">—</span></small>
+                </div>
+                <div class="dropdown-section">
+                  <button data-action="rename" role="menuitem"><i data-lucide="pencil" style="width:14px;height:14px"></i> Rename <span class="kbd-hint">↵</span></button>
+                </div>
+                <div class="dropdown-sep" aria-hidden="true"></div>
+                <div class="dropdown-section">
+                  <button data-action="export" role="menuitem"><i data-lucide="download" style="width:14px;height:14px"></i> Export JSON</button>
+                  <button data-action="duplicate" role="menuitem"><i data-lucide="copy" style="width:14px;height:14px"></i> Duplicate</button>
+                </div>
+                <div class="dropdown-sep" aria-hidden="true"></div>
+                <div class="dropdown-section">
+                  <button data-action="archive" role="menuitem" id="convArchiveBtn"><i data-lucide="archive" style="width:14px;height:14px"></i> <span id="convArchiveLabel">Archive</span></button>
+                </div>
+                <div class="dropdown-sep" aria-hidden="true"></div>
+                <div class="dropdown-section">
+                  <button class="danger" data-action="delete" role="menuitem"><i data-lucide="trash-2" style="width:14px;height:14px"></i> Delete</button>
+                </div>
               </div>
             </div>
           </div>
