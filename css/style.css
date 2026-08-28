@@ -311,12 +311,13 @@ tbody tr:hover td{background:#f8fafc}
 .todo-item input[type=checkbox]{width:17px;height:17px;border-radius:6px;accent-color:var(--primary);flex-shrink:0}
 .todo-item.done span{color:var(--faint);text-decoration:line-through}
 .todo-progress{font-size:11px;color:var(--muted);margin-left:6px;font-weight:600}
-.prompt-strip{position:relative;display:flex;gap:8px;overflow:auto;padding:0 24px 10px;max-width:780px;width:100%;margin:0 auto;scrollbar-width:none;scroll-padding:0 24px;align-items:center;transition:opacity .2s var(--ease), transform .2s var(--ease);mask-image:linear-gradient(90deg, #000 88%, transparent 100%);-webkit-mask-image:linear-gradient(90deg, #000 88%, transparent 100%)}
+.prompt-strip{position:relative;display:flex;gap:8px;overflow:auto;padding:0 24px 10px;max-width:780px;width:100%;margin:0 auto;scrollbar-width:none;scroll-padding:0 24px;align-items:center;scroll-behavior:smooth;transition:opacity .2s var(--ease), transform .2s var(--ease);mask-image:linear-gradient(90deg, #000 92%, transparent 100%);-webkit-mask-image:linear-gradient(90deg, #000 92%, transparent 100%)}
 .prompt-strip::-webkit-scrollbar{display:none}
 .prompt-strip.hidden{display:none !important}
 .prompt-strip.faded{opacity:.45;transform:translateY(0);pointer-events:auto}
 .prompt-strip.faded:hover{opacity:1}
 .prompt-chip{border:1px solid var(--line);background:#fff;padding:7px 12px;border-radius:999px;font-size:12.5px;font-weight:600;white-space:nowrap;cursor:pointer;display:inline-flex;gap:7px;align-items:center;box-shadow:var(--shadow-xs);transition:all .18s var(--ease);flex-shrink:0;position:relative}
+.prompt-chip:focus-visible{outline:2px solid var(--primary);outline-offset:2px;box-shadow:var(--shadow-focus)}
 .prompt-chip:hover{border-color:#cbd5e1;background:#f8fafc;transform:translateY(-1px);box-shadow:var(--shadow-sm)}
 .prompt-chip:active{transform:translateY(0)}
 .prompt-chip.recent{border-color:#bfdbfe;background:linear-gradient(180deg,#fff,#eff6ff)}
@@ -328,7 +329,7 @@ tbody tr:hover td{background:#f8fafc}
 .prompt-chip-recent{font-size:10px;color:var(--primary);background:var(--primary-ghost);border:1px solid #dbeafe;padding:1px 5px;border-radius:999px}
 .prompt-chip-more{border-style:dashed;color:var(--muted);background:#fcfcfe}
 .prompt-chip-more:hover{border-color:var(--primary);color:var(--primary)}
-.prompt-suggest{position:absolute;bottom:100%;left:22px;right:22px;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden;max-height:320px;overflow-y:auto;z-index:7;padding:0;display:flex;flex-direction:column}
+.prompt-suggest{position:absolute;bottom:100%;left:22px;right:22px;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden;max-height:320px;overflow-y:auto;z-index:7;padding:0;display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
 .prompt-suggest.hidden{display:none}
 .prompt-suggest-head{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--line-2);background:linear-gradient(180deg,#fff,#fcfcfe);position:sticky;top:0;z-index:1}
 .prompt-suggest-head b{font-size:11px;letter-spacing:.07em;color:var(--muted);display:flex;align-items:center;gap:6px}
@@ -346,7 +347,7 @@ tbody tr:hover td{background:#f8fafc}
 .prompt-suggest-foot kbd{font-family:var(--mono);font-size:10px;background:#fff;border:1px solid var(--line);border-bottom-width:2px;padding:1px 5px;border-radius:6px}
 /* Composer — fixed footer glass */
 .composer{max-width:780px;width:100%;margin:0 auto;padding:12px 22px 16px;flex-shrink:0;position:relative;z-index:4;background:linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.96) 18%, #fff 48%);backdrop-filter:blur(8px);border-top:1px solid var(--line-2);box-shadow:0 -8px 24px rgba(15,23,42,.04)}
-.attach-preview{display:flex;gap:8px;flex-wrap:wrap;padding:0 0 10px}
+.attach-preview{display:flex;gap:8px;flex-wrap:wrap;padding:0 0 10px;animation:msgIn .2s var(--ease-out)}
 .attach-preview.hidden{display:none}
 .preview{position:relative;width:88px;height:88px;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#f8fafc;display:grid;place-items:center;box-shadow:var(--shadow-sm);transition:transform .15s}
 .preview:hover{transform:translateY(-1px)}
@@ -368,7 +369,7 @@ tbody tr:hover td{background:#f8fafc}
 .todo-add input:focus{border-color:#93c5fd;box-shadow:var(--shadow-focus)}
 .slash-trigger{border:1px solid transparent}
 .slash-trigger.active{background:var(--primary-ghost);border-color:#dbeafe;color:var(--primary)}
-.slash-menu{position:absolute;bottom:100%;left:22px;right:22px;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden;max-height:360px;overflow-y:auto;z-index:7;padding:0;display:flex;flex-direction:column}
+.slash-menu{position:absolute;bottom:100%;left:22px;right:22px;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden;max-height:360px;overflow-y:auto;z-index:8;padding:0;display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
 .slash-menu.hidden{display:none}
 .slash-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line-2);background:linear-gradient(180deg,#fff,#fcfcfe);position:sticky;top:0;z-index:1}
 .slash-head b{font-size:11px;letter-spacing:.07em;color:var(--muted);display:flex;align-items:center;gap:6px}
@@ -389,7 +390,8 @@ tbody tr:hover td{background:#f8fafc}
 .slash-foot kbd{font-family:var(--mono);font-size:10px;background:#fff;border:1px solid var(--line);border-bottom-width:2px;padding:1px 5px;border-radius:6px}
 .slash-empty{padding:18px 14px;text-align:center;color:var(--muted);font-size:13px}
 .slash-empty small{color:var(--faint);font-size:11px}
-.speech-bar{display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,#0f172a 0%, #111b2f 100%);color:#e2e8f0;padding:10px 12px;border-radius:14px;margin-bottom:10px;border:1px solid rgba(255,255,255,.10);box-shadow:var(--shadow-md);min-height:44px}
+.speech-bar{display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,#0f172a 0%, #111b2f 100%);color:#e2e8f0;padding:10px 12px;border-radius:14px;margin-bottom:10px;border:1px solid rgba(255,255,255,.10);box-shadow:var(--shadow-md);min-height:44px;animation:speechIn .22s var(--ease-out)}
+@keyframes speechIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .speech-bar.hidden{display:none}
 .speech-left{display:flex;align-items:center;gap:9px;flex-shrink:0}
 .wave{display:flex;gap:3px;align-items:center;height:20px}
@@ -419,12 +421,15 @@ tbody tr:hover td{background:#f8fafc}
 .mic-hint{font-size:10px;color:var(--faint);text-align:center;margin-top:6px;letter-spacing:.02em}
 .composer-box{display:flex;align-items:flex-end;gap:6px;background:#fff;border:1px solid var(--line);border-radius:24px;padding:6px 6px 6px 10px;box-shadow:var(--shadow-sm), 0 1px 0 rgba(255,255,255,.8) inset;transition:all .2s var(--ease);position:relative;flex-wrap:nowrap;min-width:0}
 .composer-box:focus-within{border-color:#93c5fd;box-shadow:var(--shadow-focus), var(--shadow-sm);transform:translateY(-1px)}
+.composer-box textarea::-webkit-scrollbar{width:6px}
+.composer-box textarea::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px}
+.composer-box textarea::-webkit-scrollbar-track{background:transparent}
 .composer-box.listening{border-color:#fecaca;box-shadow:0 0 0 3px rgba(239,68,68,.12), var(--shadow-sm);background:linear-gradient(180deg,#fff,#fef2f2)}
 .composer-box.drag{border-color:var(--primary);background:linear-gradient(180deg,#fff,#eff6ff);box-shadow:var(--shadow-focus), var(--shadow-sm);outline:2px dashed #bfdbfe;outline-offset:2px}
 .attach-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:#fff;display:grid;place-items:center;cursor:pointer;color:var(--muted);transition:all .18s var(--ease);flex-shrink:0;box-shadow:var(--shadow-xs)}
 .attach-btn:hover{background:#f8fafc;color:var(--text);border-color:#cbd5e1;transform:translateY(-1px)}
 .attach-btn:active{transform:translateY(0)}
-.composer-box textarea{flex:1;min-width:0;border:none;outline:none;resize:none;font-family:var(--font);font-size:14.5px;line-height:1.55;max-height:136px;min-height:24px;padding:7px 2px;background:transparent;color:var(--text)}
+.composer-box textarea{flex:1;min-width:0;border:none;outline:none;resize:none;font-family:var(--font);font-size:14.5px;line-height:1.55;max-height:140px;min-height:24px;padding:7px 2px;background:transparent;color:var(--text);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent;transition:height .12s var(--ease-out)}
 .composer-box textarea::placeholder{color:var(--faint)}
 .composer-tools{display:flex;align-items:center;gap:5px;flex-shrink:0}
 .composer-mode-wrap{position:relative;display:inline-flex}
@@ -633,7 +638,7 @@ tbody tr:hover td{background:#f8fafc}
   .composer-box textarea{min-width:0}
   .char{display:none}
   .composer-mode-pill{max-width:100px}
-  .composer-box textarea{font-size:15px}
+  .composer-box textarea{font-size:16px}
   .composer-tools{gap:4px}
   .attach-btn,.mic-btn{width:36px;height:36px;min-width:36px;min-height:36px}
 }

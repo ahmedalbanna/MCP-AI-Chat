@@ -1317,12 +1317,15 @@ todoList?.addEventListener('click', e=>{
 });
 
 // Composer
-function autoResize(){ if(!inputEl) return; inputEl.style.height='auto'; inputEl.style.height=Math.min(inputEl.scrollHeight,120)+'px'; }
+let isComposing=false;
+function autoResize(){ if(!inputEl) return; inputEl.style.height='auto'; const h=Math.min(inputEl.scrollHeight,140); inputEl.style.height=h+'px'; inputEl.style.overflowY = inputEl.scrollHeight>140 ? 'auto' : 'hidden'; }
 function syncComposer(){
   const hasText=(inputEl?.value||'').trim().length>0;
   const hasMedia=pending.length>0;
-  if(sendBtn) sendBtn.disabled=(!hasText && !hasMedia && !todos.length) || isTyping;
-  if(charCount){ charCount.textContent=inputEl?.value?.length? `${inputEl.value.length}/2000` : ''; charCount.style.color=(inputEl?.value?.length||0)>1800?'#ef4444':'#6b7a94'; }
+  const len=inputEl?.value?.length||0;
+  const over=len>2000;
+  if(sendBtn){ sendBtn.disabled=(!hasText && !hasMedia && !todos.length) || isTyping || over; sendBtn.setAttribute('aria-disabled', sendBtn.disabled?'true':'false'); }
+  if(charCount){ charCount.textContent=len? `${len}/2000` : ''; charCount.style.color=len>2000?'#ef4444': len>1800?'#f59e0b':'#6b7a94'; charCount.setAttribute('aria-label', `${len} of 2000 characters`); }
   try{ localStorage.setItem('mcp_draft', inputEl?.value||''); }catch{}
   // prompt strip: always visible but faded when typing (keeps discoverability)
   if(promptStrip){
@@ -1548,8 +1551,13 @@ slashTrigger?.addEventListener('click', (e)=>{
     openSlashPalette(q);
   }
 });
+inputEl?.addEventListener('compositionstart', ()=>{ isComposing=true; });
+inputEl?.addEventListener('compositionend', ()=>{ isComposing=false; inputEl.dispatchEvent(new Event('input')); });
 inputEl?.addEventListener('input', ()=>{
+  // enforce 2000 hard limit with truncation
+  if(inputEl.value.length>2000){ inputEl.value=inputEl.value.slice(0,2000); toast('2000 character limit reached'); }
   autoResize(); syncComposer();
+  if(isComposing) return;
   // slash palette has priority — check before prompt suggest
   const pos=inputEl.selectionStart; const before=inputEl.value.slice(0,pos);
   const m=before.match(/(^|\s)(\/[a-z0-9-]*)$/i);
@@ -1571,21 +1579,29 @@ inputEl?.addEventListener('input', ()=>{
   slashIndex=0; renderSlash();
 });
 inputEl?.addEventListener('keydown', e=>{
+  // Ctrl/Cmd+Enter to send always
+  if((e.ctrlKey||e.metaKey) && e.key==='Enter'){ e.preventDefault(); doSend(); return; }
   const psVisible = promptSuggest && !promptSuggest.classList.contains('hidden') && promptSuggestList.length;
   const slashVisible = slashMenu && !slashMenu.classList.contains('hidden') && filtered.length;
   if(slashVisible){
     if(e.key==='ArrowDown'){ e.preventDefault(); slashIndex=(slashIndex+1)%filtered.length; renderSlash(); const activeEl=slashMenu.querySelector('.s-item.active'); activeEl?.scrollIntoView({block:'nearest'}); return; }
+    else if(e.key==='Home'){ e.preventDefault(); slashIndex=0; renderSlash(); return; }
+    else if(e.key==='End'){ e.preventDefault(); slashIndex=filtered.length-1; renderSlash(); return; }
     else if(e.key==='ArrowUp'){ e.preventDefault(); slashIndex=(slashIndex-1+filtered.length)%filtered.length; renderSlash(); const activeEl=slashMenu.querySelector('.s-item.active'); activeEl?.scrollIntoView({block:'nearest'}); return; }
     else if(e.key==='Enter'||e.key==='Tab'){ e.preventDefault(); pickSlash(filtered[slashIndex]); return; }
     else if(e.key==='Escape'){ e.preventDefault(); hideSlash(); return; }
   }
   if(psVisible){
     if(e.key==='ArrowDown'){ e.preventDefault(); promptSuggestIndex=(promptSuggestIndex+1)%promptSuggestList.length; renderPromptSuggest(); return; }
+    else if(e.key==='Home'){ e.preventDefault(); promptSuggestIndex=0; renderPromptSuggest(); return; }
+    else if(e.key==='End'){ e.preventDefault(); promptSuggestIndex=promptSuggestList.length-1; renderPromptSuggest(); return; }
     else if(e.key==='ArrowUp'){ e.preventDefault(); promptSuggestIndex=(promptSuggestIndex-1+promptSuggestList.length)%promptSuggestList.length; renderPromptSuggest(); return; }
     else if(e.key==='Enter'||e.key==='Tab'){ e.preventDefault(); pickPromptSuggest(promptSuggestList[promptSuggestIndex]); return; }
     else if(e.key==='Escape'){ e.preventDefault(); hidePromptSuggest(); return; }
   }
-  if(e.key==='Enter' && !e.shiftKey){
+  // Escape clears draft when menus closed and input has text
+  if(e.key==='Escape' && !slashVisible && !psVisible && (inputEl.value||'').length>0 && !e.ctrlKey && !e.metaKey){ e.preventDefault(); inputEl.value=''; autoResize(); syncComposer(); hidePromptSuggest(); hideSlash(); return; }
+  if(e.key==='Enter' && !e.shiftKey && !isComposing){
     if(slashMenu && !slashMenu.classList.contains('hidden') && filtered.length){ e.preventDefault(); pickSlash(filtered[slashIndex]); return; }
     if(promptSuggest && !promptSuggest.classList.contains('hidden') && promptSuggestList.length){ e.preventDefault(); pickPromptSuggest(promptSuggestList[promptSuggestIndex]); return; }
     e.preventDefault(); doSend();
