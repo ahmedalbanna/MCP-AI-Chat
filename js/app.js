@@ -31,6 +31,7 @@ const tunnelStatus = $('#tunnelStatus');
 const toastEl = $('#toast');
 const dropOverlay = $('#dropOverlay');
 const promptStrip = $('#promptStrip');
+const promptSuggest = $('#promptSuggest');
 const chatListEl = $('#chatList');
 const chatCountEl = $('#chatCount');
 const crumbTitle = $('#crumbTitle');
@@ -372,13 +373,20 @@ const MARKET = safeParse('mcp_market', [
 const saveMarket = ()=> safeSet('mcp_market', JSON.stringify(MARKET));
 
 const PROMPTS = [
-  {cat:'MCP', title:'SQL audit', prompt:'Query the remote PostgreSQL database for the last 5 user registrations and format as a table.', icon:'database'},
-  {cat:'MCP', title:'S3 inventory', prompt:'List S3 buckets in aws-us-east and sort by size', icon:'cloud'},
-  {cat:'MCP', title:'File explorer', prompt:'List files in /data and summarize CSV headers', icon:'folder-open'},
-  {cat:'Analysis', title:'Summarize logs', prompt:'Summarize CloudWatch logs for the last 24h, highlight errors', icon:'bar-chart-3'},
-  {cat:'Analysis', title:'User insights', prompt:'Analyze user registrations trend and propose growth actions', icon:'trending-up'},
-  {cat:'Code', title:'Generate API', prompt:'Create a REST API for users table with pagination and auth', icon:'code-2'},
-  {cat:'Write', title:'Release notes', prompt:'Draft release notes for MCP Terminal v2 with highlights', icon:'pen-tool'},
+  {cat:'MCP', title:'SQL audit', prompt:'Query the remote PostgreSQL database for the last 5 user registrations and format as a table.', icon:'database', modes:['Chat','Research','Code']},
+  {cat:'MCP', title:'S3 inventory', prompt:'List S3 buckets in aws-us-east and sort by size', icon:'cloud', modes:['Chat','Research']},
+  {cat:'MCP', title:'File explorer', prompt:'List files in /data and summarize CSV headers', icon:'folder-open', modes:['Chat','Code']},
+  {cat:'MCP', title:'Health check', prompt:'Run health check on all MCP servers and summarize latencies', icon:'activity', modes:['Debug','Shield']},
+  {cat:'Analysis', title:'Summarize logs', prompt:'Summarize CloudWatch logs for the last 24h, highlight errors', icon:'bar-chart-3', modes:['Research','Debug']},
+  {cat:'Analysis', title:'User insights', prompt:'Analyze user registrations trend and propose growth actions', icon:'trending-up', modes:['Research','Planning']},
+  {cat:'Analysis', title:'Cost review', prompt:'Analyze AWS costs by service and suggest savings (top 3 drivers)', icon:'wallet', modes:['Planning','Research']},
+  {cat:'Code', title:'Generate API', prompt:'Create a REST API for users table with pagination and auth', icon:'code-2', modes:['Code','Planning']},
+  {cat:'Code', title:'Debug query', prompt:'Debug why SELECT on remote_db.users is slow — check indexes and explain plan', icon:'bug', modes:['Debug','Code']},
+  {cat:'Code', title:'Refactor FS', prompt:'Refactor local-fs access to use streaming and add error handling', icon:'wrench', modes:['Code','Shield']},
+  {cat:'Write', title:'Release notes', prompt:'Draft release notes for MCP Terminal v2 with highlights', icon:'pen-tool', modes:['Write','Creative']},
+  {cat:'Write', title:'Onboarding guide', prompt:'Write a quickstart guide for connecting a new MCP server via STDIO', icon:'book-open', modes:['Write','Planning']},
+  {cat:'Creative', title:'Brainstorm names', prompt:'Brainstorm 10 creative names for the MCP marketplace with taglines', icon:'lightbulb', modes:['Creative','Write']},
+  {cat:'MCP', title:'Git diff review', prompt:'Review the latest git diff and summarize risk areas before push', icon:'git-branch', modes:['Code','Shield']},
 ];
 
 const SLASH = [
@@ -628,6 +636,8 @@ function renderModes(){
   }
   // update profile role line
   if(profileRole) profileRole.textContent = `${$('#profileRoleSelect')?.value || 'Admin'} • ${selectedModel} • ${active.name} mode`;
+  // refresh prompt strip for new mode
+  try{ renderPromptStrip(); }catch{}
   // filter MCP nodes visibility per mode's servers
   if(active.servers && active.servers.length){
     // highlight allowed servers in topNodes
@@ -1179,14 +1189,92 @@ function syncComposer(){
   // show prompt strip when empty
   if(promptStrip){ if(!hasText && !hasMedia && !isTyping) promptStrip?.classList.remove('hidden'); else promptStrip?.classList.add('hidden'); }
 }
-const PROMPT_CHIPS = ["Summarize S3 buckets","Query users table","List /data files","Draft release notes","Explain TLS tunnel"];
+// Prompt suggestions — mode-aware + recents + inline autocomplete
+const PROMPT_RECENT_KEY = 'mcp_recent_prompts';
+const getRecentPrompts = ()=> safeParse(PROMPT_RECENT_KEY, []);
+const pushRecentPrompt = (title)=>{
+  let rec=getRecentPrompts().filter(x=>x!==title);
+  rec.unshift(title);
+  rec=rec.slice(0,6);
+  safeSet(PROMPT_RECENT_KEY, JSON.stringify(rec));
+};
+const catColor = {MCP:'#2563eb', Analysis:'#7c3aed', Code:'#0f172a', Write:'#db2777', Creative:'#f59e0b'};
+const catIcon = {MCP:'database', Analysis:'bar-chart-3', Code:'code-2', Write:'pen-tool', Creative:'lightbulb'};
+
+function getPromptsForMode(limit=6){
+  const active = getActiveMode()?.id || 'Chat';
+  const recents = getRecentPrompts();
+  // prioritize recents
+  const recentPrompts = recents.map(tt=> PROMPTS.find(pr=>pr.title===tt)).filter(Boolean);
+  // mode-relevant
+  const modeRelevant = PROMPTS.filter(pr=> (pr.modes||[]).includes(active));
+  const others = PROMPTS.filter(pr=> !modeRelevant.includes(pr) && !recentPrompts.includes(pr));
+  // merge unique preserving order: recents first, then modeRelevant, then others
+  const merged=[];
+  const seen=new Set();
+  const pushArr=arr=>{ for(const pr of arr){ if(merged.length>=limit) break; if(seen.has(pr.title)) continue; seen.add(pr.title); merged.push(pr);} };
+  pushArr(recentPrompts);
+  pushArr(modeRelevant);
+  pushArr(others);
+  return merged.slice(0,limit);
+}
 function renderPromptStrip(){
-  promptStrip.innerHTML = PROMPT_CHIPS.map(p=>`<button class="prompt-chip" data-prompt="${esc(p)}"><i data-lucide="sparkles"></i> ${esc(p)}</button>`).join('');
+  if(!promptStrip) return;
+  const list = getPromptsForMode(6);
+  const recentSet = new Set(getRecentPrompts());
+  promptStrip.innerHTML = list.map(pr=>`<button class="prompt-chip ${recentSet.has(pr.title)?'recent':''}" data-prompt="${esc(pr.prompt)}" data-title="${esc(pr.title)}" title="${esc(pr.prompt)}"><span class="prompt-chip-dot" style="background:${catColor[pr.cat]||'#64748b'}"></span><i data-lucide="${pr.icon||catIcon[pr.cat]||'sparkles'}" style="width:13px;height:13px;color:${catColor[pr.cat]||'var(--primary)'}"></i><span class="prompt-chip-label">${esc(pr.title)}</span><small>${esc(pr.cat)}</small>${recentSet.has(pr.title)?'<span class="prompt-chip-recent" title="Recent">↻</span>':''}</button>`).join('') + `<button class="prompt-chip prompt-chip-more" id="promptMoreBtn" title="Browse all prompts"><i data-lucide="grid-3x3" style="width:13px;height:13px"></i> More</button>`;
   refreshIcons();
+  // hint sync: show mode name in strip via aria
+  promptStrip.setAttribute('aria-label', `Suggestions for ${getActiveMode()?.name||'Chat'} mode`);
 }
 promptStrip?.addEventListener('click', e=>{
-  const b=e.target.closest('[data-prompt]'); if(!b) return;
-  inputEl.value=b.dataset.prompt; autoResize(); syncComposer(); inputEl.focus();
+  const b=e.target.closest('[data-prompt]'); if(b){ pushRecentPrompt(b.dataset.title||b.dataset.prompt.slice(0,32)); inputEl.value=b.dataset.prompt; autoResize(); syncComposer(); inputEl.focus(); hidePromptSuggest(); return; }
+  const more=e.target.closest('#promptMoreBtn'); if(more){ promptsView?.classList.remove('hidden'); renderPromptCats(); renderPromptGrid(); refreshIcons(); }
+});
+// inline autocomplete for plain text (non-slash)
+let promptSuggestIndex=0, promptSuggestList=[];
+function renderPromptSuggest(){
+  if(!promptSuggest) return;
+  if(!promptSuggestList.length){ hidePromptSuggest(); return; }
+  const head = `<div class="prompt-suggest-head"><b><i data-lucide="lightbulb" style="width:12px;height:12px"></i> Suggestions</b><span style="display:flex;gap:4px"><kbd>↑</kbd><kbd>↓</kbd><kbd>↵</kbd></span></div>`;
+  const body = promptSuggestList.map((pr,i)=>`<button class="prompt-suggest-item ${i===promptSuggestIndex?'active':''}" data-ps-i="${i}"><span class="ps-icon" style="background:${catColor[pr.cat]||'#64748b'}"><i data-lucide="${pr.icon}" style="width:13px;height:13px"></i></span><span class="ps-text"><b>${esc(pr.title)} <small style="color:var(--faint)">• ${esc(pr.cat)}</small></b><small>${esc(pr.prompt.slice(0,72))}${pr.prompt.length>72?'…':''}</small></span><span class="ps-hint">Tab</span></button>`).join('');
+  const foot = `<div class="prompt-suggest-foot"><span>Type to filter • <kbd>Esc</kbd> close</span><button class="link-btn" id="psBrowseAll" style="margin-left:auto;font-size:11px">Browse all</button></div>`;
+  promptSuggest.innerHTML = head + `<div class="prompt-suggest-list">${body}</div>` + foot;
+  promptSuggest.classList.remove('hidden');
+  promptSuggest.setAttribute('role','listbox');
+  refreshIcons();
+}
+function hidePromptSuggest(){ if(promptSuggest){ promptSuggest.classList.add('hidden'); promptSuggestList=[]; promptSuggestIndex=0; } }
+function showPromptSuggestFor(q){
+  const qq=(q||'').toLowerCase().trim();
+  if(qq.length<2){ hidePromptSuggest(); return; }
+  const scored = PROMPTS.map(pr=>{
+    const hay=(pr.title+' '+pr.prompt+' '+pr.cat).toLowerCase();
+    let score=99;
+    if(pr.title.toLowerCase().startsWith(qq)) score=0;
+    else if(pr.prompt.toLowerCase().startsWith(qq)) score=1;
+    else if(hay.includes(qq)) score=2;
+    else score=99;
+    const recIdx=getRecentPrompts().indexOf(pr.title);
+    const boost = recIdx>=0 ? -0.6 : 0;
+    return {pr, score: score+boost};
+  }).filter(x=>x.score<99);
+  scored.sort((a,b)=> a.score-b.score || a.pr.title.localeCompare(b.pr.title));
+  promptSuggestList = scored.slice(0,5).map(x=>x.pr);
+  if(!promptSuggestList.length){ hidePromptSuggest(); return; }
+  promptSuggestIndex=0;
+  renderPromptSuggest();
+}
+function pickPromptSuggest(pr){
+  if(!pr) return;
+  pushRecentPrompt(pr.title);
+  inputEl.value=pr.prompt;
+  hidePromptSuggest();
+  autoResize(); syncComposer(); inputEl.focus();
+}
+promptSuggest?.addEventListener('click', e=>{
+  const it=e.target.closest('[data-ps-i]'); if(it){ pickPromptSuggest(promptSuggestList[Number(it.dataset.i)]); return; }
+  const br=e.target.closest('#psBrowseAll'); if(br){ hidePromptSuggest(); promptsView?.classList.remove('hidden'); renderPromptCats(); renderPromptGrid(); }
 });
 try{ inputEl.value=localStorage.getItem('mcp_draft')||''; }catch{ inputEl.value=''; }
 autoResize(); syncComposer(); renderPromptStrip();
@@ -1312,23 +1400,44 @@ slashTrigger?.addEventListener('click', (e)=>{
 });
 inputEl?.addEventListener('input', ()=>{
   autoResize(); syncComposer();
+  // slash palette has priority — check before prompt suggest
   const pos=inputEl.selectionStart; const before=inputEl.value.slice(0,pos);
   const m=before.match(/(^|\s)(\/[a-z0-9-]*)$/i);
-  if(!m){ hideSlash(); return; }
+  if(!m){
+    hideSlash();
+    // plain-text prompt autocomplete (only when not in slash mode)
+    const raw=(inputEl.value||'').trim();
+    const atStart=pos!==null ? raw.slice(0,pos).trim() : raw;
+    if(raw && !raw.startsWith('/') && atStart.length>=2 && !raw.includes('\n')){
+      showPromptSuggestFor(atStart);
+    } else {
+      hidePromptSuggest();
+    }
+    return;
+  }
   const q=m[2].toLowerCase();
   filtered=getFilteredSlash(q);
   if(!filtered.length){ hideSlash(); return; }
   slashIndex=0; renderSlash();
 });
 inputEl?.addEventListener('keydown', e=>{
-  if(!slashMenu?.classList.contains('hidden')){
-    if(e.key==='ArrowDown'){ e.preventDefault(); slashIndex=(slashIndex+1)%filtered.length; renderSlash(); const activeEl=slashMenu.querySelector('.s-item.active'); activeEl?.scrollIntoView({block:'nearest'}); }
-    else if(e.key==='ArrowUp'){ e.preventDefault(); slashIndex=(slashIndex-1+filtered.length)%filtered.length; renderSlash(); const activeEl=slashMenu.querySelector('.s-item.active'); activeEl?.scrollIntoView({block:'nearest'}); }
+  const psVisible = promptSuggest && !promptSuggest.classList.contains('hidden') && promptSuggestList.length;
+  const slashVisible = slashMenu && !slashMenu.classList.contains('hidden') && filtered.length;
+  if(slashVisible){
+    if(e.key==='ArrowDown'){ e.preventDefault(); slashIndex=(slashIndex+1)%filtered.length; renderSlash(); const activeEl=slashMenu.querySelector('.s-item.active'); activeEl?.scrollIntoView({block:'nearest'}); return; }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); slashIndex=(slashIndex-1+filtered.length)%filtered.length; renderSlash(); const activeEl=slashMenu.querySelector('.s-item.active'); activeEl?.scrollIntoView({block:'nearest'}); return; }
     else if(e.key==='Enter'||e.key==='Tab'){ e.preventDefault(); pickSlash(filtered[slashIndex]); return; }
-    else if(e.key==='Escape'){ e.preventDefault(); hideSlash(); }
+    else if(e.key==='Escape'){ e.preventDefault(); hideSlash(); return; }
+  }
+  if(psVisible){
+    if(e.key==='ArrowDown'){ e.preventDefault(); promptSuggestIndex=(promptSuggestIndex+1)%promptSuggestList.length; renderPromptSuggest(); return; }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); promptSuggestIndex=(promptSuggestIndex-1+promptSuggestList.length)%promptSuggestList.length; renderPromptSuggest(); return; }
+    else if(e.key==='Enter'||e.key==='Tab'){ e.preventDefault(); pickPromptSuggest(promptSuggestList[promptSuggestIndex]); return; }
+    else if(e.key==='Escape'){ e.preventDefault(); hidePromptSuggest(); return; }
   }
   if(e.key==='Enter' && !e.shiftKey){
-    if(!slashMenu?.classList.contains('hidden') && filtered.length){ e.preventDefault(); pickSlash(filtered[slashIndex]); return; }
+    if(slashMenu && !slashMenu.classList.contains('hidden') && filtered.length){ e.preventDefault(); pickSlash(filtered[slashIndex]); return; }
+    if(promptSuggest && !promptSuggest.classList.contains('hidden') && promptSuggestList.length){ e.preventDefault(); pickPromptSuggest(promptSuggestList[promptSuggestIndex]); return; }
     e.preventDefault(); doSend();
   }
   if(e.key==='/' && !e.ctrlKey && !e.metaKey && !e.shiftKey && (inputEl.selectionStart===0 || /\s$/.test(inputEl.value.slice(0,inputEl.selectionStart)))){
@@ -1342,7 +1451,10 @@ inputEl?.addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && e.key==='z' && !e.shiftKey){ e.preventDefault(); undo(); }
   if((e.ctrlKey||e.metaKey) && (e.key==='y' || (e.key==='z' && e.shiftKey))){ e.preventDefault(); redo(); }
 });
-document.addEventListener('click', e=>{ if(!slashMenu || !inputEl) return; if(!slashMenu.contains(e.target) && e.target!==inputEl && e.target.closest('#slashTrigger')==null) hideSlash(); });
+document.addEventListener('click', e=>{ 
+  if(slashMenu && inputEl && !slashMenu.contains(e.target) && e.target!==inputEl && e.target.closest('#slashTrigger')==null) hideSlash();
+  if(promptSuggest && inputEl && !promptSuggest.contains(e.target) && e.target!==inputEl) hidePromptSuggest();
+});
 
 // Speech — single + Live Conversation (complete)
 let liveActive=false, liveMuted=false, livePaused=false, liveSpeaker=true;
