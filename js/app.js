@@ -2062,6 +2062,7 @@ function renderMessages(){
   if(!chat || !messagesEl){ if(messagesEl) messagesEl.innerHTML=`<div class="date-sep"><span>No conversation selected</span></div><div class="chat-empty"><div class="chat-empty-icon"><i data-lucide="message-circle" style="width:26px;height:26px"></i></div><h3>No chat selected</h3><p>Select a conversation or start a new one.</p><button class="primary-btn" style="margin-top:6px" onclick="document.getElementById('newChatBtn')?.click()"><i data-lucide="plus" style="width:14px;height:14px"></i> New conversation</button></div>`; refreshIcons(); return; }
   const title=chat.title;
   const isStreaming = chat.messages.some(mm=>mm.status==='streaming');
+  if(messagesEl) messagesEl.setAttribute('aria-busy', isStreaming ? 'true' : 'false');
   messagesEl.innerHTML=`<div class="date-sep"><span>${esc(title)} • ${chat.messages.length} messages • ${esc(selectedModel)}</span></div>` + chat.messages.map(m=>{
     if(m.role==='user'){
       const isLast = chat.messages[chat.messages.length-1]?.id===m.id;
@@ -2080,8 +2081,8 @@ function renderMessages(){
       const tasks = m.tasks? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-checks" style="width:13px;height:13px" aria-hidden="true"></i> Tasks</b><span aria-label="${m.tasks.filter(t=>t.done).length} of ${m.tasks.length} done">${m.tasks.filter(t=>t.done).length}/${m.tasks.length} done</span><div class="task-actions"><button class="accept" data-accept="${m.id}">Accept</button><button class="cancel" data-cancel="${m.id}">Dismiss</button></div></div><div class="todo-progress-track" style="margin:0 12px 0" aria-hidden="true"><span style="width:${Math.round(m.tasks.filter(t=>t.done).length/m.tasks.length*100)}%"></span></div><ul class="todo-list" role="list" aria-label="Tasks">${m.tasks.map(t=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} data-task="${m.id}:${t.id}" aria-label="${esc(t.text)}"><span>${esc(t.text)}</span><span style="margin-left:auto;font-size:11px;color:${t.status==='accepted'?'#16a34a': t.status==='cancelled'?'#ef4444':'#94a3b8'}">${t.status||''}</span></li>`).join('')}</ul></div>` : '';
       const todosHtml = m.todos? `<div class="task-card"><div class="task-head"><b><i data-lucide="list-todo" style="width:13px;height:13px" aria-hidden="true"></i> Todos</b><span aria-label="${m.todos.filter(t=>t.done).length} of ${m.todos.length} completed">${m.todos.filter(t=>t.done).length}/${m.todos.length}</span></div><div class="todo-progress-track" style="margin:0 12px 0" aria-hidden="true"><span style="width:${Math.round(m.todos.filter(t=>t.done).length/m.todos.length*100)}%"></span></div><ul class="todo-list" role="list" aria-label="Todos">${m.todos.map((t,i)=>`<li class="todo-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} data-todo="${m.id}:${i}" aria-label="${esc(t.text)}"><span>${esc(t.text)}</span></li>`).join('')}</ul></div>` : '';
       const isStream = m.status==='streaming';
-      return `<div class="message assistant" data-id="${m.id}">
-        <div class="msg-head"><span class="msg-avatar assistant ${isStream?'streaming':''}"><i data-lucide="bot" style="width:14px;height:14px"></i></span><span class="who">${esc(selectedModel)} <small>• ${esc(selectedMode)}</small></span><span class="badge ${isStream?'streaming':''}">${esc(m.status||'done')}</span><span class="when">${esc(m.time||'')}</span>
+      return `<div class="message assistant" data-id="${m.id}" ${isStream?'aria-busy="true"':''}>
+        <div class="msg-head"><span class="msg-avatar assistant ${isStream?'streaming':''}" ${isStream?'aria-label="Generating response"':''}><i data-lucide="bot" style="width:14px;height:14px"></i></span><span class="who">${esc(selectedModel)} <small>• ${esc(selectedMode)}</small></span><span class="badge ${isStream?'streaming':''}" role="status" aria-live="polite" aria-label="${isStream?'Generating response':'Done'}">${esc(m.status||'done')}</span><span class="when">${esc(m.time||'')}</span>
           <button class="msg-action" data-copy="${m.id}" title="Copy"><i data-lucide="copy" style="width:11px;height:11px"></i> Copy</button>
           <button class="msg-action" data-retry="${m.id}" title="Retry"><i data-lucide="refresh-cw" style="width:11px;height:11px"></i></button>
           <button class="msg-action danger" data-delete="${m.id}" title="Delete"><i data-lucide="trash-2" style="width:11px;height:11px"></i></button>
@@ -2095,6 +2096,15 @@ function renderMessages(){
     }
   }).join('') || `<div class="chat-empty"><div class="chat-empty-icon"><i data-lucide="sparkles" style="width:26px;height:26px"></i></div><h3>Start a conversation</h3><p>Ask MCP to run a tool, query your database, or explore files. Try an example below or type <code>/</code> for commands.</p><div class="chat-empty-actions"><button class="ghost-btn sm" onclick="document.getElementById('promptInput').value='/sql SELECT * FROM users LIMIT 5'; document.getElementById('promptInput').dispatchEvent(new Event('input'))"><i data-lucide="database" style="width:12px;height:12px"></i> Try SQL</button><button class="ghost-btn sm" onclick="document.getElementById('promptInput').value='/s3 list buckets'; document.getElementById('promptInput').dispatchEvent(new Event('input'))"><i data-lucide="cloud" style="width:12px;height:12px"></i> List S3</button><button class="ghost-btn sm" onclick="document.getElementById('promptInput').value='/fs list /data'; document.getElementById('promptInput').dispatchEvent(new Event('input'))"><i data-lucide="folder-open" style="width:12px;height:12px"></i> Browse FS</button></div></div>`;
   refreshIcons(); scrollBottom(); updateScrollFab();
+  // table scroll hint
+  requestAnimationFrame(()=>{
+    messagesEl?.querySelectorAll('.table-wrap').forEach(w=>{
+      w.classList.toggle('has-scroll', w.scrollWidth > w.clientWidth + 4);
+      w.addEventListener('scroll', ()=> w.classList.toggle('has-scroll', w.scrollWidth > w.clientWidth + w.scrollLeft + 8), {passive:true});
+    });
+    // messages a11y: ensure articles
+    messagesEl?.querySelectorAll('.message').forEach(m=>{ if(!m.getAttribute('role')) m.setAttribute('role','article'); });
+  });
 }
 function clearCurrentChat(){
   pushHistory();
@@ -2131,6 +2141,15 @@ function mdInline(s){
   let out = esc(s);
   out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
   out = out.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  out = out.replace(/\*([^*]+)\*/g, '<i>$1</i>');
+  out = out.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+  return out;
+}
+function linkifyInline(s){
+  let out = esc(s);
+  out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
+  out = out.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  out = out.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
   return out;
 }
 function formatMessageText(t){
@@ -2139,23 +2158,46 @@ function formatMessageText(t){
   let html='';
   for(let i=0;i<parts.length;i++){
     if(i%2===1){
-      const code = parts[i].replace(/^\n|\n$/g,'');
-      html += `<pre><code>${esc(code)}</code></pre>`;
+      let raw = parts[i].replace(/^\n|\n$/g,'');
+      let lang = '';
+      const firstNl = raw.indexOf('\n');
+      const firstTok = firstNl>=0 ? raw.slice(0, firstNl).trim() : raw.trim();
+      if(firstTok && /^[a-z0-9+\-#]+$/i.test(firstTok) && firstTok.length<=14 && !firstTok.includes(' ') ){
+        // treat as lang if rest contains newline and lang is short
+        if(firstNl>=0){ lang = firstTok.toLowerCase(); raw = raw.slice(firstNl+1); }
+      }
+      const label = lang || 'code';
+      html += `<div class="code-block"><div class="code-block-head"><span><i data-lucide="code-2" style="width:12px;height:12px"></i> <span class="code-lang">${esc(label)}</span></span><button class="code-copy" data-code-copy title="Copy code" aria-label="Copy code"><i data-lucide="copy" style="width:11px;height:11px"></i> Copy</button></div><pre><code>${esc(raw)}</code></pre></div>`;
     } else {
-      const segs = esc(parts[i]).split(/\n\n+/).filter(Boolean);
+      const segs = parts[i].split(/\n\n+/).filter(s=> s.trim().length);
       segs.forEach(seg=>{
-        // handle single line breaks
-        const line = seg.replace(/\n/g,'<br>');
-        // detect blockquote
-        if(line.trim().startsWith('&gt;')){
-          html += `<blockquote style="border-left:3px solid var(--line);padding:6px 10px;margin:8px 0;background:#f8fafc;border-radius:0 8px 8px 0;color:var(--muted);font-style:italic">${line.replace(/^&gt;\s?/gm,'')}</blockquote>`;
-        } else {
-          html += `<p class="md-text">${line.replace(/`([^`]+)`/g,'<code>$1</code>')}</p>`;
+        const trimmed = seg.trim();
+        // blockquote
+        if(trimmed.startsWith('>')){
+          const q = trimmed.split('\n').map(l=> l.replace(/^>\s?/,'')).join('<br>');
+          html += `<blockquote>${linkifyInline(q)}</blockquote>`;
+          return;
         }
+        // list detection
+        const lines = seg.split('\n').map(l=> l.trim()).filter(Boolean);
+        const isUnordered = lines.length>0 && lines.every(l=> /^[-*]\s+/.test(l));
+        const isOrdered = lines.length>0 && lines.every(l=> /^\d+\.\s+/.test(l));
+        if(isUnordered){
+          html += `<ul class="md-text" style="padding-left:22px;margin:8px 0 10px;list-style:disc">` + lines.map(l=> `<li>${linkifyInline(l.replace(/^[-*]\s+/,'').replace(/\n/g,'<br>'))}</li>`).join('') + `</ul>`;
+          return;
+        }
+        if(isOrdered){
+          html += `<ol class="md-text" style="padding-left:22px;margin:8px 0 10px">` + lines.map(l=> `<li>${linkifyInline(l.replace(/^\d+\.\s+/,'').replace(/\n/g,'<br>'))}</li>`).join('') + `</ol>`;
+          return;
+        }
+        // paragraph with line breaks preserved except lists
+        const inline = linkifyInline(seg.replace(/\n/g,'<br>'));
+        // ensure md-text styling even for single paragraph
+        html += `<p class="md-text">${inline}</p>`;
       });
     }
   }
-  return html || `<p class="md-text">${esc(t).replace(/\n/g,'<br>')}</p>`;
+  return html || `<p class="md-text">${linkifyInline(t.replace(/\n/g,'<br>'))}</p>`;
 }
 function generalHTML(t){
   const formatted = formatMessageText(t);
@@ -2165,7 +2207,7 @@ function generalHTML(t){
       <p class="card-head-desc">Received: <code>${esc((t||'').slice(0,64))}${(t||'').length>64?'…':''}</code></p>
     </div>
     <div style="padding:14px 16px">${formatted}
-      <div style="margin-top:12px;background:#eff6ff;border:1px solid #dbeafe;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5"><b style="font-size:11px;letter-spacing:.06em;color:var(--primary)">QUICK COMMANDS</b><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><code style="background:#fff;border:1px solid #bfdbfe;padding:3px 7px;border-radius:6px">/sql SELECT * FROM users LIMIT 5</code><code style="background:#fff;border:1px solid #bfdbfe;padding:3px 7px;border-radius:6px">/s3 list buckets</code></div></div>
+      <div style="margin-top:12px;background:linear-gradient(180deg,#f8fbff,#eff6ff);border:1px solid #dbeafe;border-radius:10px;padding:10px 12px"><b style="font-size:11px;letter-spacing:.06em;color:var(--primary);display:flex;align-items:center;gap:6px"><i data-lucide="zap" style="width:12px;height:12px"></i> QUICK COMMANDS</b><div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="chip" data-quick="/sql SELECT * FROM users LIMIT 5" title="Insert command"><i data-lucide="database" style="width:11px;height:11px"></i> /sql SELECT…</button><button class="chip" data-quick="/s3 list buckets" title="Insert command"><i data-lucide="cloud" style="width:11px;height:11px"></i> /s3 list buckets</button><button class="chip" data-quick="/fs list /data" title="Insert command"><i data-lucide="folder-open" style="width:11px;height:11px"></i> /fs list /data</button></div></div>
     </div>
   </div>`; }
 
@@ -2204,6 +2246,17 @@ messagesEl?.addEventListener('click', e=>{
   const copyTbl=e.target.closest('[data-copy-table]'); if(copyTbl){
     const tbl=copyTbl.closest('.card')?.querySelector('table');
     if(tbl){ const t=[...tbl.rows].map(r=>[...r.cells].map(c=>c.textContent).join('\t')).join('\n'); navigator.clipboard.writeText(t).catch(()=>{}); toast('Copied table'); }
+    return;
+  }
+  const codeCopy=e.target.closest('[data-code-copy]'); if(codeCopy){
+    const pre=codeCopy.closest('.code-block')?.querySelector('pre code');
+    const txt= pre? pre.textContent : '';
+    if(txt){ navigator.clipboard.writeText(txt).catch(()=>{}); const orig=codeCopy.innerHTML; codeCopy.innerHTML='<i data-lucide="check" style="width:11px;height:11px"></i> Copied'; refreshIcons(); setTimeout(()=>{ codeCopy.innerHTML=orig; refreshIcons(); }, 1400); toast('Copied code'); }
+    return;
+  }
+  const quick=e.target.closest('[data-quick]'); if(quick){
+    const cmd=quick.dataset.quick||'';
+    if(cmd && promptInput){ promptInput.value=cmd; promptInput.focus(); promptInput.dispatchEvent(new Event('input')); toast('Inserted: '+cmd.split(' ').slice(0,3).join(' ')); }
     return;
   }
   const tts=e.target.closest('[data-tts]'); if(tts){
