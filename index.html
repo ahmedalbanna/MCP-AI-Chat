@@ -88,7 +88,7 @@
       <div class="sidebar-top">
         <div class="brand">
           <div class="brand-mark"><i data-lucide="network"></i></div>
-          <div class="brand-copy"><h1>MCP Terminal</h1><p><span class="pulse"></span> REMOTE PROTOCOL ACTIVE</p></div>
+          <div class="brand-copy"><h1>MCP Terminal</h1><p><span class="pulse" aria-hidden="true"></span><span aria-label="Connection status: online">REMOTE PROTOCOL ACTIVE</span></p></div>
            <button class="icon-btn sidebar-close" id="sidebarClose" aria-label="Close workspace"><i data-lucide="x" aria-hidden="true"></i></button>
         </div>
         <div class="sidebar-search">
@@ -107,7 +107,7 @@
             <select id="providerSelect" aria-label="Provider"></select>
             <select id="modelSelect" aria-label="Model"></select>
           </div>
-          <div class="provider-status" id="providerStatus"><span class="dot"></span><span id="providerStatusText">Ready • 0.2s latency</span><span class="temp-badge" id="providerTemp">0.7 temp</span></div>
+          <div class="provider-status" id="providerStatus" role="status" aria-live="polite" aria-label="Provider status: ready"><span class="dot" aria-hidden="true"></span><span id="providerStatusText">Ready • 0.2s latency</span><span class="temp-badge" id="providerTemp">0.7 temp</span></div>
         </div>
       </div>
 
@@ -134,7 +134,7 @@
           <div class="section-head">
             <button class="section-toggle" data-toggle="mcp" aria-expanded="true" aria-controls="mcpBody">
               <i data-lucide="chevron-down" class="section-chevron" style="width:14px;height:14px"></i>
-              <h3><i data-lucide="server" style="width:14px;height:14px"></i> MCP NODES <span class="count" id="sidebarCount">3</span></h3>
+              <h3><i data-lucide="server" style="width:14px;height:14px"></i> MCP SERVERS <span class="count" id="sidebarCount">3</span></h3>
             </button>
             <button class="icon-btn sm" id="addServerSidebar" title="Add MCP server" aria-label="Add MCP server"><i data-lucide="plus" aria-hidden="true"></i></button>
           </div>
@@ -147,7 +147,7 @@
       <div class="sidebar-foot" id="userProfileCard" role="button" tabindex="0" aria-label="Open profile" aria-expanded="false" aria-haspopup="dialog">
         <div class="foot-avatar-wrap">
           <img id="profileAvatar" src="https://i.pravatar.cc/100?img=32" alt="avatar" />
-          <span class="foot-status-dot" title="Online"></span>
+          <span class="foot-status-dot" title="Online" aria-label="Online" role="status"></span>
         </div>
         <div class="foot-meta"><strong id="profileName">Alex Rivera</strong><p id="profileRole">Admin • Claude 3.5 • Research mode</p></div>
         <i data-lucide="chevron-up" class="foot-chevron" style="width:14px;height:14px;color:#94a3b8"></i>
@@ -209,7 +209,7 @@
             <ul id="todoList"></ul>
             <div class="todo-add"><input id="todoInput" placeholder="Add todo…  ⏎" /><button class="ghost-btn sm" id="addTodoBtn">Add</button></div>
           </div>
-          <div class="slash-menu hidden" id="slashMenu"></div>
+          <div class="slash-menu hidden" id="slashMenu" role="listbox" aria-label="Slash commands"></div>
           <div class="prompt-suggest hidden" id="promptSuggest" role="listbox" aria-label="Prompt suggestions"></div>
           <div class="speech-bar hidden" id="speechBar" role="status" aria-live="polite">
             <div class="speech-left"><div class="wave" id="speechWave"><span></span><span></span><span></span><span></span><span></span></div><span class="speech-dot"></span></div>
@@ -221,7 +221,7 @@
             <button class="attach-btn" id="attachBtn" title="Attach media" aria-label="Attach media"><i data-lucide="paperclip" aria-hidden="true"></i></button>
             <button class="icon-btn sm mic-btn" id="micBtn" title="Voice — click to toggle, hold to talk" aria-label="Voice input" aria-pressed="false"><i data-lucide="mic" aria-hidden="true"></i></button>
             <input type="file" id="mediaInput" hidden multiple accept="image/*,video/*,audio/*,.pdf,.csv,.json,.txt,.md" />
-            <textarea id="promptInput" placeholder="Ask MCP to run a tool…  •  type “/” for commands" rows="1"></textarea>
+            <textarea id="promptInput" placeholder="Ask MCP to run a tool…  •  type “/” for commands" rows="1" aria-label="Message composer" aria-autocomplete="list" aria-expanded="false" aria-haspopup="listbox"></textarea>
             <div class="composer-tools">
               <button class="icon-btn sm" id="todoToggle" title="Todo checklist" aria-label="Toggle checklist" aria-pressed="false"><i data-lucide="list-todo" aria-hidden="true"></i></button>
               <button class="icon-btn sm slash-trigger" id="slashTrigger" title="Commands (/)" aria-label="Show commands" aria-expanded="false" aria-haspopup="dialog"><i data-lucide="command" style="width:14px;height:14px" aria-hidden="true"></i></button>

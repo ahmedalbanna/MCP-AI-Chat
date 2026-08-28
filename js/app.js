@@ -1053,7 +1053,7 @@ function renderServers(){
   sidebarList.innerHTML = sideFiltered.map(s=>{
     const on=s.status==='connected', busy=s.status==='connecting';
     const latCls=getLatencyClass(s.latency||0);
-    return `<li class="server-item ${s.status}" data-id="${s.id}" title="${esc(s.desc||s.endpoint)}"><span class="server-ic ${s.color}"><i data-lucide="${s.color==='pg'?'database': s.color==='aws'?'cloud': s.color==='fs'?'folder-open':'server'}" style="width:16px;height:16px"></i></span><span class="server-meta"><strong>${esc(s.name)}</strong><span>${esc(s.transport)} • ${esc(s.endpoint.slice(0,28))} ${s.env?.length?`• ${s.env.length} env`:''}</span></span><span class="health ${getHealthClass(s)}" title="${s.health}"></span><span class="chip-dot ${on?'on':busy?'':'off'}" style="display:none"></span></li>`;
+    return `<li class="server-item ${s.status}" data-id="${s.id}" title="${esc(s.desc||s.endpoint)}"><span class="server-ic ${s.color}"><i data-lucide="${s.color==='pg'?'database': s.color==='aws'?'cloud': s.color==='fs'?'folder-open':'server'}" style="width:16px;height:16px"></i></span><span class="server-meta"><strong>${esc(s.name)}</strong><span>${esc(s.transport)} • ${esc(s.endpoint.slice(0,28))} ${s.env?.length?`• ${s.env.length} env`:''}</span></span><span class="health ${getHealthClass(s)}" title="${s.health}" aria-label="Health: ${s.health}" role="img"></span><span class="chip-dot ${on?'on':busy?'':'off'}" style="display:none" aria-hidden="true"></span></li>`;
   }).join('') || `<li style="font-size:12px;color:#94a3b8;padding:8px">No matches</li>`;
   // drawer — filtered by tab + search + sort
   let filtered = servers.filter(s=>{
@@ -1110,7 +1110,7 @@ function renderServers(){
     return `<div class="server-card" data-id="${s.id}" data-status="${s.status}" style="${s.status==='connected'?'border-color:#bbf7d0':''}">
       <div class="server-card-top">
         <span class="ic ${ic}" style="width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:#fff;flex-shrink:0;box-shadow:var(--shadow-xs);background:${ic==='pg'?'linear-gradient(180deg,#334155,#1e293b)':ic==='aws'?'linear-gradient(180deg,#ff9900,#e68a00)':ic==='fs'?'linear-gradient(180deg,#2563eb,#1d4ed8)':'linear-gradient(180deg,#64748b,#475569)'}"><i data-lucide="${iname}" style="width:16px;height:16px"></i></span>
-        <span class="meta" style="flex:1;min-width:0"><b style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${esc(s.name)} <span class="server-transport ${transportCls}">${esc(s.transport)}</span> <span class="health ${healthCls}" title="Health: ${s.health}"></span> ${s.autoConnect?'<span style="font-size:10px;background:#eff6ff;color:var(--primary);border:1px solid #dbeafe;padding:2px 6px;border-radius:999px;font-weight:700">AUTO</span>':''}</b>
+        <span class="meta" style="flex:1;min-width:0"><b style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${esc(s.name)} <span class="server-transport ${transportCls}">${esc(s.transport)}</span> <span class="health ${healthCls}" title="Health: ${s.health}" aria-label="Health: ${s.health}" role="img"></span> ${s.autoConnect?'<span style="font-size:10px;background:#eff6ff;color:var(--primary);border:1px solid #dbeafe;padding:2px 6px;border-radius:999px;font-weight:700">AUTO</span>':''}</b>
           <p style="margin:2px 0 0;font-size:11px;color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(s.endpoint)}">${esc(s.endpoint)}${s.desc?` • ${esc(s.desc)}`:''}</p>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
             ${tools.slice(0,3).map(t=>`<span class="tools" title="${esc(t)}">${esc(t)}</span>`).join('')}${tools.length>3?`<span class="tools">+${tools.length-3}</span>`:''}
@@ -1122,7 +1122,7 @@ function renderServers(){
         <label class="switch" title="${s.status==='connected'?'Connected — click to disconnect':'Disconnected — click to connect'}"><input type="checkbox" ${s.status==='connected'?'checked':''} data-toggle="${s.id}" ${s.status==='connecting'?'disabled':''}><span></span></label>
       </div>
       <div class="server-card-foot">
-        <span class="status ${cls}"><span class="health ${healthCls}" style="width:6px;height:6px"></span> ${label}</span>
+        <span class="status ${cls}"><span class="health ${healthCls}" style="width:6px;height:6px" aria-hidden="true"></span> ${label}</span>
         <span style="flex:1"></span>
         <button class="mini" data-test="${s.id}"><i data-lucide="activity" style="width:12px;height:12px"></i> Test</button>
         <button class="mini" data-logs="${s.id}"><i data-lucide="scroll-text" style="width:12px;height:12px"></i> Logs</button>
@@ -1366,14 +1366,14 @@ function renderPromptStrip(){
   if(!promptStrip) return;
   const list = getPromptsForMode(6);
   const recentSet = new Set(getRecentPrompts());
-  promptStrip.innerHTML = list.map(pr=>`<button class="prompt-chip ${recentSet.has(pr.title)?'recent':''}" data-prompt="${esc(pr.prompt)}" data-title="${esc(pr.title)}" title="${esc(pr.prompt)}"><span class="prompt-chip-dot" style="background:${catColor[pr.cat]||'#64748b'}"></span><i data-lucide="${pr.icon||catIcon[pr.cat]||'sparkles'}" style="width:13px;height:13px;color:${catColor[pr.cat]||'var(--primary)'}"></i><span class="prompt-chip-label">${esc(pr.title)}</span><small>${esc(pr.cat)}</small>${recentSet.has(pr.title)?'<span class="prompt-chip-recent" title="Recent">↻</span>':''}</button>`).join('') + `<button class="prompt-chip prompt-chip-more" id="promptMoreBtn" title="Browse all prompts"><i data-lucide="grid-3x3" style="width:13px;height:13px"></i> More</button>`;
+  promptStrip.innerHTML = list.map(pr=>`<button class="prompt-chip ${recentSet.has(pr.title)?'recent':''}" data-prompt="${esc(pr.prompt)}" data-title="${esc(pr.title)}" title="${esc(pr.prompt)}"><span class="prompt-chip-dot" style="background:${catColor[pr.cat]||'#64748b'}" aria-hidden="true"></span><i data-lucide="${pr.icon||catIcon[pr.cat]||'sparkles'}" style="width:13px;height:13px;color:${catColor[pr.cat]||'var(--primary)'}" aria-hidden="true"></i><span class="prompt-chip-label">${esc(pr.title)}</span><small>${esc(pr.cat)}</small>${recentSet.has(pr.title)?'<span class="prompt-chip-recent" title="Recent">↻</span>':''}</button>`).join('') + `<button class="prompt-chip prompt-chip-more" id="promptMoreBtn" title="Browse all prompts"><i data-lucide="grid-3x3" style="width:13px;height:13px"></i> More</button>`;
   refreshIcons();
   // hint sync: show mode name in strip via aria
   promptStrip.setAttribute('aria-label', `Suggestions for ${getActiveMode()?.name||'Chat'} mode`);
 }
 promptStrip?.addEventListener('click', e=>{
   const b=e.target.closest('[data-prompt]'); if(b){ pushRecentPrompt(b.dataset.title||b.dataset.prompt.slice(0,32)); inputEl.value=b.dataset.prompt; autoResize(); syncComposer(); inputEl.focus(); hidePromptSuggest(); return; }
-  const more=e.target.closest('#promptMoreBtn'); if(more){ promptsView?.classList.remove('hidden'); renderPromptCats(); renderPromptGrid(); refreshIcons(); }
+  const more=e.target.closest('#promptMoreBtn'); if(more){ renderPromptCats(); renderPromptGrid(); openDrawerWithFocus(promptsView, '#promptSearch'); }
 });
 // inline autocomplete for plain text (non-slash)
 let promptSuggestIndex=0, promptSuggestList=[];
@@ -1381,14 +1381,17 @@ function renderPromptSuggest(){
   if(!promptSuggest) return;
   if(!promptSuggestList.length){ hidePromptSuggest(); return; }
   const head = `<div class="prompt-suggest-head"><b><i data-lucide="lightbulb" style="width:12px;height:12px"></i> Suggestions</b><span style="display:flex;gap:4px"><kbd>↑</kbd><kbd>↓</kbd><kbd>↵</kbd></span></div>`;
-  const body = promptSuggestList.map((pr,i)=>`<button class="prompt-suggest-item ${i===promptSuggestIndex?'active':''}" data-ps-i="${i}"><span class="ps-icon" style="background:${catColor[pr.cat]||'#64748b'}"><i data-lucide="${pr.icon}" style="width:13px;height:13px"></i></span><span class="ps-text"><b>${esc(pr.title)} <small style="color:var(--faint)">• ${esc(pr.cat)}</small></b><small>${esc(pr.prompt.slice(0,72))}${pr.prompt.length>72?'…':''}</small></span><span class="ps-hint">Tab</span></button>`).join('');
+  const body = promptSuggestList.map((pr,i)=>`<button class="prompt-suggest-item ${i===promptSuggestIndex?'active':''}" data-ps-i="${i}" role="option" aria-selected="${i===promptSuggestIndex?'true':'false'}" id="ps-opt-${i}"><span class="ps-icon" style="background:${catColor[pr.cat]||'#64748b'}"><i data-lucide="${pr.icon}" style="width:13px;height:13px"></i></span><span class="ps-text"><b>${esc(pr.title)} <small style="color:var(--faint)">• ${esc(pr.cat)}</small></b><small>${esc(pr.prompt.slice(0,72))}${pr.prompt.length>72?'…':''}</small></span><span class="ps-hint">Tab</span></button>`).join('');
   const foot = `<div class="prompt-suggest-foot"><span>Type to filter • <kbd>Esc</kbd> close</span><button class="link-btn" id="psBrowseAll" style="margin-left:auto;font-size:11px">Browse all</button></div>`;
-  promptSuggest.innerHTML = head + `<div class="prompt-suggest-list">${body}</div>` + foot;
+  promptSuggest.innerHTML = head + `<div class="prompt-suggest-list" role="presentation">${body}</div>` + foot;
   promptSuggest.classList.remove('hidden');
   promptSuggest.setAttribute('role','listbox');
+  if(inputEl){ inputEl.setAttribute('aria-expanded','true'); inputEl.setAttribute('aria-controls','promptSuggest'); inputEl.setAttribute('aria-activedescendant', `ps-opt-${promptSuggestIndex}`); }
   refreshIcons();
+  // ensure active option visible
+  promptSuggest.querySelector('.prompt-suggest-item.active')?.scrollIntoView({block:'nearest'});
 }
-function hidePromptSuggest(){ if(promptSuggest){ promptSuggest.classList.add('hidden'); promptSuggestList=[]; promptSuggestIndex=0; } }
+function hidePromptSuggest(){ if(promptSuggest){ promptSuggest.classList.add('hidden'); promptSuggestList=[]; promptSuggestIndex=0; if(inputEl){ inputEl.removeAttribute('aria-activedescendant'); inputEl.setAttribute('aria-expanded','false'); inputEl.removeAttribute('aria-controls'); } } }
 function showPromptSuggestFor(q){
   const qq=(q||'').toLowerCase().trim();
   if(qq.length<2){ hidePromptSuggest(); return; }
@@ -1418,7 +1421,7 @@ function pickPromptSuggest(pr){
 }
 promptSuggest?.addEventListener('click', e=>{
   const it=e.target.closest('[data-ps-i]'); if(it){ pickPromptSuggest(promptSuggestList[Number(it.dataset.i)]); return; }
-  const br=e.target.closest('#psBrowseAll'); if(br){ hidePromptSuggest(); promptsView?.classList.remove('hidden'); renderPromptCats(); renderPromptGrid(); }
+  const br=e.target.closest('#psBrowseAll'); if(br){ hidePromptSuggest(); renderPromptCats(); renderPromptGrid(); openDrawerWithFocus(promptsView, '#promptSearch'); }
 });
 try{ inputEl.value=localStorage.getItem('mcp_draft')||''; }catch{ inputEl.value=''; }
 autoResize(); syncComposer(); renderPromptStrip();
@@ -1475,13 +1478,15 @@ function renderSlash(){
       const idx=filtered.indexOf(c);
       const isActive=idx===slashIndex;
       const isRecent=recent.includes(c.key);
-      return `<div class="s-item ${isActive?'active':''}" data-i="${idx}" role="option" aria-selected="${isActive?'true':'false'}"><span class="s-icon"><i data-lucide="${c.icon}" style="width:14px;height:14px"></i></span><span class="s-key">${esc(c.key)}</span><span class="s-desc">${esc(c.desc)}<small>${esc(c.hint|| (isRecent?'recent':'') )}</small></span><span class="s-hint">${esc(c.hint||'')}</span></div>`;
+      return `<div class="s-item ${isActive?'active':''}" data-i="${idx}" role="option" aria-selected="${isActive?'true':'false'}" id="slash-opt-${idx}"><span class="s-icon"><i data-lucide="${c.icon}" style="width:14px;height:14px"></i></span><span class="s-key">${esc(c.key)}</span><span class="s-desc">${esc(c.desc)}<small>${esc(c.hint|| (isRecent?'recent':'') )}</small></span><span class="s-hint">${esc(c.hint||'')}</span></div>`;
     }).join('');
     return `<div class="slash-section"><div class="slash-section-title">${esc(title)}</div>${rows}</div>`;
   }).join('');
   const foot=`<div class="slash-foot"><span><kbd>/</kbd> filter • <kbd>Tab</kbd> insert</span><span style="margin-left:auto;display:flex;gap:6px;align-items:center"><span style="color:var(--faint)">${recent.length? 'Recent: '+recent.slice(0,3).join(' ') : ''}</span></span></div>`;
   slashMenu.innerHTML = header + body + foot;
   slashMenu?.classList.remove('hidden');
+  slashMenu.setAttribute('role','listbox');
+  if(inputEl){ inputEl.setAttribute('aria-expanded','true'); inputEl.setAttribute('aria-controls','slashMenu'); inputEl.setAttribute('aria-activedescendant', `slash-opt-${slashIndex}`); }
   if(slashTrigger){ slashTrigger.classList.add('active'); slashTrigger.setAttribute('aria-expanded','true'); }
   refreshIcons();
 }
@@ -1489,6 +1494,7 @@ function hideSlash(){
   slashMenu?.classList.add('hidden'); 
   filtered=[]; 
   slashTriggerOpen=false;
+  if(inputEl){ inputEl.removeAttribute('aria-activedescendant'); inputEl.setAttribute('aria-expanded','false'); inputEl.removeAttribute('aria-controls'); }
   if(slashTrigger){ slashTrigger.classList.remove('active'); slashTrigger.setAttribute('aria-expanded','false'); }
 }
 function pickSlash(cmd){
@@ -1511,8 +1517,8 @@ function pickSlash(cmd){
   if(cmd.key==='/new'){ const chat=getActiveChat(); if(!chat || chat.messages.length){ toast('New chat ready'); inputEl.focus(); } else { document.getElementById('newChatBtn')?.click(); } return; }
   if(cmd.key==='/export'){ const ch=getActiveChat(); if(ch) doExport(ch); return; }
   if(cmd.key==='/retry'){ const ch=getActiveChat(); if(ch && ch.messages.length){ const lastUser=[...ch.messages].reverse().find(m=>m.role==='user'); if(lastUser) doSend(lastUser.text, lastUser.files||[], lastUser.todos||[], true); } return; }
-  if(cmd.key==='/marketplace'){ marketplaceView?.classList.remove('hidden'); renderMarket(); return; }
-  if(cmd.key==='/servers'){ settingsView?.classList.remove('hidden'); return; }
+  if(cmd.key==='/marketplace'){ renderMarket(); openDrawerWithFocus(marketplaceView, '#marketSearch'); return; }
+  if(cmd.key==='/servers'){ openDrawerWithFocus(settingsView, '#serverSearch'); return; }
   if(cmd.key==='/mode' || cmd.key==='/model'){ toggleComposerModeMenu(true); return; }
   // for toggle commands with args like /todo, keep focus for typing hint
   if(cmd.insert.endsWith(' ') && !cmd.insert.trim().includes('SELECT') && !cmd.insert.includes('buckets')) {
@@ -2177,15 +2183,15 @@ messagesEl?.addEventListener('change', e=>{
     msg.todos[Number(i)].done=e.target.checked; saveChats(); renderMessages();
   }
 });
-closeEditMsg?.addEventListener('click', ()=> editMsgModal?.classList.add('hidden'));
-cancelEdit?.addEventListener('click', ()=> editMsgModal?.classList.add('hidden'));
-editMsgBackdrop?.addEventListener('click', ()=> editMsgModal?.classList.add('hidden'));
+closeEditMsg?.addEventListener('click', ()=> closeDrawerWithFocus(editMsgModal));
+cancelEdit?.addEventListener('click', ()=> closeDrawerWithFocus(editMsgModal));
+editMsgBackdrop?.addEventListener('click', ()=> closeDrawerWithFocus(editMsgModal));
 saveEdit?.addEventListener('click', ()=>{
   const chat=getActiveChat(); const msg=chat.messages.find(m=>m.id===editingMsgId);
   if(msg){
     pushHistory();
     msg.text=editMsgInput.value;
-    saveChats(); renderMessages(); editMsgModal?.classList.add('hidden');
+    saveChats(); renderMessages(); closeDrawerWithFocus(editMsgModal);
     // resend
     doSend(msg.text, msg.files||[], msg.todos||[], true);
   }
@@ -2225,8 +2231,8 @@ async function doSend(rawText, rawFiles, rawTodos, isRetry){
   if(text==='/new' || text.startsWith('/new ')){ try{ pushRecentSlash('/new'); }catch{} if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); const ch=getActiveChat(); if(!ch || ch.messages.length) document.getElementById('newChatBtn')?.click(); else createChat(); return; }
   if(text==='/export'){ try{ pushRecentSlash('/export'); }catch{} if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); const ch=getActiveChat(); if(ch) doExport(ch); return; }
   if(text==='/retry'){ try{ pushRecentSlash('/retry'); }catch{} if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); const ch=getActiveChat(); if(ch && ch.messages.length){ const lastUser=[...ch.messages].reverse().find(m=>m.role==='user'); if(lastUser) doSend(lastUser.text, lastUser.files||[], lastUser.todos||[], true); } return; }
-  if(text==='/marketplace' || text==='/market'){ try{ pushRecentSlash('/marketplace'); }catch{} if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); marketplaceView?.classList.remove('hidden'); renderMarket(); refreshIcons(); return; }
-  if(text==='/servers' || text.startsWith('/servers') || text==='/server'){ try{ pushRecentSlash('/servers'); }catch{} if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); settingsView?.classList.remove('hidden'); refreshIcons(); return; }
+  if(text==='/marketplace' || text==='/market'){ try{ pushRecentSlash('/marketplace'); }catch{} if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); renderMarket(); openDrawerWithFocus(marketplaceView, '#marketSearch'); return; }
+  if(text==='/servers' || text.startsWith('/servers') || text==='/server'){ try{ pushRecentSlash('/servers'); }catch{} if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); openDrawerWithFocus(settingsView, '#serverSearch'); return; }
   if(text.startsWith('/mode')){ try{ pushRecentSlash('/mode'); }catch{} const arg=text.slice(5).trim(); if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); if(arg){ const found=MODES.find(m=>m.id.toLowerCase()===arg.toLowerCase() || m.name.toLowerCase()===arg.toLowerCase()); if(found){ selectedMode=found.id; localStorage.setItem('agentMode', selectedMode); if(found.provider){ const pr=PROVIDERS.find(x=>x.id===found.provider); if(pr && pr.enabled){ selectedProvider=pr.id; localStorage.setItem('provider', pr.id); if(found.model){ selectedModel=found.model; localStorage.setItem('model', selectedModel);} renderProviders(); } } renderModes(); renderModesGrid(); toast(`Mode: ${found.name}`); } else toast(`Unknown mode "${arg}" — try /mode ${MODES.map(m=>m.id).join(', ')}`);} else toggleComposerModeMenu(true); return; }
   if(text.startsWith('/model')){ try{ pushRecentSlash('/model'); }catch{} const arg=text.slice(6).trim(); if(inputEl) inputEl.value=''; hideSlash(); syncComposer(); autoResize(); if(arg){ const prov=PROVIDERS.find(pr=> pr.models.includes(arg) || pr.id===arg.toLowerCase()); if(prov){ selectedProvider=prov.id; selectedModel= arg.includes(' ') ? arg.split(' ').pop() : (prov.models.find(m=>m.toLowerCase()===arg.toLowerCase()) || prov.models[0]); localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); renderProviders(); toast(`Model: ${selectedModel} via ${prov.name}`); } else toast(`Unknown model "${arg}"`);} else { providerView?.classList.remove('hidden'); renderProviderList(); } return; }
   // todo command
@@ -2382,7 +2388,7 @@ function openMarketDetail(id){
   marketDetailModal?.classList.remove('hidden');
   refreshIcons();
   // detail listeners
-  const _closeM = $('#closeMarketDetail'); if(_closeM) _closeM.onclick = ()=> marketDetailModal?.classList.add('hidden');
+  const _closeM = $('#closeMarketDetail'); if(_closeM) _closeM.onclick = ()=> closeDrawerWithFocus(marketDetailModal);
   const _copyI = $('#copyInstall'); if(_copyI) _copyI.onclick = ()=>{ navigator.clipboard.writeText(`npx @modelcontextprotocol/server-${m.name.toLowerCase().replace(/\s/g,'-')}`).catch(()=>{}); toast('Copied install command'); };
   const _detInst = $('#detailInstall'); if(_detInst) _detInst.onclick = e=>{
     const id=e.currentTarget.dataset.install;
@@ -2391,11 +2397,10 @@ function openMarketDetail(id){
   };
   const _detConn = $('#detailConnect'); if(_detConn) _detConn.onclick = ()=>{
     if(!m.installed) return toast('Install first');
-    // find server and connect
     const srv=servers.find(s=> s.name===m.name.toLowerCase().replace(/\s/g,'-') || s.name===m.name);
     if(srv) toggle(srv.id, true);
     else toast('Server not found — installing…');
-    marketDetailModal?.classList.add('hidden');
+    closeDrawerWithFocus(marketDetailModal);
   };
 }
 async function handleInstall(id){
@@ -2444,8 +2449,8 @@ marketGrid?.addEventListener('click', e=>{
   }
   if(card) openMarketDetail(card.dataset.detail);
 });
-marketDetailBackdrop?.addEventListener('click', ()=> marketDetailModal?.classList.add('hidden'));
-document.getElementById('closeMarketplace')?.addEventListener('click', ()=> document.getElementById('marketplaceView').classList.add('hidden'));
+marketDetailBackdrop?.addEventListener('click', ()=> closeDrawerWithFocus(marketDetailModal));
+document.getElementById('closeMarketplace')?.addEventListener('click', ()=> closeDrawerWithFocus(marketplaceView));
 
 // Prompts — enhanced library with search, recents, favorites & custom prompts
 let CUSTOM_PROMPTS = safeParse('mcp_custom_prompts', []);
@@ -2589,9 +2594,9 @@ newPromptBtn?.addEventListener('click', ()=>{
     promptModal.classList.remove('hidden'); refreshIcons();
   }
 });
-closePromptModal?.addEventListener('click', ()=> promptModal?.classList.add('hidden'));
-promptModalBackdrop?.addEventListener('click', ()=> promptModal?.classList.add('hidden'));
-cancelPrompt?.addEventListener('click', ()=> promptModal?.classList.add('hidden'));
+closePromptModal?.addEventListener('click', ()=> closeDrawerWithFocus(promptModal));
+promptModalBackdrop?.addEventListener('click', ()=> closeDrawerWithFocus(promptModal));
+cancelPrompt?.addEventListener('click', ()=> closeDrawerWithFocus(promptModal));
 promptForm?.addEventListener('submit', e=>{
   e.preventDefault();
   const pr={title:promptTitle.value.trim(), cat:promptCat.value, icon:promptIcon.value, prompt:promptText.value.trim(), modes: promptModes.value.split(',').map(s=>s.trim()).filter(Boolean)};
@@ -2604,7 +2609,7 @@ promptForm?.addEventListener('submit', e=>{
     CUSTOM_PROMPTS.push(pr);
     toast('Prompt created');
   }
-  saveCustomPrompts(); renderPromptCats(); renderPromptGrid(); renderPromptStrip(); promptModal?.classList.add('hidden');
+  saveCustomPrompts(); renderPromptCats(); renderPromptGrid(); renderPromptStrip(); closeDrawerWithFocus(promptModal);
 });
 promptGridEl?.addEventListener('click', e=>{
   const fav=e.target.closest('[data-fav]'); if(fav){
@@ -2631,12 +2636,12 @@ promptGridEl?.addEventListener('click', e=>{
   const use=e.target.closest('[data-use]'); if(use){
     const title=use.dataset.use;
     const pr=getAllPrompts().find(p=>p.title===title);
-    if(pr){ pushRecentPrompt(pr.title); inputEl.value=pr.prompt; autoResize(); syncComposer(); promptsView?.classList.add('hidden'); toast('Prompt inserted'); inputEl.focus(); hidePromptSuggest(); }
+    if(pr){ pushRecentPrompt(pr.title); inputEl.value=pr.prompt; autoResize(); syncComposer(); closeDrawerWithFocus(promptsView); toast('Prompt inserted'); inputEl.focus(); hidePromptSuggest(); }
     return;
   }
   const card=e.target.closest('.prompt-item'); if(!card) return;
   const pr=getAllPrompts().find(p=>p.title===card.dataset.title);
-  if(pr){ pushRecentPrompt(pr.title); inputEl.value=pr.prompt; autoResize(); syncComposer(); promptsView?.classList.add('hidden'); toast('Prompt inserted'); inputEl.focus(); }
+  if(pr){ pushRecentPrompt(pr.title); inputEl.value=pr.prompt; autoResize(); syncComposer(); closeDrawerWithFocus(promptsView); toast('Prompt inserted'); inputEl.focus(); }
 });
 
 // Profile
@@ -2673,7 +2678,7 @@ saveProfileBtn?.addEventListener('click', ()=>{
     localStorage.setItem('profileEmail', newEmail);
   }
   // also update server detail etc.
-  profileView?.classList.add('hidden'); toast('Profile saved ✓');
+  closeDrawerWithFocus(profileView); toast('Profile saved ✓');
   renderProviders(); renderModes();
 });
 themeSelect?.addEventListener('change', e=>{
