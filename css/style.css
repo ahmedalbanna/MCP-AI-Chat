@@ -617,18 +617,43 @@ tbody tr:hover td{background:#f8fafc}
 .provider-pill{transition:all .18s var(--ease)}
 .provider-pill:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
 .provider-status .dot{animation:blink 1.8s infinite}
-/* Enhanced MCP server cards */
-.server-card{position:relative}
-.server-card .health{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+/* Enhanced MCP server manager — improved */
+.search-clear{width:20px;height:20px;border-radius:50%;border:1px solid var(--line);background:#fff;display:grid;place-items:center;cursor:pointer;color:var(--muted);flex-shrink:0;transition:all .15s}
+.search-clear:hover{border-color:#cbd5e1;color:var(--text);background:#f8fafc}
+.search-clear.hidden{display:none !important}
+.tab-count{font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;background:rgba(0,0,0,.06)}
+.mono-badge.active .tab-count{background:rgba(255,255,255,.2);color:#fff}
+#serversEmpty{animation:msgIn .3s var(--ease-out)}
+#serversEmpty.hidden{display:none !important}
+.server-card{position:relative;border-radius:14px}
+.server-card .health{width:9px;height:9px;border-radius:50%;flex-shrink:0;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .server-card .health.ok{background:var(--ok);box-shadow:0 0 0 4px rgba(22,163,74,.12)}
 .server-card .health.warn{background:var(--warn);box-shadow:0 0 0 4px rgba(245,158,11,.12)}
 .server-card .health.bad{background:var(--bad);box-shadow:0 0 0 4px rgba(239,68,68,.12)}
 .server-card .health.off{background:#cbd5e1}
 .server-card .tools{font-family:var(--mono);font-size:10.5px;background:#f8fafc;border:1px solid var(--line);padding:3px 7px;border-radius:999px;color:var(--muted);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.server-card .latency{font-family:var(--mono);font-size:11px;color:var(--muted);background:#f1f5f9;padding:3px 7px;border-radius:999px;border:1px solid var(--line)}
+.server-card .latency{font-family:var(--mono);font-size:11px;color:var(--muted);background:#f1f5f9;padding:3px 7px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}
 .server-card .latency.ok{color:var(--ok);background:#f0fdf4;border-color:#bbf7d0}
 .server-card .latency.slow{color:var(--warn);background:#fffbeb;border-color:#fde68a}
 .server-card .latency.bad{color:var(--bad);background:#fef2f2;border-color:#fecaca}
+.server-card{transition:all .18s var(--ease)}
+.server-card:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.server-card[data-status="connected"]{border-color:#bbf7d0}
+.server-card-top{flex-wrap:wrap;gap:10px}
+.server-card .meta{line-height:1.35}
+.server-card .meta b{line-height:1.2}
+.server-transport{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;padding:2px 6px;border-radius:999px;background:#f8fafc;border:1px solid var(--line);color:var(--muted);text-transform:uppercase}
+.server-transport.sse{background:#eff6ff;color:#1d4ed8;border-color:#dbeafe}
+.server-transport.stdio{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
+.server-transport.http{background:#fef3c7;color:#92400e;border-color:#fde68a}
+.server-desc{font-size:12px;color:var(--muted);line-height:1.5;margin:2px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.server-card .tools{transition:all .12s}
+.server-card .tools:hover{background:#fff;border-color:#cbd5e1}
+.servers:empty{ display:none}
+.servers{display:flex;flex-direction:column;gap:10px}
+#serverTabs .mono-badge{position:relative;transition:all .15s}
+#serverTabs .mono-badge.active{transform:translateY(-1px);box-shadow:0 2px 8px rgba(15,23,42,.08)}
+.market-tabs::-webkit-scrollbar{display:none}
 #envList .env-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px}
 #envList .env-row input{border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:12px;font-family:var(--mono)}
 #envList .env-row button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;cursor:pointer;color:var(--muted)}

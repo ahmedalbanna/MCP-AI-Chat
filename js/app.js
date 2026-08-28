@@ -162,6 +162,9 @@ const marketplaceView = $('#marketplaceView');
 const promptsView = $('#promptsView');
 const profileView = $('#profileView');
 const serverSearch = $('#serverSearch');
+const serverSearchClear = $('#serverSearchClear');
+const serversEmpty = $('#serversEmpty');
+const clearServerFilters = $('#clearServerFilters');
 const serversList = $('#serversList');
 const addServerBtn = $('#addServerBtn');
 const addServerSidebar = $('#addServerSidebar');
@@ -948,6 +951,9 @@ function renderServers(){
   const q=(serverSearch?.value||'').toLowerCase();
   const sq=(sidebarSearch?.value||'').toLowerCase();
   const sort=serverSort?.value||'name';
+  // header search clear toggle
+  const sc=document.getElementById('serverSearchClear');
+  if(sc) sc.classList.toggle('hidden', !q);
   // top nodes — removed from header (clean header)
   if(topNodes) topNodes.innerHTML = '';
   // sidebar — filtered
@@ -967,6 +973,30 @@ function renderServers(){
   else if(sort==='status') filtered.sort((a,b)=> (a.status==='connected'?0:1) - (b.status==='connected'?0:1) || a.name.localeCompare(b.name));
   else if(sort==='recent') filtered.sort((a,b)=> (b.lastSeen||0)-(a.lastSeen||0));
   else if(sort==='latency') filtered.sort((a,b)=> (a.latency||999)-(b.latency||999));
+  else if(sort==='health') filtered.sort((a,b)=> {
+    const order={ok:0,warn:1,bad:2,off:3};
+    return (order[a.health]??3)-(order[b.health]??3) || (a.latency||999)-(b.latency||999);
+  });
+  // tab counts + empty state handling
+  const tabAll = servers.length;
+  const tabCon = servers.filter(s=>s.status==='connected').length;
+  const tabDis = tabAll - tabCon;
+  const elAll=document.getElementById('tabCountAll');
+  const elCon=document.getElementById('tabCountConnected');
+  const elDis=document.getElementById('tabCountDisc');
+  if(elAll) elAll.textContent=String(tabAll);
+  if(elCon) elCon.textContent=String(tabCon);
+  if(elDis) elDis.textContent=String(tabDis);
+  const emptyEl=document.getElementById('serversEmpty');
+  if(emptyEl){
+    if(!filtered.length){
+      emptyEl.classList.remove('hidden');
+      serversList.style.display='none';
+    } else {
+      emptyEl.classList.add('hidden');
+      serversList.style.display='';
+    }
+  }
   // tabs ui
   if(serverTabs){
     if(serverTabs) serverTabs.querySelectorAll('button').forEach(b=> b.classList.toggle('active', b.dataset.stab===activeServerTab));
@@ -983,19 +1013,21 @@ function renderServers(){
     const tools = s.tools ? s.tools.split(',').map(t=>t.trim()).filter(Boolean) : [];
     const latCls=getLatencyClass(s.latency||0);
     const envCount=s.env?.length||0;
-    return `<div class="server-card" data-id="${s.id}" style="${s.status==='connected'?'border-color:#bbf7d0':''}">
+    const lastSeenRel = s.lastSeen ? (()=>{ const d=Date.now()-s.lastSeen; if(d<60000) return 'now'; if(d<3600000) return Math.floor(d/60000)+'m ago'; if(d<86400000) return Math.floor(d/3600000)+'h ago'; return Math.floor(d/86400000)+'d ago'; })() : '—';
+    const transportCls=s.transport==='sse'?'sse': s.transport==='stdio'?'stdio':'http';
+    return `<div class="server-card" data-id="${s.id}" data-status="${s.status}" style="${s.status==='connected'?'border-color:#bbf7d0':''}">
       <div class="server-card-top">
-        <span class="ic ${ic}"><i data-lucide="${iname}" style="width:16px;height:16px"></i></span>
-        <span class="meta" style="flex:1"><b style="display:flex;align-items:center;gap:6px">${esc(s.name)} <span class="health ${healthCls}" title="Health: ${s.health}"></span> ${s.autoConnect?'<span style="font-size:10px;background:#eff6ff;color:var(--primary);border:1px solid #dbeafe;padding:2px 6px;border-radius:999px">AUTO</span>':''}</b>
-          <p>${esc(s.transport)} • ${esc(s.endpoint)}${s.desc?` • ${esc(s.desc)}`:''}</p>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-            ${tools.slice(0,3).map(t=>`<span class="tools">${esc(t)}</span>`).join('')}${tools.length>3?`<span class="tools">+${tools.length-3}</span>`:''}
-            ${envCount?`<span class="tools" title="Env vars">${envCount} env</span>`:''}
-            <span class="latency ${latCls}">${s.latency||'?'}ms</span>
-            <span style="font-size:11px;color:var(--faint);font-family:var(--mono)">${s.lastSeen? new Date(s.lastSeen).toLocaleTimeString():''}</span>
+        <span class="ic ${ic}" style="width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:#fff;flex-shrink:0;box-shadow:var(--shadow-xs);background:${ic==='pg'?'linear-gradient(180deg,#334155,#1e293b)':ic==='aws'?'linear-gradient(180deg,#ff9900,#e68a00)':ic==='fs'?'linear-gradient(180deg,#2563eb,#1d4ed8)':'linear-gradient(180deg,#64748b,#475569)'}"><i data-lucide="${iname}" style="width:16px;height:16px"></i></span>
+        <span class="meta" style="flex:1;min-width:0"><b style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${esc(s.name)} <span class="server-transport ${transportCls}">${esc(s.transport)}</span> <span class="health ${healthCls}" title="Health: ${s.health}"></span> ${s.autoConnect?'<span style="font-size:10px;background:#eff6ff;color:var(--primary);border:1px solid #dbeafe;padding:2px 6px;border-radius:999px;font-weight:700">AUTO</span>':''}</b>
+          <p style="margin:2px 0 0;font-size:11px;color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(s.endpoint)}">${esc(s.endpoint)}${s.desc?` • ${esc(s.desc)}`:''}</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
+            ${tools.slice(0,3).map(t=>`<span class="tools" title="${esc(t)}">${esc(t)}</span>`).join('')}${tools.length>3?`<span class="tools">+${tools.length-3}</span>`:''}
+            ${envCount?`<span class="tools" title="Env vars: ${envCount}"><i data-lucide="key" style="width:10px;height:10px"></i> ${envCount} env</span>`:''}
+            <span class="latency ${latCls}" title="Latency">${s.latency||'?'}ms</span>
+            <span style="font-size:11px;color:var(--faint);font-family:var(--mono)" title="${s.lastSeen?new Date(s.lastSeen).toLocaleString():''}">${lastSeenRel}</span>
           </div>
         </span>
-        <label class="switch"><input type="checkbox" ${s.status==='connected'?'checked':''} data-toggle="${s.id}"><span></span></label>
+        <label class="switch" title="${s.status==='connected'?'Connected — click to disconnect':'Disconnected — click to connect'}"><input type="checkbox" ${s.status==='connected'?'checked':''} data-toggle="${s.id}" ${s.status==='connecting'?'disabled':''}><span></span></label>
       </div>
       <div class="server-card-foot">
         <span class="status ${cls}"><span class="health ${healthCls}" style="width:6px;height:6px"></span> ${label}</span>
@@ -1008,7 +1040,7 @@ function renderServers(){
       </div>
     </div>`;
   }).join('') || `<div style="text-align:center;padding:24px;background:#fff;border:1px dashed var(--line);border-radius:12px"><i data-lucide="search-x" style="width:24px;height:24px;color:#cbd5e1"></i><p style="margin:8px 0 0;font-weight:700">No servers match</p><p style="font-size:12px;color:var(--muted)">Try another search or add a new server</p></div>`;
-  // stats
+  // stats — improved
   const connected=servers.filter(s=>s.status==='connected').length;
   const avgLat = servers.length? Math.round(servers.reduce((a,s)=>a+(s.latency||0),0)/servers.length):0;
   if(srvStatTotal) srvStatTotal.textContent=String(servers.length);
@@ -1018,7 +1050,9 @@ function renderServers(){
   if(activeCount2) activeCount2.textContent=String(connected);
   if(tunnelBar) tunnelBar.style.width=`${servers.length?Math.round(connected/servers.length*100):0}%`;
   if(tunnelStatus) tunnelStatus.innerHTML=connected? `Secure MCP tunnel • <strong>${connected}</strong> connected` : `No MCP nodes connected`;
-  if(serverCountInfo) serverCountInfo.textContent=`${filtered.length} of ${servers.length} servers`;
+  if(serverCountInfo) serverCountInfo.textContent=`${filtered.length} of ${servers.length} servers • ${connected} up`;
+  const hps=document.getElementById('healthPollStatus');
+  if(hps) { hps.textContent = healthPoll?.checked ? 'on' : 'off'; hps.style.color = healthPoll?.checked ? 'var(--ok)' : 'var(--faint)'; }
   refreshIcons();
 }
 function initHealthPoll(){
@@ -2551,6 +2585,14 @@ closePrompts?.addEventListener('click', ()=> promptsView?.classList.add('hidden'
 settingsBackdrop?.addEventListener('click', closeSettingsView);
 closeSettings?.addEventListener('click', closeSettingsView);
 serverSearch?.addEventListener('input', renderServers);
+serverSearchClear?.addEventListener('click', ()=>{ serverSearch.value=''; serverSearch.dispatchEvent(new Event('input')); serverSearch.focus(); });
+clearServerFilters?.addEventListener('click', ()=>{
+  serverSearch.value='';
+  activeServerTab='all';
+  try{ localStorage.setItem('serverTab','all'); }catch{}
+  renderServers();
+  toast('Filters cleared');
+});
 sidebarSearch?.addEventListener('input', ()=>{
   renderChats(); renderServers();
   const sc=document.getElementById('sidebarSearchClear');
