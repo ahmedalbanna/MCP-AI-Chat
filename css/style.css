@@ -223,8 +223,8 @@ body{margin:0;font-family:var(--font);background:radial-gradient(1100px 520px at
 .date-sep{position:sticky;top:-22px;z-index:2;padding:8px 0 10px;margin:-2px 0 4px;background:linear-gradient(180deg, rgba(249,250,251,.96) 55%, rgba(249,250,251,0) 100%);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;gap:14px;color:var(--faint);font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .date-sep::before,.date-sep::after{content:"";height:1px;flex:1;background:linear-gradient(90deg, transparent, var(--line-2), transparent);max-width:160px}
 .date-sep span{background:#fff;border:1px solid var(--line);padding:4px 10px;border-radius:999px;box-shadow:var(--shadow-xs);display:inline-flex;align-items:center;gap:6px;white-space:nowrap;max-width:88%;overflow:hidden;text-overflow:ellipsis}
-.chat-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:44px 24px 32px;gap:14px;animation:msgIn .35s var(--ease-out);border:1px dashed #e2e8f0;border-radius:16px;background:linear-gradient(180deg,#ffffff 0%, #fcfcfe 100%);margin:8px 0}
-.chat-empty-icon{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #dbeafe;display:grid;place-items:center;color:var(--primary);box-shadow:var(--shadow-sm)}
+.chat-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:48px 28px 36px;gap:14px;animation:msgIn .35s var(--ease-out);border:1.5px dashed #cbd5e1;border-radius:18px;background:radial-gradient(600px 220px at 50% 0%, #eff6ff 0%, #ffffff 55%, #fcfcfe 100%);margin:8px 0;box-shadow:var(--shadow-sm)}
+.chat-empty-icon{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #bfdbfe;display:grid;place-items:center;color:var(--primary);box-shadow:var(--shadow-xs)}
 .chat-empty h3{margin:0;font-size:15px;font-weight:800;letter-spacing:-.02em}
 .chat-empty p{margin:0;font-size:13px;color:var(--muted);line-height:1.6;max-width:380px}
 .chat-empty-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:4px}
@@ -246,8 +246,8 @@ body{margin:0;font-family:var(--font);background:radial-gradient(1100px 520px at
 .message .badge{font-size:10px;font-weight:800;background:#eff6ff;color:var(--primary);border:1px solid #dbeafe;padding:3px 8px;border-radius:999px;letter-spacing:.05em;text-transform:uppercase;flex-shrink:0}
 .message .badge.streaming{background:#fef3c7;color:#92400e;border-color:#fde68a;animation:badgePulse 1.4s infinite}
 @keyframes badgePulse{0%,100%{opacity:1}50%{opacity:.75}}
-.message.user .bubble{align-self:flex-end;max-width:76%;background:linear-gradient(180deg,#eff6ff 0%, #dbeafe 100%);border:1px solid #bfdbfe;color:#1e3a5f;padding:13px 16px;border-radius:18px;border-bottom-right-radius:6px;font-size:14px;line-height:1.65;box-shadow:0 2px 14px rgba(37,99,235,.10), 0 1px 3px rgba(37,99,235,.06);white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;letter-spacing:-.01em;position:relative;transition:box-shadow .15s}
-.message.user .bubble:hover{box-shadow:0 4px 18px rgba(37,99,235,.13), 0 1px 3px rgba(37,99,235,.06)}
+.message.user .bubble{align-self:flex-end;max-width:76%;background:linear-gradient(180deg,#eff6ff 0%, #dbeafe 100%);border:1px solid #bfdbfe;color:#1e3a5f;padding:13px 16px;border-radius:18px;border-bottom-right-radius:6px;font-size:14px;line-height:1.65;box-shadow:0 2px 14px rgba(37,99,235,.10), 0 1px 3px rgba(37,99,235,.06);white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;letter-spacing:-.01em;position:relative;transition:box-shadow .15s var(--ease), transform .15s var(--ease)}
+.message.user .bubble:hover{box-shadow:0 4px 18px rgba(37,99,235,.13), 0 1px 3px rgba(37,99,235,.06);transform:translateY(-1px)}
 .message.user .bubble a{color:#1d4ed8;text-decoration:underline;text-underline-offset:2px;text-decoration-color:#93c5fd;word-break:break-all}
 .message.user .bubble code{font-family:var(--mono);font-size:12px;background:rgba(255,255,255,.72);border:1px solid #bfdbfe;padding:1px 5px;border-radius:6px}
 .message.user + .message.user{margin-top:-6px}
@@ -277,6 +277,7 @@ body{margin:0;font-family:var(--font);background:radial-gradient(1100px 520px at
 }
 .card{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow-sm);transition:box-shadow .22s var(--ease), border-color .15s, transform .18s var(--ease)}
 .card:hover{box-shadow:var(--shadow-md);border-color:#cbd5e1;transform:translateY(-1px)}
+.card:focus-visible{outline:none;border-color:var(--primary);box-shadow:0 0 0 4px rgba(37,99,235,.12), var(--shadow-md)}
 .card-head{padding:14px 16px 12px;border-bottom:1px solid var(--line-2);background:linear-gradient(180deg,#ffffff 0%, #fcfcfe 100%);display:flex;flex-direction:column;gap:6px}
 .card-head-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .card-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;flex-shrink:0;box-shadow:var(--shadow-xs)}
