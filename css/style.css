@@ -626,9 +626,12 @@ tbody tr:hover td{background:#f8fafc}
 .server-card-top .meta p{margin:3px 0 0;font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .switch{position:relative;width:44px;height:26px;flex-shrink:0}
 .switch input{opacity:0;width:0;height:0}
-.switch span{position:absolute;inset:0;background:#e2e8f0;border-radius:999px;transition:.22s var(--ease);box-shadow:inset 0 1px 2px rgba(0,0,0,.06)}
-.switch span::before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.12), 0 1px 1px rgba(0,0,0,.08);transition:.22s var(--ease-out)}
-.switch input:checked + span{background:linear-gradient(180deg,var(--primary), var(--primary-2))}
+.switch span{position:absolute;inset:0;background:#e2e8f0;border:1.5px solid #cbd5e1;border-radius:999px;transition:.22s var(--ease);box-shadow:inset 0 1px 2px rgba(0,0,0,.06)}
+.switch span::before{content:"";position:absolute;width:20px;height:20px;left:2px;top:2px;background:#fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.12), 0 1px 1px rgba(0,0,0,.08);transition:.22s var(--ease-out)}
+.switch:hover span{border-color:#94a3b8;background:#e2e8f0}
+.switch input:focus-visible + span{outline:none;box-shadow:0 0 0 4px rgba(37,99,235,.14), inset 0 1px 2px rgba(0,0,0,.06);border-color:#93c5fd}
+.switch input:disabled + span{opacity:.45;cursor:not-allowed}
+.switch input:checked + span{background:linear-gradient(180deg,var(--primary), var(--primary-2));border-color:var(--primary-2)}
 .switch input:checked + span::before{transform:translateX(18px)}
 .server-card-foot{display:flex;gap:6px;align-items:center;margin-top:11px}
 .status{font-size:11px;font-weight:800;padding:5px 10px;border-radius:999px;border:1px solid var(--line);display:inline-flex;gap:6px;align-items:center;letter-spacing:.01em}
