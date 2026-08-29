@@ -1708,7 +1708,7 @@ function syncComposer(){
   const len=inputEl?.value?.length||0;
   const over=len>2000;
   if(sendBtn){ sendBtn.disabled=(!hasText && !hasMedia && !todos.length) || isTyping || over; sendBtn.setAttribute('aria-disabled', sendBtn.disabled?'true':'false'); }
-  if(charCount){ charCount.textContent=len? `${len}/2000` : ''; charCount.style.color=len>2000?'#ef4444': len>1800?'#f59e0b':'#6b7a94'; charCount.setAttribute('aria-label', `${len} of 2000 characters`); }
+  if(charCount){ charCount.textContent=len? `${len}/2000` : ''; charCount.style.color=len>2000?'#ef4444': len>1800?'#f59e0b':'var(--faint)'; charCount.setAttribute('aria-label', `${len} of 2000 characters`); }
   try{ localStorage.setItem('mcp_draft', inputEl?.value||''); }catch{}
   // prompt strip: always visible but faded when typing (keeps discoverability)
   if(promptStrip){
@@ -2837,6 +2837,7 @@ function renderMarket(){
     const installs = m.installs>=1000 ? (m.installs/1000).toFixed(1)+'k' : String(m.installs);
     return `
     <div class="mkt-card ${m.featured?'featured':''}" data-detail="${m.id}">
+      ${m.featured?'<span class="ribbon" aria-hidden="true">FEATURED</span>':''}
       <div class="mkt-head"><span class="ic" style="background:${m.color}"><i data-lucide="${m.icon}" style="width:16px;height:16px"></i></span>
         <div style="flex:1;min-width:0"><b>${esc(m.name)} ${m.verified?'<span title="Verified" style="background:#eff6ff;color:var(--primary);border:1px solid #dbeafe;padding:1px 5px;border-radius:999px;font-size:9px">✓</span>':''}</b>
         <p>${esc(m.author)} • v${esc(m.version)} • ${esc(m.cat)}</p></div>
@@ -3479,6 +3480,7 @@ topbarOverflowMenu?.addEventListener('click', e=>{
   else if(act==='undo') document.getElementById('undoBtn')?.click();
   else if(act==='redo') document.getElementById('redoBtn')?.click();
   else if(act==='new') { const c=getActiveChat(); if(!c || c.messages.length) document.getElementById('newChatBtn')?.click(); else toast('New chat ready'); }
+  else if(act==='servers') openSettings();
 });
 topbarOverflowMenu?.addEventListener('keydown', e=>{
   const items=[...topbarOverflowMenu.querySelectorAll('[data-overflow]:not([disabled])')];

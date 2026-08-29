@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MCP Terminal — Remote Protocol Active</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -171,10 +172,11 @@
           <div class="dropdown">
             <button class="icon-btn" id="topbarOverflowBtn" title="More actions" aria-label="More actions" aria-haspopup="menu" aria-expanded="false"><i data-lucide="more-horizontal" aria-hidden="true"></i></button>
             <div class="dropdown-menu hidden" id="topbarOverflowMenu" role="menu" aria-label="App menu" style="right:0;min-width:220px">
-              <div class="dropdown-header"><strong>Workspace</strong><small>Quick actions • <span id="overflowChatCount">3 chats</span></small></div>
+              <div class="dropdown-header"><strong>Workspace</strong><small>Quick actions • <span id="overflowChatCount">3 chats • 2 active</span></small></div>
               <div class="dropdown-section">
                 <button data-overflow="provider" role="menuitem"><i data-lucide="cpu" style="width:14px;height:14px"></i> AI Providers</button>
                 <button data-overflow="new" role="menuitem"><i data-lucide="plus" style="width:14px;height:14px"></i> New conversation <span class="kbd-hint">⌘N</span></button>
+                <button data-overflow="servers" role="menuitem" id="overflowServersItem"><i data-lucide="sliders-horizontal" style="width:14px;height:14px"></i> MCP servers</button>
               </div>
               <div class="dropdown-sep" aria-hidden="true"></div>
               <div class="dropdown-section">
@@ -357,7 +359,7 @@
             <button class="mono-badge" data-tab="new" style="cursor:pointer;border-radius:999px;padding:6px 12px;font-size:12px">✨ New</button>
             <button class="mono-badge" data-tab="installed" style="cursor:pointer;border-radius:999px;padding:6px 12px;font-size:12px">✓ Installed</button>
           </div>
-          <div id="marketStats" style="font-size:11px;color:var(--muted);font-family:var(--mono);display:flex;gap:12px"><span id="marketCount">8 servers</span><span>•</span><span id="marketInstalledCount">3 installed</span><span style="margin-left:auto;cursor:pointer;color:var(--primary)" id="refreshMarket"><i data-lucide="refresh-cw" style="width:11px;height:11px"></i> Refresh</span></div>
+          <div id="marketStats" style="font-size:11px;color:var(--muted);font-family:var(--mono);display:flex;gap:12px"><span id="marketCount">10 servers</span><span>•</span><span id="marketInstalledCount">3 installed</span><span style="margin-left:auto;cursor:pointer;color:var(--primary)" id="refreshMarket"><i data-lucide="refresh-cw" style="width:11px;height:11px"></i> Refresh</span></div>
           <div class="market-grid" id="marketGrid"></div>
           <div class="panel-card" style="display:flex;align-items:center;gap:10px;padding:12px"><i data-lucide="info" style="width:16px;height:16px;color:var(--primary)"></i><div style="font-size:12px;line-height:1.5"><b>Build your own MCP?</b> Publish to registry — <a href="#" onclick="event.preventDefault(); toast('Registry docs: registry.modelcontextprotocol.io')" style="color:var(--primary);font-weight:700">docs →</a></div><button class="ghost-btn sm" id="marketInfoBtn" style="margin-left:auto">Learn</button></div>
         </div>
