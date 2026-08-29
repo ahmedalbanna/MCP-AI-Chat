@@ -168,6 +168,7 @@
           <button class="icon-btn hidden" id="providerTopBtn" aria-hidden="true" tabindex="-1" style="display:none"><i data-lucide="cpu"></i></button>
           <button class="icon-btn" id="serversBtn" title="MCP servers" aria-label="MCP servers"><i data-lucide="sliders-horizontal" aria-hidden="true"></i></button>
           <button class="icon-btn" id="promptLibraryBtn" title="Prompt suggestions" aria-label="Prompt suggestions"><i data-lucide="lightbulb" aria-hidden="true"></i></button>
+          <button class="icon-btn" id="toolsBtn" title="Quick tools" aria-label="Quick tools"><i data-lucide="wrench" aria-hidden="true"></i></button>
           <button id="undoBtn" hidden></button><button id="redoBtn" hidden></button>
           <div class="dropdown">
             <button class="icon-btn" id="topbarOverflowBtn" title="More actions" aria-label="More actions" aria-haspopup="menu" aria-expanded="false"><i data-lucide="more-horizontal" aria-hidden="true"></i></button>
@@ -178,6 +179,7 @@
                 <button data-overflow="new" role="menuitem"><i data-lucide="plus" style="width:14px;height:14px"></i> New conversation <span class="kbd-hint">⌘N</span></button>
                 <button data-overflow="servers" role="menuitem" id="overflowServersItem"><i data-lucide="sliders-horizontal" style="width:14px;height:14px"></i> MCP servers</button>
                 <button data-overflow="prompts" role="menuitem" id="overflowPromptsItem"><i data-lucide="lightbulb" style="width:14px;height:14px"></i> Prompt Library</button>
+                <button data-overflow="tools" role="menuitem" id="overflowToolsItem"><i data-lucide="wrench" style="width:14px;height:14px"></i> Quick tools</button>
               </div>
               <div class="dropdown-sep" aria-hidden="true"></div>
               <div class="dropdown-section">
@@ -579,13 +581,16 @@
     <div class="sheet hidden" id="toolsModal" role="dialog" aria-modal="true">
       <div class="sheet-backdrop" id="toolsBackdrop"></div>
       <div class="sheet-panel">
-        <div class="sheet-head"><h3>Quick tools</h3><button class="icon-btn" id="closeModal"><i data-lucide="x"></i></button></div>
-        <div class="sheet-grid">
-          <button class="tool" data-tool="postgres"><span class="ic pg"><i data-lucide="database"></i></span><b>postgres-mcp</b><p>SQL • list</p></button>
-          <button class="tool" data-tool="aws"><span class="ic aws"><i data-lucide="cloud"></i></span><b>aws-us-east</b><p>S3 • EC2</p></button>
-          <button class="tool" data-tool="fs"><span class="ic fs"><i data-lucide="folder-open"></i></span><b>local-fs</b><p>read / list</p></button>
-          <button class="tool" data-tool="upload"><span class="ic up"><i data-lucide="image"></i></span><b>Upload</b><p>media</p></button>
+        <div class="sheet-head"><h3 style="display:flex;align-items:center;gap:8px"><i data-lucide="wrench" style="width:14px;height:14px;color:var(--primary)" aria-hidden="true"></i> Quick tools <span style="margin-left:6px;font-size:11px;font-weight:700;color:var(--muted);background:var(--bg);border:1px solid var(--line);padding:2px 7px;border-radius:999px;font-family:var(--mono)">4</span></h3><button class="icon-btn" id="closeModal"><i data-lucide="x"></i></button></div>
+        <div class="search-row" style="margin:12px 14px 0"><i data-lucide="search" style="width:14px;height:14px;color:var(--faint)"></i><input id="toolsSearch" placeholder="Search tools…" autocomplete="off" /><span style="font-family:var(--mono);font-size:10px;color:var(--faint);border:1px solid var(--line);padding:2px 5px;border-radius:6px;background:var(--bg)">⌘K</span></div>
+        <div class="sheet-grid" id="toolsGrid" role="listbox" aria-label="Tools">
+          <button class="tool" data-tool="postgres" data-tags="sql database postgres" role="option" tabindex="0"><span class="ic pg"><i data-lucide="database"></i></span><b>postgres-mcp</b><p>SQL • list tables</p><span class="tool-kbd">↵</span></button>
+          <button class="tool" data-tool="aws" data-tags="s3 ec2 cloud aws" role="option" tabindex="0"><span class="ic aws"><i data-lucide="cloud"></i></span><b>aws-us-east</b><p>S3 • EC2 • Lambda</p><span class="tool-kbd">↵</span></button>
+          <button class="tool" data-tool="fs" data-tags="filesystem files read list" role="option" tabindex="0"><span class="ic fs"><i data-lucide="folder-open"></i></span><b>local-fs</b><p>read • list • write</p><span class="tool-kbd">↵</span></button>
+          <button class="tool" data-tool="upload" data-tags="media image upload file" role="option" tabindex="0"><span class="ic up"><i data-lucide="image"></i></span><b>Upload</b><p>image • video • doc</p><span class="tool-kbd">↵</span></button>
         </div>
+        <div id="toolsEmpty" class="hidden" style="padding:28px 14px;text-align:center;color:var(--muted);font-size:13px"><i data-lucide="search-x" style="width:28px;height:28px;color:var(--faint);margin:0 auto 8px"></i><p style="margin:0;font-weight:650">No tools match</p><p style="margin:4px 0 0;font-size:11px">Try “sql” or “s3”</p></div>
+        <div class="sheet-foot" style="display:flex;gap:14px;align-items:center;padding:10px 14px;border-top:1px solid var(--line-2);background:rgba(248,250,252,.92);font-family:var(--mono);font-size:10px;color:var(--muted)"><span>↑↓ navigate</span><span>↵ select</span><span>esc close</span><span style="margin-left:auto;font-weight:700;color:var(--faint)">4 tools</span></div>
       </div>
     </div>
 

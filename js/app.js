@@ -259,6 +259,7 @@ const toolsModal = $('#toolsModal');
 const toolsBackdrop = $('#toolsBackdrop');
 const closeModalBtn = $('#closeModal');
 const quickToolsBtn = $('#quickToolsBtn'); // legacy - replaced by composerModePill
+const toolsBtn = $('#toolsBtn');
 const sidebar = $('#sidebar');
 const menuBtn = $('#menuBtn');
 const sidebarClose = $('#sidebarClose');
@@ -3539,18 +3540,66 @@ async function toggle(id, force){
   }
 }
 
-// Quick tools sheet
-toolsBackdrop?.addEventListener('click', ()=> toolsModal?.classList.add('hidden'));
-closeModalBtn?.addEventListener('click', ()=> toolsModal?.classList.add('hidden'));
-// quickToolsBtn removed - replaced by composerModePill (kept for sidebar quick-cards)
-quickToolsBtn?.addEventListener('click', ()=> toolsModal?.classList.remove('hidden'));
+// Quick tools sheet — palette with search + keyboard
+const toolsSearch=$('#toolsSearch');
+const toolsGridEl=$('#toolsGrid');
+const toolsEmpty=$('#toolsEmpty');
+function refreshToolsFilter(){
+  const q=(toolsSearch?.value||'').trim().toLowerCase();
+  const tools=[...document.querySelectorAll('#toolsGrid .tool')];
+  let vis=0;
+  tools.forEach(el=>{
+    const hay=(el.querySelector('b')?.textContent+' '+(el.querySelector('p')?.textContent||'')+' '+(el.dataset.tags||'')+' '+(el.dataset.tool||'')).toLowerCase();
+    const match=!q || hay.includes(q);
+    el.classList.toggle('hidden', !match);
+    el.removeAttribute('aria-selected');
+    if(match) vis++;
+  });
+  if(toolsEmpty) toolsEmpty.classList.toggle('hidden', vis!==0);
+  const first=[...document.querySelectorAll('#toolsGrid .tool:not(.hidden)')][0];
+  if(first){ first.setAttribute('aria-selected','true'); }
+  const foot=document.querySelector('#toolsModal .sheet-foot span:last-child');
+  if(foot) foot.textContent=(vis===tools.length? `${vis} tools` : `${vis} of ${tools.length} tools`);
+}
+function openTools(){
+  toolsModal?.classList.remove('hidden');
+  refreshIcons();
+  refreshToolsFilter();
+  setTimeout(()=> toolsSearch?.focus(), 30);
+}
+function closeTools(){ toolsModal?.classList.add('hidden'); toolsSearch && (toolsSearch.value=''); refreshToolsFilter(); }
+toolsBackdrop?.addEventListener('click', closeTools);
+closeModalBtn?.addEventListener('click', closeTools);
+toolsBtn?.addEventListener('click', openTools);
+toolsSearch?.addEventListener('input', refreshToolsFilter);
+toolsSearch?.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){ e.preventDefault(); closeTools(); toolsBtn?.focus(); }
+  if(e.key==='ArrowDown'){ e.preventDefault(); const first=document.querySelector('#toolsGrid .tool:not(.hidden)'); first?.focus(); }
+  if(e.key==='Enter'){ e.preventDefault(); const sel=document.querySelector('#toolsGrid .tool[aria-selected="true"]:not(.hidden)'); sel?.click(); }
+});
+toolsGridEl?.addEventListener('keydown', e=>{
+  const tools=[...document.querySelectorAll('#toolsGrid .tool:not(.hidden)')];
+  const idx=tools.indexOf(document.activeElement);
+  if(e.key==='ArrowDown'){ e.preventDefault(); tools[Math.min(idx+2, tools.length-1)]?.focus(); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); if(idx<=1) toolsSearch?.focus(); else tools[Math.max(idx-2,0)]?.focus(); }
+  else if(e.key==='ArrowRight'){ e.preventDefault(); tools[Math.min(idx+1, tools.length-1)]?.focus(); }
+  else if(e.key==='ArrowLeft'){ e.preventDefault(); tools[Math.max(idx-1,0)]?.focus(); }
+  else if(e.key==='Home'){ e.preventDefault(); tools[0]?.focus(); }
+  else if(e.key==='End'){ e.preventDefault(); tools[tools.length-1]?.focus(); }
+  else if(e.key==='Escape'){ e.preventDefault(); closeTools(); toolsSearch?.focus(); }
+});
+toolsGridEl?.addEventListener('focusin', e=>{
+  const t=e.target.closest('.tool'); if(!t) return;
+  document.querySelectorAll('#toolsGrid .tool[aria-selected]').forEach(el=> el.removeAttribute('aria-selected'));
+  t.setAttribute('aria-selected','true');
+});
 $$('.quick-card, .tool').forEach(b=>{
   b.addEventListener('click', ()=>{
     const t=b.dataset.tool;
     toolsModal?.classList.add('hidden');
-    if(t==='marketplace'){ marketplaceView?.classList.remove('hidden'); renderMarket(); }
+    if(t==='marketplace'){ renderMarket(); openDrawerWithFocus(marketplaceView, '#marketSearch'); }
     else if(t==='upload') mediaInput?.click();
-    else if(t==='pg') { inputEl.value='/sql SELECT * FROM users LIMIT 5'; inputEl.focus(); autoResize(); syncComposer(); }
+    else if(t==='postgres' || t==='pg') { inputEl.value='/sql SELECT * FROM users LIMIT 5'; inputEl.focus(); autoResize(); syncComposer(); }
     else if(t==='aws'){ inputEl.value='/s3 list buckets'; inputEl.focus(); autoResize(); syncComposer(); }
     else if(t==='fs'){ inputEl.value='/fs list /data'; inputEl.focus(); autoResize(); syncComposer(); }
   });
@@ -3599,6 +3648,7 @@ topbarOverflowMenu?.addEventListener('click', e=>{
   else if(act==='new') { const c=getActiveChat(); if(!c || c.messages.length) document.getElementById('newChatBtn')?.click(); else toast('New chat ready'); }
   else if(act==='servers') openSettings();
   else if(act==='prompts'){ renderPromptCats(); renderPromptGrid(); openDrawerWithFocus(promptsView, '#promptSearch'); }
+  else if(act==='tools') openTools();
 });
 topbarOverflowMenu?.addEventListener('keydown', e=>{
   const items=[...topbarOverflowMenu.querySelectorAll('[data-overflow]:not([disabled])')];
