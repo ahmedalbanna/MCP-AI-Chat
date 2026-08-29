@@ -239,13 +239,13 @@ body{margin:0;font-family:var(--font);background:radial-gradient(1100px 520px at
 .msg-avatar.user{background:linear-gradient(180deg,#dbeafe 0%, #bfdbfe 100%);color:#1e40af;border-color:#bfdbfe}
 .msg-avatar.assistant{background:linear-gradient(135deg,#0f172a 0%, #1e293b 100%);color:#fff;border-color:#0f172a}
 .msg-avatar.assistant.streaming{animation:avatarPulse 1.6s var(--ease) infinite}
-@keyframes avatarPulse{0%,100%{box-shadow:0 0 0 0 rgba(15,23,42,.12)}50%{box-shadow:0 0 0 6px rgba(15,23,42,0)}}
+@keyframes avatarPulse{0%,100%{box-shadow:0 0 0 0 rgba(15,23,42,.14), 0 0 0 1px rgba(15,23,42,.06)}50%{box-shadow:0 0 0 7px rgba(15,23,42,0), 0 0 0 1px rgba(15,23,42,.06)}}
 .message .who{font-weight:750;color:var(--text);display:flex;align-items:center;gap:7px;letter-spacing:-.01em;font-size:13px}
 .message .who small{font-weight:600;color:var(--faint);font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .message .when{margin-left:auto;font-size:11px;color:var(--faint);font-weight:500;white-space:nowrap}
 .message .badge{font-size:10px;font-weight:800;background:#eff6ff;color:var(--primary);border:1px solid #dbeafe;padding:3px 8px;border-radius:999px;letter-spacing:.05em;text-transform:uppercase;flex-shrink:0}
-.message .badge.streaming{background:#fef3c7;color:#92400e;border-color:#fde68a;animation:badgePulse 1.4s infinite}
-@keyframes badgePulse{0%,100%{opacity:1}50%{opacity:.75}}
+.message .badge.streaming{background:linear-gradient(180deg,#fffbeb,#fef3c7);color:#92400e;border-color:#fde68a;box-shadow:0 1px6 rgba(245,158,11,.18);animation:badgePulse 1.4s var(--ease) infinite}
+@keyframes badgePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.88;transform:scale(.98)}}
 .message.user .bubble{align-self:flex-end;max-width:76%;background:linear-gradient(180deg,#eff6ff 0%, #dbeafe 100%);border:1px solid #bfdbfe;color:#1e3a5f;padding:13px 16px;border-radius:18px;border-bottom-right-radius:6px;font-size:14px;line-height:1.65;box-shadow:0 2px 14px rgba(37,99,235,.10), 0 1px 3px rgba(37,99,235,.06);white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;letter-spacing:-.01em;position:relative;transition:box-shadow .15s var(--ease), transform .15s var(--ease)}
 .message.user .bubble:hover{box-shadow:0 4px 18px rgba(37,99,235,.13), 0 1px 3px rgba(37,99,235,.06);transform:translateY(-1px)}
 .message.user .bubble a{color:#1d4ed8;text-decoration:underline;text-underline-offset:2px;text-decoration-color:#93c5fd;word-break:break-all}
@@ -350,12 +350,12 @@ tbody tr:hover td{background:#f8fafc}
 .file-chip .chip-meta strong{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
 .file-chip .chip-meta small{font-size:10px;color:var(--muted);font-weight:600}
 @media(max-width:640px){ .user-media{max-width:86%} .file-chip{max-width:88%} }
-.typing{display:inline-flex;gap:6px;align-items:center;background:#fff;border:1px solid var(--line);padding:11px 15px;border-radius:16px;box-shadow:var(--shadow-sm)}
-.typing span{width:6px;height:6px;background:var(--faint);border-radius:50%;animation:typing 1.2s infinite}
+.typing{display:inline-flex;gap:8px;align-items:center;background:linear-gradient(180deg,#fff,#fcfcfe);border:1.5px solid #cbd5e1;padding:11px 16px;border-radius:999px;box-shadow:var(--shadow-sm), 0 1px6 rgba(15,23,42,.04);backdrop-filter:blur(4px)}
+.typing span{width:6.5px;height:6.5px;background:var(--primary);opacity:.28;border-radius:50%;animation:typing 1.2s var(--ease) infinite}
 .typing span:nth-child(2){animation-delay:.15s}
 .typing span:nth-child(3){animation-delay:.3s}
-@keyframes typing{0%,80%,100%{transform:scale(.8);opacity:.5}40%{transform:scale(1);opacity:1}}
-.stream-cursor{display:inline-block;width:9px;height:15px;background:var(--primary);margin-left:3px;vertical-align:middle;animation:blink 0.95s infinite;border-radius:2px;box-shadow:0 0 8px rgba(37,99,235,.35)}
+@keyframes typing{0%,80%,100%{transform:scale(.82);opacity:.32}40%{transform:scale(1);opacity:1}}
+.stream-cursor{display:inline-block;width:2.5px;height:16px;background:linear-gradient(180deg,var(--primary), var(--primary-2));margin-left:4px;vertical-align:middle;animation:blink 0.95s var(--ease) infinite;border-radius:999px;box-shadow:0 0 10px rgba(37,99,235,.45), 0 1px3 rgba(37,99,235,.25)}
 .task-card{border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-top:4px;background:#fff;box-shadow:var(--shadow-xs)}
 .task-head{display:flex;align-items:center;gap:9px;padding:11px 12px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);border-bottom:1px solid var(--line);flex-wrap:wrap}
 .task-head b{font-size:12.5px;font-weight:750;display:flex;align-items:center;gap:6px}
