@@ -1825,6 +1825,7 @@ const pushRecentSlash = (key)=>{
   safeSet(RECENT_SLASH_KEY, JSON.stringify(rec));
 };
 function getFilteredSlash(q){
+  lastSlashQ = q||'';
   const qq=(q||'').toLowerCase();
   let list=[];
   if(!qq || qq==='/'){
@@ -1851,25 +1852,49 @@ function getFilteredSlash(q){
   return list;
 }
 let slashTriggerOpen=false;
+let lastSlashQ='';
 function renderSlash(){
-  if(!slashMenu || !filtered.length){ hideSlash(); return; }
+  if(!slashMenu){ return; }
+  const pos=inputEl?.selectionStart ?? (inputEl?.value||'').length;
+  const before=(inputEl?.value||'').slice(0,pos);
+  const mq=before.match(/(^|\s)(\/[a-z0-9-]*)$/i);
+  const qq=(mq? mq[2].toLowerCase() : (lastSlashQ||'/'));
+  const qForHl = (qq && qq!=='/' ? qq : '');
+  if(!filtered.length){
+    if(qForHl){
+      const header = `<div class="slash-head"><b><i data-lucide="command" style="width:12px;height:12px"></i> Commands <span style="font-weight:500;color:var(--faint);margin-left:6px">0</span></b><span style="display:flex;gap:6px;align-items:center"><kbd>↑</kbd><kbd>↓</kbd><kbd>↵</kbd></span></div>`;
+      const empty = `<div class="slash-empty"><i data-lucide="search-x" style="width:18px;height:18px;color:var(--muted)"></i><div>No commands match &ldquo;<b>${esc(qq)}</b>&rdquo;</div><small>Try <kbd>/help</kbd> or clear filter</small></div>`;
+      const foot=`<div class="slash-foot"><span><kbd>/</kbd> filter • <kbd>Tab</kbd> insert</span><span style="margin-left:auto;color:var(--faint)">${getRecentSlash().length? 'Recent: '+getRecentSlash().slice(0,3).join(' '):''}</span></div>`;
+      slashMenu.innerHTML = header + empty + foot;
+      slashMenu.classList.remove('hidden');
+      slashMenu.setAttribute('role','listbox');
+      if(inputEl){ inputEl.setAttribute('aria-expanded','true'); inputEl.setAttribute('aria-controls','slashMenu'); inputEl.removeAttribute('aria-activedescendant'); }
+      if(slashTrigger){ slashTrigger.classList.add('active'); slashTrigger.setAttribute('aria-expanded','true'); }
+      refreshIcons();
+      return;
+    }
+    hideSlash(); return;
+  }
   const recent=getRecentSlash();
   // group by cat preserving SLASH_CATS order
   const byCat={};
   filtered.forEach(c=>{ (byCat[c.cat]=byCat[c.cat]||[]).push(c); });
   const sections = SLASH_CATS.filter(cat=>byCat[cat]?.length);
   // if only one cat or query filter, don't force section split? But keep grouped for clarity when showing all
-  const header = `<div class="slash-head"><b><i data-lucide="command" style="width:12px;height:12px"></i> Commands <span style="font-weight:500;color:var(--faint);margin-left:6px">${filtered.length}</span></b><span style="display:flex;gap:6px;align-items:center"><kbd>↑</kbd><kbd>↓</kbd><kbd>↵</kbd></span></div>`;
+  const header = `<div class="slash-head"><b><i data-lucide="command" style="width:12px;height:12px"></i> Commands <span style="font-weight:500;color:var(--faint);margin-left:6px">${filtered.length}${qForHl && filtered.length!==SLASH.length ? ` of ${SLASH.length}`:''}</span></b><span style="display:flex;gap:6px;align-items:center"><kbd>↑</kbd><kbd>↓</kbd><kbd>↵</kbd></span></div>`;
   const body = sections.map(cat=>{
     const items=byCat[cat];
     const title = cat;
-    const rows=items.map(c=>{
+      const rows=items.map(c=>{
       const idx=filtered.indexOf(c);
       const isActive=idx===slashIndex;
       const isRecent=recent.includes(c.key);
-      return `<div class="s-item ${isActive?'active':''}" data-i="${idx}" role="option" aria-selected="${isActive?'true':'false'}" id="slash-opt-${idx}"><span class="s-icon"><i data-lucide="${c.icon}" style="width:14px;height:14px"></i></span><span class="s-key">${esc(c.key)}</span><span class="s-desc">${esc(c.desc)}<small>${esc(c.hint|| (isRecent?'recent':'') )}</small></span><span class="s-hint">${esc(c.hint||'')}</span></div>`;
+      const hk= hl(c.key, qForHl), hd= hl(c.desc, qForHl), hh= c.hint? hl(c.hint, qForHl): '';
+      const small = c.hint? '' : (isRecent? '<small>recent</small>':'');
+      return `<div class="s-item ${isActive?'active':''}" data-i="${idx}" role="option" aria-selected="${isActive?'true':'false'}" id="slash-opt-${idx}"><span class="s-icon"><i data-lucide="${c.icon}" style="width:14px;height:14px"></i></span><span class="s-key">${hk}</span><span class="s-desc">${hd}${small}</span><span class="s-hint">${hh}</span></div>`;
     }).join('');
-    return `<div class="slash-section"><div class="slash-section-title">${esc(title)}</div>${rows}</div>`;
+    const catIcon = ({MCP:'plug-2', Chat:'message-circle', System:'settings'}[title]||'command');
+    return `<div class="slash-section"><div class="slash-section-title"><i data-lucide="${catIcon}" style="width:11px;height:11px;opacity:.6"></i> ${esc(title)}</div>${rows}</div>`;
   }).join('');
   const foot=`<div class="slash-foot"><span><kbd>/</kbd> filter • <kbd>Tab</kbd> insert</span><span style="margin-left:auto;display:flex;gap:6px;align-items:center"><span style="color:var(--faint)">${recent.length? 'Recent: '+recent.slice(0,3).join(' ') : ''}</span></span></div>`;
   slashMenu.innerHTML = header + body + foot;
@@ -1961,14 +1986,13 @@ inputEl?.addEventListener('input', ()=>{
   }
   const q=m[2].toLowerCase();
   filtered=getFilteredSlash(q);
-  if(!filtered.length){ hideSlash(); return; }
   slashIndex=0; renderSlash();
 });
 inputEl?.addEventListener('keydown', e=>{
   // Ctrl/Cmd+Enter to send always
   if((e.ctrlKey||e.metaKey) && e.key==='Enter'){ e.preventDefault(); doSend(); return; }
   const psVisible = promptSuggest && !promptSuggest.classList.contains('hidden') && promptSuggestList.length;
-  const slashVisible = slashMenu && !slashMenu.classList.contains('hidden') && filtered.length;
+  const slashVisible = slashMenu && !slashMenu.classList.contains('hidden');
   if(slashVisible){
     if(e.key==='ArrowDown'){ e.preventDefault(); slashIndex=(slashIndex+1)%filtered.length; renderSlash(); const activeEl=slashMenu.querySelector('.s-item.active'); activeEl?.scrollIntoView({block:'nearest'}); return; }
     else if(e.key==='Home'){ e.preventDefault(); slashIndex=0; renderSlash(); return; }
@@ -1997,7 +2021,7 @@ inputEl?.addEventListener('keydown', e=>{
     setTimeout(()=>{
       const pos=inputEl.selectionStart; const before=inputEl.value.slice(0,pos);
       const mm=before.match(/(^|\s)(\/[a-z0-9-]*)$/i);
-      if(mm){ filtered=getFilteredSlash(mm[2].toLowerCase()); if(filtered.length){ slashIndex=0; renderSlash(); }}
+      if(mm){ filtered=getFilteredSlash(mm[2].toLowerCase()); slashIndex=0; renderSlash(); }
     }, 0);
   }
   if((e.ctrlKey||e.metaKey) && e.key==='z' && !e.shiftKey){ e.preventDefault(); undo(); }

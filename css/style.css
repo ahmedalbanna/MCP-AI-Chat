@@ -485,7 +485,8 @@ tbody tr:hover td{background:#f8fafc}
 .todo-badge.hidden{display:none}
 .slash-trigger{border:1px solid transparent}
 .slash-trigger.active{background:var(--primary-ghost);border-color:#dbeafe;color:var(--primary)}
-.slash-menu{position:absolute;bottom:100%;left:22px;right:22px;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden;max-height:360px;overflow-y:auto;z-index:8;padding:0;display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
+.slash-menu{position:absolute;bottom:100%;left:22px;right:22px;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden;max-height:min(360px,55dvh);overflow-y:auto;z-index:8;padding:0;display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
+.slash-menu mark{background:#fef08a;color:#422006;padding:0 2px;border-radius:3px;font-weight:700}
 .slash-menu.hidden{display:none}
 .slash-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line-2);background:linear-gradient(180deg,#fff,#fcfcfe);position:sticky;top:0;z-index:1}
 .slash-head b{font-size:11px;letter-spacing:.07em;color:var(--muted);display:flex;align-items:center;gap:6px}
