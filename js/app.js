@@ -3120,7 +3120,7 @@ promptHelpBtn?.addEventListener('click', ()=> toast('Tip: Star favorites, type 2
 newPromptBtn?.addEventListener('click', ()=>{
   editingPromptIdx=null;
   if(promptModal){
-    document.getElementById('promptModalTitle').textContent='New Prompt';
+    (document.getElementById('promptModalTitleText')||document.getElementById('promptModalTitle')).textContent='New Prompt';
     promptTitle.value=''; promptCat.value='MCP'; promptText.value=''; promptIcon.value='sparkles'; promptModes.value='';
     if(promptCharCount) promptCharCount.textContent='0 / 500';
     if(promptIconPreview){ promptIconPreview.innerHTML='<i data-lucide="sparkles" style="width:16px;height:16px;color:var(--primary)"></i>'; refreshIcons(); }

@@ -585,7 +585,7 @@ tbody tr:hover td{background:#f8fafc}
 /* Drawers */
 .drawer.hidden,.modal.hidden,.sheet.hidden{display:none}
 .drawer{position:fixed;inset:0;z-index:40;display:flex;justify-content:flex-end}
-.drawer-backdrop,.modal-backdrop,.sheet-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.38);backdrop-filter:blur(8px) saturate(1.1)}
+.drawer-backdrop,.modal-backdrop,.sheet-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.42);backdrop-filter:blur(12px) saturate(1.2);-webkit-backdrop-filter:blur(12px) saturate(1.2);animation:fadeIn .24s var(--ease-out)}
 .drawer-panel{position:relative;width:440px;max-width:92vw;background:#fff;height:100%;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;animation:slideIn .28s var(--ease-out);overflow:hidden;border-left:1px solid var(--line)}
 .drawer-panel.wide{width:580px}
 @keyframes slideIn{from{transform:translateX(16px);opacity:0}to{transform:translateX(0);opacity:1}}
@@ -636,17 +636,28 @@ tbody tr:hover td{background:#f8fafc}
 .form input,.form select,.form textarea{border:1px solid var(--line);border-radius:11px;padding:11px 12px;font-size:13px;outline:none;font-family:var(--font);background:#fff;transition:all .15s}
 .form input:hover,.form select:hover{border-color:#cbd5e1}
 .form input:focus,.form select:focus,.form textarea:focus{border-color:#93c5fd;box-shadow:var(--shadow-focus)}
+.form input:invalid:not(:placeholder-shown),.form textarea:invalid:not(:placeholder-shown){border-color:#fca5a5;box-shadow:0 0 0 3px rgba(239,68,68,.10)}
+.modal-card .form .form-actions{position:sticky;bottom:0;z-index:1;background:linear-gradient(180deg,#fff,#fcfcfe);border-top:1px solid var(--line);margin:12px -16px -16px;padding:12px 16px}
+.sheet-panel .sheet-grid{flex:1}
 .form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
-.modal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px}
-.modal-card{position:relative;width:440px;max-width:100%;background:#fff;border-radius:18px;box-shadow:var(--shadow-lg);overflow:hidden;animation:scaleIn .22s var(--ease-out);border:1px solid var(--line)}
+.modal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;overscroll-behavior:contain}
+.modal-card{position:relative;width:440px;max-width:100%;background:#fff;border-radius:20px;box-shadow:0 24px 60px rgba(15,23,42,.18), 0 8px 24px rgba(15,23,42,.10);overflow:hidden;animation:scaleIn .22s var(--ease-out);border:1px solid rgba(226,232,240,.95);max-height:min(92dvh,760px);display:flex;flex-direction:column}
+.modal-card::-webkit-scrollbar, .sheet-panel::-webkit-scrollbar{width:6px;height:6px}
+.modal-card::-webkit-scrollbar-thumb, .sheet-panel::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px}
+.modal-card::-webkit-scrollbar-track, .sheet-panel::-webkit-scrollbar-track{background:transparent}
 @keyframes scaleIn{from{transform:scale(.96) translateY(4px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
-.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fff,#fcfcfe)}
-.modal-head h3{margin:0;font-size:14px;font-weight:800;letter-spacing:-.01em}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fff,#fcfcfe);position:sticky;top:0;z-index:2;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.modal-card .form, .modal-card .market-detail-body, .sheet-panel .sheet-grid{flex:1;overflow:auto}
+.modal-card .form::-webkit-scrollbar, .market-detail-body::-webkit-scrollbar, .sheet-grid::-webkit-scrollbar{width:6px;height:6px}
+.modal-card .form::-webkit-scrollbar-thumb, .market-detail-body::-webkit-scrollbar-thumb{ background:#cbd5e1;border-radius:999px}
+.modal-head h3{margin:0;font-size:14px;font-weight:800;letter-spacing:-.01em;display:flex;gap:8px;align-items:center}
 .sheet{position:fixed;inset:0;z-index:45;display:flex;align-items:flex-end;justify-content:center;padding:16px}
-.sheet-panel{position:relative;width:560px;max-width:100%;background:#fff;border-radius:18px;box-shadow:var(--shadow-lg);overflow:hidden;border:1px solid var(--line);animation:scaleIn .22s var(--ease-out)}
+.sheet-panel{position:relative;width:560px;max-width:100%;background:#fff;border-radius:20px;box-shadow:0 24px 60px rgba(15,23,42,.18), 0 8px 24px rgba(15,23,42,.10);overflow:hidden;border:1px solid rgba(226,232,240,.95);animation:scaleIn .22s var(--ease-out);max-height:min(92dvh,760px);display:flex;flex-direction:column}
+.sheet-head{position:sticky;top:0;z-index:2;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line)}
 .sheet-grid{padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:520px){.sheet-grid{grid-template-columns:1fr}}
+@media(max-width:480px){.modal{padding:8px} .modal-card{border-radius:16px;max-height:96dvh} .sheet-panel{border-radius:16px;max-height:96dvh} .modal-head,.sheet-head{padding:14px 16px}}
 .tool{border:1px solid var(--line);background:#fff;border-radius:14px;padding:15px;text-align:left;cursor:pointer;transition:all .18s var(--ease);position:relative;overflow:hidden}
 .tool::after{content:"";position:absolute;inset:0;background:radial-gradient(400px 120px at 0% 0%, rgba(37,99,235,.06), transparent);opacity:0;transition:opacity .18s}
 .tool:hover{border-color:#93c5fd;background:#f8fafc;transform:translateY(-1px);box-shadow:var(--shadow-sm)}
