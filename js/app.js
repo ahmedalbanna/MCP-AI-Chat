@@ -801,6 +801,7 @@ function renderModesGrid(){
       </div>
     </div>`;
   }).join('') || `<p style="grid-column:1/-1;text-align:center;color:var(--faint);padding:20px;background:#fff;border:1px dashed var(--line);border-radius:12px">No modes match<br><small>Try another search</small></p>`;
+  document.getElementById('modeSearchClear')?.classList.toggle('hidden', !q);
   refreshIcons();
 }
 function openModesView(){ renderModesGrid(); openDrawerWithFocus(modesView, '#modeSearch'); }
@@ -2861,6 +2862,7 @@ function renderMarket(){
   const marketTotal = MARKET.length;
   if(marketCount) marketCount.textContent = filtered.length===marketTotal ? `${marketTotal} servers` : `${filtered.length} of ${marketTotal} servers`;
   if(marketInstalledCount) marketInstalledCount.textContent = `${MARKET.filter(m=>m.installed).length} installed`;
+  document.getElementById('marketSearchClear')?.classList.toggle('hidden', !q);
   marketGrid.innerHTML = filtered.map(m=>{
     const installs = m.installs>=1000 ? (m.installs/1000).toFixed(1)+'k' : String(m.installs);
     return `
@@ -3348,6 +3350,8 @@ settingsBackdrop?.addEventListener('click', closeSettingsView);
 closeSettings?.addEventListener('click', closeSettingsView);
 serverSearch?.addEventListener('input', renderServers);
 serverSearchClear?.addEventListener('click', ()=>{ serverSearch.value=''; serverSearch.dispatchEvent(new Event('input')); serverSearch.focus(); });
+document.getElementById('marketSearchClear')?.addEventListener('click', ()=>{ marketSearch.value=''; marketSearch.dispatchEvent(new Event('input')); marketSearch.focus(); });
+document.getElementById('modeSearchClear')?.addEventListener('click', ()=>{ const el=document.getElementById('modeSearch'); if(el){ el.value=''; el.dispatchEvent(new Event('input')); el.focus(); } });
 clearServerFilters?.addEventListener('click', ()=>{
   serverSearch.value='';
   activeServerTab='all';
