@@ -365,6 +365,7 @@ tbody tr:hover td{background:#f8fafc}
 .typing span:nth-child(2){animation-delay:.15s}
 .typing span:nth-child(3){animation-delay:.3s}
 @keyframes typing{0%,80%,100%{transform:scale(.82);opacity:.32}40%{transform:scale(1);opacity:1}}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
 .stream-cursor{display:inline-block;width:2.5px;height:16px;background:linear-gradient(180deg,var(--primary), var(--primary-2));margin-left:4px;vertical-align:middle;animation:blink 0.95s var(--ease) infinite;border-radius:999px;box-shadow:0 0 10px rgba(37,99,235,.45), 0 1px3 rgba(37,99,235,.25)}
 .task-card{border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-top:4px;background:#fff;box-shadow:var(--shadow-xs)}
 .task-head{display:flex;align-items:center;gap:9px;padding:11px 12px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);border-bottom:1px solid var(--line);flex-wrap:wrap}
@@ -386,6 +387,12 @@ tbody tr:hover td{background:#f8fafc}
 .todo-item span + span{flex:0 0 auto;margin-left:auto;font-size:11px;white-space:nowrap;color:var(--faint)}
 .todo-progress{font-size:11px;color:var(--muted);margin-left:6px;font-weight:600}
 .task-card .todo-empty{margin:0 12px 12px}
+.task-card.streaming .todo-item:not(.done){position:relative;overflow:hidden;background:#f1f5f9;border-color:var(--line-2)}
+.task-card.streaming .todo-item:not(.done)::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.72),transparent);transform:translateX(-100%);animation:shimmer 1.4s infinite;pointer-events:none;border-radius:10px}
+.task-card.collapsed .todo-list,.task-card.collapsed .todo-progress-track{display:none}
+.task-card.collapsed .task-head{border-bottom:none}
+.task-done-summary{padding:14px 12px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;background:#f0fdf4;border-top:1px solid #dcfce7}
+.task-done-summary b{color:#16a34a}
 .prompt-strip{position:relative;display:flex;gap:8px;overflow:auto;padding:0 24px 10px;max-width:780px;width:100%;margin:0 auto;scrollbar-width:none;scroll-padding:0 24px;align-items:center;scroll-behavior:smooth;transition:opacity .2s var(--ease), transform .2s var(--ease);mask-image:linear-gradient(90deg, #000 92%, transparent 100%);-webkit-mask-image:linear-gradient(90deg, #000 92%, transparent 100%)}
 .prompt-strip::-webkit-scrollbar{display:none}
 .prompt-strip.hidden{display:none !important}
