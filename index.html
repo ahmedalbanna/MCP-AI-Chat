@@ -513,7 +513,7 @@
     <div class="modal hidden" id="serverModal" role="dialog" aria-modal="true">
       <div class="modal-backdrop" id="serverModalBackdrop"></div>
       <div class="modal-card" style="width:520px;max-height:90vh;overflow:auto">
-        <div class="modal-head"><h3 id="serverModalTitle">Add MCP Server</h3><button class="icon-btn" id="closeServerModal"><i data-lucide="x"></i></button></div>
+        <div class="modal-head"><h3 id="serverModalTitle" style="display:flex;align-items:center;gap:8px"><i data-lucide="server" style="width:14px;height:14px;color:var(--primary)" aria-hidden="true"></i><span id="serverModalTitleText">Add MCP Server</span></h3><button class="icon-btn" id="closeServerModal"><i data-lucide="x"></i></button></div>
         <form id="serverForm" class="form" style="padding:16px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <label>Template<select id="srvTemplate"><option value="">Custom…</option><option value="postgres">Postgres (stdio)</option><option value="filesystem">Filesystem (stdio)</option><option value="fetch">Fetch (stdio)</option><option value="github">GitHub (stdio)</option><option value="sse">SSE Remote</option><option value="http">HTTP Streamable</option></select></label>
@@ -549,7 +549,7 @@
     <div class="modal hidden" id="providerModal" role="dialog" aria-modal="true">
       <div class="modal-backdrop" id="providerModalBackdrop"></div>
       <div class="modal-card" style="width:480px">
-        <div class="modal-head"><h3 id="providerModalTitle">Add AI Provider</h3><button class="icon-btn" id="closeProviderModal"><i data-lucide="x"></i></button></div>
+        <div class="modal-head"><h3 id="providerModalTitle" style="display:flex;align-items:center;gap:8px"><i data-lucide="cpu" style="width:14px;height:14px;color:var(--primary)" aria-hidden="true"></i><span id="providerModalTitleText">Add AI Provider</span></h3><button class="icon-btn" id="closeProviderModal"><i data-lucide="x"></i></button></div>
         <form id="providerForm" class="form" style="padding:16px">
           <label>Provider name<input id="provName" placeholder="OpenAI" required /></label>
           <label>Provider ID <small style="color:var(--muted);font-weight:400"> (lowercase, no spaces)</small><input id="provId" placeholder="openai" required pattern="[a-z0-9-]+" /></label>

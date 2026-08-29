@@ -612,7 +612,7 @@ importProviderFile?.addEventListener('change', e=>{
 providerList?.addEventListener('click', e=>{
   const test=e.target.closest('[data-provider-test]'); if(test){ const p=PROVIDERS.find(x=>x.id===test.dataset.providerTest); toast(p.apiKey?`Testing ${p.name}…`:'No API key', 1600); setTimeout(()=> toast(p.apiKey? `${p.name} ✓ ${p.latency}ms` : `${p.name}: add API key first`), 800); return; }
   const use=e.target.closest('[data-provider-use]'); if(use){ selectedProvider=use.dataset.providerUse; const pr=PROVIDERS.find(x=>x.id===selectedProvider); selectedModel=pr.models[0]; localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); renderProviders(); renderProviderList(); renderMessages(); toast(`Switched to ${pr.name}`); return; }
-  const edit=e.target.closest('[data-provider-edit]'); if(edit){ const p=PROVIDERS.find(x=>x.id===edit.dataset.providerEdit); if(p){ editingProviderId=p.id; $('#providerModalTitle').textContent='Edit Provider'; provName.value=p.name; provId.value=p.id; provId.disabled=true; provKey.value=p.apiKey; provBase.value=p.baseUrl; provModels.value=p.models.join(', '); provTemp.value=String(p.temp); if(provTempVal) provTempVal.textContent=String(p.temp); provMax.value=String(p.maxTokens); provStream.checked=p.streaming; provEnabled.checked=p.enabled; openDrawerWithFocus(providerModal, '#provName'); } return; }
+  const edit=e.target.closest('[data-provider-edit]'); if(edit){ const p=PROVIDERS.find(x=>x.id===edit.dataset.providerEdit); if(p){ editingProviderId=p.id; (document.getElementById('providerModalTitleText')||$('#providerModalTitle')).textContent='Edit Provider'; provName.value=p.name; provId.value=p.id; provId.disabled=true; provKey.value=p.apiKey; provBase.value=p.baseUrl; provModels.value=p.models.join(', '); provTemp.value=String(p.temp); if(provTempVal) provTempVal.textContent=String(p.temp); provMax.value=String(p.maxTokens); provStream.checked=p.streaming; provEnabled.checked=p.enabled; openDrawerWithFocus(providerModal, '#provName'); } return; }
   const del=e.target.closest('[data-provider-del]'); if(del){ const id=del.dataset.providerDel; if(PROVIDERS.length<=1) return toast('Keep at least one provider'); if(confirm('Delete provider?')){ PROVIDERS=PROVIDERS.filter(p=>p.id!==id); if(selectedProvider===id){ selectedProvider=PROVIDERS[0].id; selectedModel=PROVIDERS[0].models[0]; localStorage.setItem('provider', selectedProvider); localStorage.setItem('model', selectedModel); } saveProviders(); renderProviders(); renderProviderList(); renderMessages(); toast('Provider deleted'); } return; }
 });
 providerList?.addEventListener('change', e=>{
@@ -620,7 +620,7 @@ providerList?.addEventListener('change', e=>{
 });
 addProviderBtn?.addEventListener('click', ()=>{
   editingProviderId=null;
-  $('#providerModalTitle').textContent='Add AI Provider';
+  (document.getElementById('providerModalTitleText')||$('#providerModalTitle')).textContent='Add AI Provider';
   provName.value=''; provId.value=''; provId.disabled=false; provKey.value=''; provBase.value='https://api.example.com/v1'; provModels.value=''; provTemp.value='0.7'; if(provTempVal) provTempVal.textContent='0.7'; provMax.value='4096'; provStream.checked=true; provEnabled.checked=true;
   openDrawerWithFocus(providerModal, '#provName');
 });
@@ -1491,7 +1491,7 @@ function openServerDetail(id){
 function openEditServer(id){
   const s=servers.find(x=>x.id===id); if(!s) return;
   editingId=s.id;
-  serverModalTitle.textContent='Edit MCP Server';
+  (document.getElementById('serverModalTitleText')||serverModalTitle).textContent='Edit MCP Server';
   srvName.value=s.name; srvTransport.value=s.transport; srvEndpoint.value=s.endpoint; srvTools.value=s.tools; if(srvDesc) srvDesc.value=s.desc||''; if(srvTimeout) srvTimeout.value=String(s.timeout); if(srvRetries) srvRetries.value=String(s.retries); if(srvAuto) srvAuto.checked=!!s.autoConnect; if(srvHealth) srvHealth.checked=!!s.healthCheck;
   envDraft=[...(s.env||[])];
   renderEnv(); updateEndpointHint(); openDrawerWithFocus(serverModal, '#srvName');
@@ -3424,7 +3424,7 @@ importServersFile?.addEventListener('change', e=>{
 healthPoll?.addEventListener('change', ()=>{ initHealthPoll(); renderServers(); toast(healthPoll.checked?'Health polling on':'Health polling off'); });
 addServerBtn?.addEventListener('click', ()=>{
   editingId=null;
-  serverModalTitle.textContent='Add MCP Server';
+  (document.getElementById('serverModalTitleText')||serverModalTitle).textContent='Add MCP Server';
   srvName.value=''; srvEndpoint.value=''; srvTools.value=''; if(srvDesc) srvDesc.value=''; if(srvTimeout) srvTimeout.value='10000'; if(srvRetries) srvRetries.value='2'; if(srvAuto) srvAuto.checked=true; if(srvHealth) srvHealth.checked=true;
   srvTransport.value='sse'; if(srvTemplate) srvTemplate.value='';
   envDraft=[]; renderEnv(); updateEndpointHint();
