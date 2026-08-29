@@ -2833,7 +2833,8 @@ function renderMarket(){
       else { b.style.background='#fff'; b.style.color='var(--muted)'; b.style.borderColor='var(--line)'; }
     });
   }
-  if(marketCount) marketCount.textContent = `${filtered.length} servers`;
+  const marketTotal = MARKET.length;
+  if(marketCount) marketCount.textContent = filtered.length===marketTotal ? `${marketTotal} servers` : `${filtered.length} of ${marketTotal} servers`;
   if(marketInstalledCount) marketInstalledCount.textContent = `${MARKET.filter(m=>m.installed).length} installed`;
   marketGrid.innerHTML = filtered.map(m=>{
     const installs = m.installs>=1000 ? (m.installs/1000).toFixed(1)+'k' : String(m.installs);
