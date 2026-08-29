@@ -827,6 +827,20 @@ tbody tr:hover td{background:#f8fafc}
 .toast-stack .toast{position:relative;left:auto;bottom:auto;transform:none;pointer-events:auto}
 .drop-overlay{position:fixed;inset:0;z-index:70;background:rgba(37,99,235,.13);backdrop-filter:blur(12px) saturate(1.18);display:grid;place-items:center;animation:fadeIn .18s}
 .drop-overlay.hidden{display:none}
+/* media preview: audio in composer + lightbox */
+.attach-preview-grid .preview audio{width:100%;height:32px;border-radius:8px;display:block}
+.media-lightbox{position:fixed;inset:0;z-index:75;display:grid;place-items:center;padding:20px}
+.media-lightbox.hidden{display:none}
+.media-lightbox-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.62);backdrop-filter:blur(14px) saturate(1.15)}
+.media-lightbox-panel{position:relative;z-index:1;background:#0f172a;border:1px solid rgba(255,255,255,.10);border-radius:20px;box-shadow:0 24px 60px rgba(15,23,42,.35), 0 8px 24px rgba(15,23,42,.18);max-width:min(92vw,840px);max-height:min(88dvh,760px);width:100%;display:flex;flex-direction:column;overflow:hidden;animation:scaleIn .22s var(--ease-out)}
+.media-lightbox-close{position:absolute;top:10px;right:10px;z-index:2;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.14);color:#fff;backdrop-filter:blur(8px)}
+.media-lightbox-close:hover{background:rgba(255,255,255,.16)}
+.media-lightbox-body{display:grid;place-items:center;overflow:auto;padding:16px;background:#0f172a;min-height:220px;max-height:68dvh}
+.media-lightbox-body img,.media-lightbox-body video{max-width:100%;max-height:64dvh;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);display:block}
+.media-lightbox-body audio{width:min(420px,84vw);height:44px;border-radius:999px}
+.media-lightbox-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#1e293b;border-top:1px solid rgba(255,255,255,.08);color:#cbd5e1}
+.media-lightbox-name{font-family:var(--mono);font-size:12px;font-weight:650;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+@media(max-width:640px){.media-lightbox{padding:10px}.media-lightbox-panel{border-radius:16px}.media-lightbox-body{padding:10px}}
 .drop-overlay div{background:linear-gradient(180deg,#fff,#fcfcfe);border:1px solid #bfdbfe;border-radius:20px;padding:28px 32px;text-align:center;box-shadow:var(--shadow-lg);animation:scaleIn .18s var(--ease-out);min-width:min(360px, 90vw);border-style:dashed;border-width:2px}
 .drop-overlay div > i{width:36px;height:36px;color:var(--primary)}
 .drop-overlay p{margin:10px 0 0;font-weight:800;letter-spacing:-.02em;font-size:15px}

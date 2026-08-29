@@ -286,6 +286,48 @@ let showArchived = false;
 let todos = (()=>{ try{ const v=JSON.parse(localStorage.getItem('mcp_todos_draft')||'null'); return Array.isArray(v)? v.filter(t=>t&&typeof t.text==='string').slice(0,20).map(t=>({text:String(t.text).slice(0,120), done:!!t.done})) : []; }catch{ return []; }})();
 let isRecording = false;
 let recognition = null;
+let mediaRecorder = null, mediaChunks = [], mediaStream = null;
+let mediaCaptureActive = false;
+async function startMediaCapture(){
+  if(mediaCaptureActive) return true;
+  if(!navigator.mediaDevices?.getUserMedia) return false;
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaChunks=[];
+    const mt = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+    mediaRecorder = new MediaRecorder(mediaStream, {mimeType: mt});
+    mediaRecorder.ondataavailable = e=>{ if(e.data && e.data.size>0) mediaChunks.push(e.data); };
+    mediaRecorder.start(100);
+    mediaCaptureActive = true;
+    return true;
+  }catch(e){ toast('Mic blocked — allow access'); return false; }
+}
+function stopMediaCapture(shouldSave=true){
+  return new Promise(res=>{
+    const cleanup = ()=>{ if(mediaStream){ try{ mediaStream.getTracks().forEach(t=>t.stop()); }catch{} mediaStream=null; } mediaCaptureActive=false; mediaRecorder=null; };
+    if(!mediaRecorder || mediaRecorder.state==='inactive'){ cleanup(); res(null); return; }
+    const mime = mediaRecorder.mimeType || 'audio/webm';
+    mediaRecorder.onstop = ()=>{
+      const blob = new Blob(mediaChunks, {type: mime});
+      mediaChunks=[];
+      cleanup();
+      if(!shouldSave || blob.size < 800){ res(null); return; }
+      const ext = mime.includes('ogg') ? 'ogg' : 'webm';
+      const fname = `voice-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.${ext}`;
+      const file = new File([blob], fname, {type: mime});
+      const url = URL.createObjectURL(blob);
+      const id = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      const item = {id, file, url, kind:'audio', size: blob.size, voice:true};
+      const allowed= fmtSize? true:true;
+      if(pending.length >= 6){ toast('Limit 6 files'); try{URL.revokeObjectURL(url);}catch{} res(null); return; }
+      pending.push(item);
+      try{ drawPreview(); syncComposer(); }catch{}
+      toast(`Voice ${fmtSize(blob.size)} added — send or ✕ to remove`, 2400);
+      res(item);
+    };
+    try{ mediaRecorder.stop(); }catch{ cleanup(); res(null); }
+  });
+}
 let history = { undo: [], redo: [] };
 
 const safeParse = (key, fallback) => {
@@ -1594,14 +1636,18 @@ function drawPreview(){
     let inner='';
     if(kind==='image'){
       inner=`<img src="${p.url}" alt="${name}" loading="lazy"><div class="preview-meta"><span>${ext||'IMG'}</span><span class="size">${size}</span></div>`;
-      return `<div class="preview" tabindex="0" aria-label="${name} ${size} — image"><div style="position:absolute;inset:0">${inner}</div><button class="rm" data-rm="${p.id}" aria-label="Remove ${name}" title="Remove"><i data-lucide="x"></i></button></div>`;
+      return `<div class="preview" tabindex="0" aria-label="${name} ${size} — image — click to preview" data-lightbox="${p.id}"><div style="position:absolute;inset:0">${inner}</div><button class="rm" data-rm="${p.id}" aria-label="Remove ${name}" title="Remove"><i data-lucide="x"></i></button></div>`;
     }
     if(kind==='video'){
       inner=`<video src="${p.url}" muted preload="metadata"></video><div class="preview-meta"><i data-lucide="play" style="width:10px;height:10px"></i><span>VIDEO</span><span class="size">${size}</span></div>`;
-      return `<div class="preview" tabindex="0" aria-label="${name} ${size} — video"><div style="position:absolute;inset:0;display:grid;place-items:center;background:#0f172a">${inner}</div><button class="rm" data-rm="${p.id}" aria-label="Remove ${name}"><i data-lucide="x"></i></button></div>`;
+      return `<div class="preview" tabindex="0" aria-label="${name} ${size} — video — click to preview" data-lightbox="${p.id}"><div style="position:absolute;inset:0;display:grid;place-items:center;background:#0f172a">${inner}</div><button class="rm" data-rm="${p.id}" aria-label="Remove ${name}"><i data-lucide="x"></i></button></div>`;
     }
-    // file-type cards for audio/pdf/csv/json/txt/generic
-    const iconMap={audio:'audio', pdf:'pdf', csv:'csv', json:'json', txt:'txt'};
+    if(kind==='audio'){
+      const audioMeta=`<div style="display:flex;gap:10px;align-items:center;width:100%"><div class="preview-icon audio"><i data-lucide="music" style="width:14px;height:14px"></i></div><div class="fn" style="text-align:left;align-items:flex-start"><strong title="${name}">${esc(p.file.name.length>22?p.file.name.slice(0,20)+'…':p.file.name)}</strong><small>${ext} • ${size}</small></div></div>`;
+      return `<div class="preview preview--audio" tabindex="0" aria-label="${name} ${size} — audio" data-lightbox="${p.id}"><div style="display:flex;flex-direction:column;gap:8px;width:100%">${audioMeta}<audio src="${p.url}" controls preload="metadata" style="width:100%;height:32px;border-radius:8px"></audio></div><button class="rm" data-rm="${p.id}" aria-label="Remove ${name}" title="Remove ${name}"><i data-lucide="x"></i></button></div>`;
+    }
+    // file-type cards for pdf/csv/json/txt/generic
+    const iconMap={pdf:'pdf', csv:'csv', json:'json', txt:'txt'};
     const iconCls=iconMap[kind]||'generic';
     const iconLabel={audio:'♫', pdf:'PDF', csv:'CSV', json:'JSON', txt:'TXT'}[kind]||ext.slice(0,4);
     const lucideIcon={audio:'music', pdf:'file-text', csv:'table', json:'braces', txt:'file-text', file:'file'}[kind]||'file';
@@ -1617,16 +1663,73 @@ function drawPreview(){
   // after render, trap focus on grid? keep composer
 }
 attachBtn?.addEventListener('click', ()=> mediaInput?.click());
-attachPreview?.addEventListener('click', e=>{
+ attachPreview?.addEventListener('click', e=>{
   const clear=e.target.closest('[data-clear-all]'); if(clear){ if(pending.length && confirm(`Remove all ${pending.length} files?`)){ pending.forEach(p=>{ if(p.url) try{URL.revokeObjectURL(p.url);}catch{} }); pending=[]; drawPreview(); syncComposer(); toast('Attachments cleared'); } return; }
-  const b=e.target.closest('[data-rm]'); if(!b) return;
-  const id=b.dataset.rm; const i=pending.findIndex(p=>p.id===id);
-  if(i>=0){ const name=pending[i].file.name; if(pending[i].url) try{URL.revokeObjectURL(pending[i].url);}catch{} pending.splice(i,1); drawPreview(); syncComposer(); toast(`Removed ${name.slice(0,22)}`); }
+  const b=e.target.closest('[data-rm]'); if(b){
+    const id=b.dataset.rm; const i=pending.findIndex(p=>p.id===id);
+    if(i>=0){ const name=pending[i].file.name; if(pending[i].url) try{URL.revokeObjectURL(pending[i].url);}catch{} pending.splice(i,1); drawPreview(); syncComposer(); toast(`Removed ${name.slice(0,22)}`); }
+    return;
+  }
+  if(e.target.tagName==='AUDIO' || e.target.closest('audio')) return;
+  const pv=e.target.closest('[data-lightbox]'); if(pv){
+    const id=pv.dataset.lightbox; const p=pending.find(x=>x.id===id); if(p) openMediaLightbox({url:p.url, name:p.file.name, type:p.file.type, kind:p.kind});
+    return;
+  }
 });
 mediaInput?.addEventListener('change', e=>{ if(e.target.files.length) addFiles([...e.target.files]); e.target.value=''; });
 attachPreview?.addEventListener('keydown', e=>{
   if(e.key==='Escape'){ e.stopPropagation(); attachPreview.querySelector('.attach-clear')?.focus(); }
-  if((e.key==='Enter'||e.key===' ') && e.target.classList.contains('preview')){ e.preventDefault(); e.target.querySelector('.rm')?.click(); }
+});
+// media lightbox — before/after send view/play
+function openMediaLightbox({url, name, type, kind}){
+  const lb=$('#mediaLightbox'), body=$('#mediaLightboxBody'), nameEl=$('#mediaLightboxName'), dl=$('#mediaLightboxDownload');
+  if(!lb||!body) return;
+  if(nameEl) nameEl.textContent=name||'Media';
+  if(dl){ dl.href=url; dl.download=name||'media'; dl.style.display='inline-flex'; }
+  let inner='';
+  const isImg = kind==='image' || (type&&type.startsWith('image/'));
+  const isVid = kind==='video' || (type&&type.startsWith('video/'));
+  const isAud = kind==='audio' || (type&&type.startsWith('audio/'));
+  const escName=esc(name||'');
+  if(isImg) inner=`<img src="${url}" alt="${escName}" style="max-width:100%;max-height:64dvh;border-radius:14px">`;
+  else if(isVid) inner=`<video src="${url}" controls autoplay playsinline style="max-width:100%;max-height:64dvh;border-radius:14px;background:#000"></video>`;
+  else if(isAud) inner=`<div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 0"><div class="chip-icon audio" style="width:56px;height:56px"><i data-lucide="music" style="width:22px;height:22px"></i></div><strong style="color:#e2e8f0">${escName}</strong><audio src="${url}" controls autoplay style="width:min(420px,84vw);height:44px"></audio></div>`;
+  else inner=`<div style="color:#e2e8f0;text-align:center"><p>${escName}</p><a href="${url}" download="${escName}" style="color:#93c5fd">Download</a></div>`;
+  body.innerHTML=inner;
+  lb.classList.remove('hidden'); document.body.style.overflow='hidden';
+  try{ refreshIcons(); }catch{}
+  // focus close for a11y
+  setTimeout(()=> $('#mediaLightboxClose')?.focus(), 30);
+}
+function closeMediaLightbox(){
+  const lb=$('#mediaLightbox'), body=$('#mediaLightboxBody');
+  if(body) body.innerHTML='';
+  if(lb) lb.classList.add('hidden');
+  document.body.style.overflow='';
+}
+$('#mediaLightboxBackdrop')?.addEventListener('click', closeMediaLightbox);
+$('#mediaLightboxClose')?.addEventListener('click', closeMediaLightbox);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !$('#mediaLightbox')?.classList.contains('hidden')) closeMediaLightbox(); });
+// chat media -> lightbox (delegated, after send)
+messagesEl?.addEventListener('click', e=>{
+  // don't open when clicking msg actions
+  if(e.target.closest('.msg-action') || e.target.closest('audio') && e.target.tagName==='AUDIO') {
+    // if click directly on audio controls, don't lightbox — but chip click should lightbox; audio click already has stopPropagation in generation for chip, so we handle here: if target is audio element itself, ignore
+    if(e.target.tagName==='AUDIO') return;
+  }
+  const t=e.target.closest('[data-lightbox-url]');
+  if(t){
+    const url=t.dataset.lightboxUrl, name=t.dataset.lightboxName||'Media', kind=t.dataset.lightboxKind||'';
+    openMediaLightbox({url, name, type:'', kind});
+  }
+});
+// also allow Enter on focused media
+messagesEl?.addEventListener('keydown', e=>{
+  if((e.key==='Enter'||e.key===' ') && e.target.matches('[data-lightbox-url]')){ e.preventDefault(); e.target.click(); }
+});
+// Enter on composer preview preview
+attachPreview?.addEventListener('keydown', e=>{
+  if((e.key==='Enter'||e.key===' ') && e.target.closest('[data-lightbox]')){ e.preventDefault(); const pv=e.target.closest('[data-lightbox]'); const p=pending.find(x=>x.id===pv.dataset.lightbox); if(p) openMediaLightbox({url:p.url,name:p.file.name,type:p.file.type,kind:p.kind}); }
 });
 // initial badge sync
 try{ syncAttachBadge(); }catch{}
@@ -2264,6 +2367,8 @@ function toggleSpeech(){
       setSpeechState('recording', 'Listening — say “query users” or “list files”');
       if(speechInterim) speechInterim.textContent='…';
       toast('Listening (mock)… say something');
+      // real capture in background (if mic available)
+      try{ startMediaCapture(); }catch{}
       // mock interim simulation
       let mockInterim=['query','query users','query users table…'];
       let idx=0;
@@ -2274,11 +2379,11 @@ function toggleSpeech(){
   }
   if(isRecording) { try{ recognition.stop(); }catch{} }
   else {
-    // permission hint
+    // permission hint + real capture
     if(navigator.mediaDevices?.getUserMedia){
-      navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{ s.getTracks().forEach(tr=>tr.stop()); try{ recognition.start(); }catch(e){ toast('Mic blocked — check permissions'); setSpeechState('idle'); } }).catch(()=>{ toast('Microphone blocked — enable in browser settings'); setSpeechState('idle'); });
+      navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{ s.getTracks().forEach(tr=>tr.stop()); try{ recognition.start(); startMediaCapture(); }catch(e){ toast('Mic blocked — check permissions'); setSpeechState('idle'); } }).catch(()=>{ toast('Microphone blocked — enable in browser settings'); setSpeechState('idle'); });
     } else {
-      try{ recognition.start(); }catch(e){ toast('Mic error'); setSpeechState('idle'); }
+      try{ recognition.start(); startMediaCapture(); }catch(e){ toast('Mic error'); setSpeechState('idle'); }
     }
   }
 }
@@ -2292,6 +2397,8 @@ function stopSpeechClick(cancel=false){
   if(speechInterim) speechInterim.textContent='';
   if(cancel && speechText) speechText.textContent='Canceled';
   if(cancel) toast('Canceled');
+  // real voice file: capture -> composer preview (or discard on cancel)
+  try{ if(mediaCaptureActive) stopMediaCapture(!cancel); }catch{}
 }
 let micHoldActive=false, micHoldTimer=null, micWasRecordingOnDown=false;
 function bindMicHold(){
@@ -2468,9 +2575,9 @@ function renderMessages(){
           const isImg=t.startsWith('image/');
           const isVid=t.startsWith('video/');
           const isAud=t.startsWith('audio/');
-          if(isImg) return `<img src="${f.url}" alt="${esc(n)}" loading="lazy" title="${esc(n)}">`;
-          if(isVid) return `<video src="${f.url}" controls preload="metadata" title="${esc(n)}" style="width:200px"></video>`;
-          if(isAud) return `<span class="file-chip" title="${esc(n)}"><span class="chip-icon audio"><i data-lucide="music" style="width:14px;height:14px"></i></span><span class="chip-meta"><strong>${esc(n.length>20?n.slice(0,18)+'…':n)}</strong><small>audio • ${esc(ext.toUpperCase())}</small></span><audio src="${f.url}" controls style="width:120px;height:28px;margin-left:6px"></audio></span>`;
+          if(isImg) return `<img src="${f.url}" alt="${esc(n)}" loading="lazy" title="${esc(n)} — click to zoom" data-lightbox-url="${esc(f.url)}" data-lightbox-name="${esc(n)}" data-lightbox-kind="image" tabindex="0" style="cursor:zoom-in">`;
+          if(isVid) return `<video src="${f.url}" controls preload="metadata" title="${esc(n)} — click to expand" data-lightbox-url="${esc(f.url)}" data-lightbox-name="${esc(n)}" data-lightbox-kind="video" tabindex="0" style="width:200px;cursor:zoom-in"></video>`;
+          if(isAud) return `<span class="file-chip" title="${esc(n)} — click to expand audio" data-lightbox-url="${esc(f.url)}" data-lightbox-name="${esc(n)}" data-lightbox-kind="audio" tabindex="0" style="cursor:pointer"><span class="chip-icon audio"><i data-lucide="music" style="width:14px;height:14px"></i></span><span class="chip-meta"><strong>${esc(n.length>20?n.slice(0,18)+'…':n)}</strong><small>audio • ${esc(ext.toUpperCase())}</small></span><audio src="${f.url}" controls style="width:120px;height:28px;margin-left:6px" onclick="event.stopPropagation()"></audio></span>`;
           // generic file chips — pdf/csv/json/txt
           let chipCls='generic', luc='file', label=ext.toUpperCase()||'FILE';
           if(ext==='pdf'){ chipCls='pdf'; luc='file-text'; }
