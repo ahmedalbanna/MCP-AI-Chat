@@ -3025,46 +3025,64 @@ function getPromptFiltered(){
   return list;
 }
 function renderPromptCats(){
-  const cats=['All', ...new Set(getAllPrompts().map(p=>p.cat))];
-  if(promptCatsEl) promptCatsEl.innerHTML=cats.map(c=>`<button class="${activePromptCat===c?'active':''}" data-cat="${c}">${esc(c)}</button>`).join('');
-  // sync quick filters active
+  const all = getAllPrompts();
+  const counts = {};
+  all.forEach(p=> counts[p.cat]=(counts[p.cat]||0)+1);
+  const cats=['All', ...new Set(all.map(p=>p.cat))];
+  if(promptCatsEl) promptCatsEl.innerHTML=cats.map(c=>{
+    const n = c==='All' ? all.length : (counts[c]||0);
+    return `<button class="${activePromptCat===c?'active':''}" data-cat="${esc(c)}">${esc(c)} <span class="cat-count">${n}</span></button>`;
+  }).join('');
+  // sync quick filters active (CSS handles visuals via .active)
   if(promptQuickFilters){
     promptQuickFilters.querySelectorAll('[data-pf]').forEach(b=> b.classList.toggle('active', b.dataset.pf===activePromptFilter));
-    // style active pill like cats
-    promptQuickFilters.querySelectorAll('[data-pf]').forEach(b=>{
-      if(b.dataset.pf===activePromptFilter){ b.style.background='var(--text)'; b.style.color='#fff'; b.style.borderColor='var(--text)'; }
-      else { b.style.background=''; b.style.color=''; b.style.borderColor=''; }
-    });
   }
-  const total=getAllPrompts().length;
+  const total=all.length;
   const favs=PROMPT_FAVS.length;
-  if(promptStatsCount) promptStatsCount.textContent=`${total} prompts`;
-  if(promptStatsFav) promptStatsFav.textContent=`${favs} favorites`;
   if(promptLibraryCount) promptLibraryCount.textContent=`${total} prompts`;
+  // stats updated in renderPromptGrid for filtered count; keep favs here
+  if(promptStatsFav) promptStatsFav.textContent=`${favs} favorites`;
 }
 function renderPromptGrid(){
   const filtered= getPromptFiltered();
+  const total=getAllPrompts().length;
+  // update stats: show filtered vs total when filtering
+  if(promptStatsCount){
+    const isFiltering = (promptSearch?.value||'').trim() || activePromptCat!=='All' || activePromptFilter!=='all';
+    promptStatsCount.textContent = isFiltering ? `${filtered.length} of ${total} prompts` : `${total} prompts`;
+  }
+  // toggle search clear button
+  const clearBtn=document.getElementById('promptSearchClear');
+  if(clearBtn){
+    if((promptSearch?.value||'').trim()) clearBtn.classList.remove('hidden');
+    else clearBtn.classList.add('hidden');
+  }
   if(promptGridEl){
     if(!filtered.length){
       const q=(promptSearch?.value||'').trim();
-      promptGridEl.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:28px 16px;background:#fff;border:1px dashed var(--line);border-radius:14px"><i data-lucide="search-x" style="width:24px;height:24px;color:#cbd5e1;margin:0 auto;display:block"></i><p style="margin:10px 0 0;font-weight:700">No prompts found</p><p style="font-size:12px;color:var(--muted);margin:4px 0 0">${q?`No match for "${esc(q)}"`:'Try another filter'}</p><button class="ghost-btn sm" style="margin-top:10px" onclick="document.getElementById('promptSearch').value=''; document.getElementById('promptSearch').dispatchEvent(new Event('input'))">Clear search</button></div>`;
+      let title='No prompts found', desc='Try another filter', icon='search-x', action='';
+      if(q){ title='No match'; desc=`No match for "${esc(q)}"`; }
+      else if(activePromptFilter==='favorites'){ title='No favorites yet'; desc='Star prompts to save them here'; icon='star'; }
+      else if(activePromptFilter==='recent'){ title='No recent prompts'; desc='Use a prompt to see it here'; icon='clock'; }
+      else if(activePromptCat!=='All'){ title=`No ${esc(activePromptCat)} prompts`; desc='Try another category'; }
+      promptGridEl.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:28px 16px;background:#fff;border:1px dashed var(--line);border-radius:14px"><i data-lucide="${icon}" style="width:24px;height:24px;color:#cbd5e1;margin:0 auto;display:block"></i><p style="margin:10px 0 0;font-weight:700">${title}</p><p style="font-size:12px;color:var(--muted);margin:4px 0 0">${desc}</p><button class="ghost-btn sm" style="margin-top:10px" onclick="document.getElementById('promptSearch').value=''; document.getElementById('promptSearchClear')?.classList.add('hidden'); activePromptCat='All'; activePromptFilter='all'; renderPromptCats(); renderPromptGrid();">Clear filters</button></div>`;
     } else {
       promptGridEl.innerHTML=filtered.map(p=>{
         const isFav=PROMPT_FAVS.includes(p.title);
         const isRecent=getRecentPrompts().includes(p.title);
         const catCls=(p.cat||'MCP').toLowerCase();
         const modesBadge=(p.modes||[]).slice(0,3).map(m=>`<span class="mode">${esc(m)}</span>`).join('');
-        return `<div class="prompt-item ${isFav?'favorited':''} ${isRecent?'recent':''}" data-prompt="${esc(p.prompt)}" data-title="${esc(p.title)}">
+        return `<div class="prompt-item ${isFav?'favorited':''} ${isRecent?'recent':''}" data-prompt="${esc(p.prompt)}" data-title="${esc(p.title)}" tabindex="0" role="button" aria-label="Use prompt ${esc(p.title)}">
           <div class="prompt-item-head">
             <div class="prompt-item-icon ${catCls}"><i data-lucide="${p.icon||'lightbulb'}" style="width:16px;height:16px"></i></div>
             <div class="prompt-item-meta"><b>${esc(p.title)}</b><small>${esc(p.cat)} • ${esc((p.modes||[]).join(', ')||'general')}</small></div>
-            <button class="icon-btn xs" data-fav="${esc(p.title)}" title="${isFav?'Unfavorite':'Favorite'}" style="color:${isFav?'#f59e0b':'var(--faint)'}"><i data-lucide="${isFav?'star':'star'}" style="width:14px;height:14px;${isFav?'fill:#f59e0b;color:#f59e0b':''}"></i></button>
+            <button class="icon-btn xs" data-fav="${esc(p.title)}" title="${isFav?'Unfavorite':'Favorite'}" aria-label="${isFav?'Unfavorite':'Favorite'} ${esc(p.title)}" style="color:${isFav?'#f59e0b':'var(--faint)'}"><i data-lucide="${isFav?'star':'star'}" style="width:14px;height:14px;${isFav?'fill:#f59e0b;color:#f59e0b':''}"></i></button>
           </div>
           <p class="prompt-item-desc">${esc(p.prompt)}</p>
           <div class="prompt-item-badges"><span class="cat ${catCls}">${esc(p.cat)}</span>${modesBadge}${isRecent?'<span class="mono-badge" style="background:var(--primary-ghost);color:var(--primary);border-color:#dbeafe">recent</span>':''}<span style="margin-left:auto;font-size:10px;color:var(--faint);font-family:var(--mono)">${Math.ceil(p.prompt.length/4.2)} tok</span></div>
           <div class="prompt-item-actions">
-            <button class="ghost-btn" data-copy="${esc(p.title)}" title="Copy"><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button>
-            <button class="icon-btn sm" data-del-custom="${esc(p.title)}" title="Delete" style="${CUSTOM_PROMPTS.find(cp=>cp.title===p.title)?'':'display:none'};color:var(--bad)"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>
+            <button class="ghost-btn" data-copy="${esc(p.title)}" title="Copy" aria-label="Copy ${esc(p.title)}"><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button>
+            <button class="icon-btn sm" data-del-custom="${esc(p.title)}" title="Delete" aria-label="Delete ${esc(p.title)}" style="${CUSTOM_PROMPTS.find(cp=>cp.title===p.title)?'':'display:none'};color:var(--bad)"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>
             <button class="primary-btn sm" data-use="${esc(p.title)}" style="margin-left:auto"><i data-lucide="arrow-right" style="width:12px;height:12px"></i> Use prompt</button>
           </div>
         </div>`;
@@ -3084,6 +3102,10 @@ promptQuickFilters?.addEventListener('click', e=>{
   renderPromptCats(); renderPromptGrid();
 });
 promptSearch?.addEventListener('input', ()=> renderPromptGrid());
+document.getElementById('promptSearchClear')?.addEventListener('click', ()=>{
+  if(promptSearch){ promptSearch.value=''; promptSearch.dispatchEvent(new Event('input')); promptSearch.focus(); }
+});
+promptSearch?.addEventListener('keydown', e=>{ if(e.key==='Escape'){ e.target.value=''; e.target.dispatchEvent(new Event('input')); } });
 promptSort?.addEventListener('change', ()=> renderPromptGrid());
 promptClearRecents?.addEventListener('click', ()=>{ safeSet(PROMPT_RECENT_KEY, JSON.stringify([])); toast('Recent cleared'); renderPromptGrid(); renderPromptStrip(); });
 promptHelpBtn?.addEventListener('click', ()=> toast('Tip: Star favorites, type 2+ letters in chat for inline suggestions'));
@@ -3141,6 +3163,13 @@ promptGridEl?.addEventListener('click', e=>{
     return;
   }
   const card=e.target.closest('.prompt-item'); if(!card) return;
+  const pr=getAllPrompts().find(p=>p.title===card.dataset.title);
+  if(pr){ pushRecentPrompt(pr.title); inputEl.value=pr.prompt; autoResize(); syncComposer(); closeDrawerWithFocus(promptsView); toast('Prompt inserted'); inputEl.focus(); }
+});
+promptGridEl?.addEventListener('keydown', e=>{
+  if(e.key!=='Enter' && e.key!==' ') return;
+  const card=e.target.closest('.prompt-item'); if(!card) return;
+  e.preventDefault();
   const pr=getAllPrompts().find(p=>p.title===card.dataset.title);
   if(pr){ pushRecentPrompt(pr.title); inputEl.value=pr.prompt; autoResize(); syncComposer(); closeDrawerWithFocus(promptsView); toast('Prompt inserted'); inputEl.focus(); }
 });
