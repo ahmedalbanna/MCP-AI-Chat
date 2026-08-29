@@ -198,14 +198,17 @@ body{margin:0;font-family:var(--font);background:radial-gradient(1100px 520px at
 .primary-btn{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(180deg, var(--primary) 0%, var(--primary-2) 100%);color:#fff;border:none;padding:9px 15px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(37,99,235,.24), inset 0 1px 0 rgba(255,255,255,.15);transition:all .18s var(--ease);letter-spacing:-.01em}
 .primary-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(37,99,235,.28), inset 0 1px 0 rgba(255,255,255,.15);filter:brightness(1.02)}
 .primary-btn:active{transform:translateY(0) scale(.98)}
+.primary-btn:focus-visible{outline:none;box-shadow:0 0 0 4px rgba(37,99,235,.18), 0 4px 14px rgba(37,99,235,.24), inset 0 1px 0 rgba(255,255,255,.15)}
 .primary-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
 .ghost-btn{background:#fff;border:1px solid var(--line);padding:8px 13px;border-radius:999px;font-size:13px;font-weight:650;cursor:pointer;transition:all .18s var(--ease);box-shadow:var(--shadow-xs)}
+.ghost-btn:focus-visible{outline:none;border-color:var(--primary);box-shadow:0 0 0 4px rgba(37,99,235,.12), var(--shadow-xs)}
 .ghost-btn:hover{background:#f8fafc;border-color:#cbd5e1;transform:translateY(-1px)}
 .ghost-btn:active{transform:translateY(0)}
 .ghost-btn.sm{padding:7px 11px;font-size:12px}
 .icon-btn{border:none;background:transparent;width:44px;height:44px;min-width:44px;min-height:44px;border-radius:11px;display:grid;place-items:center;cursor:pointer;color:#475569;transition:all .18s var(--ease);position:relative}
 .icon-btn:hover{background:#f1f5f9;color:var(--text);transform:translateY(-1px)}
 .icon-btn:active{transform:translateY(0) scale(.96)}
+.icon-btn:focus-visible{outline:none;background:#eff6ff;border:1px solid #bfdbfe;box-shadow:0 0 0 4px rgba(37,99,235,.12)}
 .icon-btn.active{background:var(--primary);color:#fff;box-shadow:0 4px 12px rgba(37,99,235,.2)}
 .icon-btn.sm{width:40px;height:40px;min-width:40px;min-height:40px;border-radius:9px}
 .icon-btn.xs{width:36px;height:36px;min-width:36px;min-height:36px;border-radius:8px}
