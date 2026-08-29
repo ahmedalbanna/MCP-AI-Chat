@@ -2971,6 +2971,11 @@ const promptLibraryCount = document.getElementById('promptLibraryCount');
 const promptClearRecents = document.getElementById('promptClearRecents');
 const promptHelpBtn = document.getElementById('promptHelpBtn');
 const newPromptBtn = document.getElementById('newPromptBtn');
+const exportPromptsBtn = document.getElementById('exportPromptsBtn');
+const importPromptsBtn = document.getElementById('importPromptsBtn');
+const importPromptsFile = document.getElementById('importPromptsFile');
+const promptIconPreview = document.getElementById('promptIconPreview');
+const promptCharCount = document.getElementById('promptCharCount');
 const promptModal = document.getElementById('promptModal');
 const promptModalBackdrop = document.getElementById('promptModalBackdrop');
 const closePromptModal = document.getElementById('closePromptModal');
@@ -3117,8 +3122,56 @@ newPromptBtn?.addEventListener('click', ()=>{
   if(promptModal){
     document.getElementById('promptModalTitle').textContent='New Prompt';
     promptTitle.value=''; promptCat.value='MCP'; promptText.value=''; promptIcon.value='sparkles'; promptModes.value='';
+    if(promptCharCount) promptCharCount.textContent='0 / 500';
+    if(promptIconPreview){ promptIconPreview.innerHTML='<i data-lucide="sparkles" style="width:16px;height:16px;color:var(--primary)"></i>'; refreshIcons(); }
     promptModal.classList.remove('hidden'); refreshIcons();
   }
+});
+promptTitle?.addEventListener('input', ()=>{
+  const val=promptTitle.value.trim();
+  if(val && getAllPrompts().find(p=>p.title===val && (editingPromptIdx===null || CUSTOM_PROMPTS[editingPromptIdx]?.title!==val))){
+    promptTitle.style.borderColor='#f59e0b'; promptTitle.style.boxShadow='0 0 0 3px rgba(245,158,11,.14)';
+    promptTitle.title='Title already exists';
+  } else { promptTitle.style.borderColor=''; promptTitle.style.boxShadow=''; promptTitle.title=''; }
+});
+promptText?.addEventListener('input', ()=>{
+  if(promptCharCount) promptCharCount.textContent=`${promptText.value.length} / 500`;
+});
+promptIcon?.addEventListener('change', ()=>{
+  if(promptIconPreview){
+    const icon=promptIcon.value||'sparkles';
+    promptIconPreview.innerHTML=`<i data-lucide="${icon}" style="width:16px;height:16px;color:var(--primary)"></i>`;
+    refreshIcons();
+  }
+});
+exportPromptsBtn?.addEventListener('click', ()=>{
+  const data=JSON.stringify(CUSTOM_PROMPTS.length?CUSTOM_PROMPTS:getAllPrompts(), null, 2);
+  const blob=new Blob([data], {type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='mcp-prompts.json'; a.click();
+  URL.revokeObjectURL(url); toast(CUSTOM_PROMPTS.length?`Exported ${CUSTOM_PROMPTS.length} custom prompts`:`Exported ${getAllPrompts().length} prompts`);
+});
+importPromptsBtn?.addEventListener('click', ()=> importPromptsFile?.click());
+importPromptsFile?.addEventListener('change', e=>{
+  const f=e.target.files?.[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const arr=JSON.parse(String(reader.result||'[]'));
+      if(!Array.isArray(arr)) throw new Error('Invalid format');
+      let added=0, skipped=0;
+      arr.forEach(pr=>{
+        if(!pr.title || !pr.prompt) return;
+        if(getAllPrompts().find(p=>p.title===pr.title)){ skipped++; return; }
+        CUSTOM_PROMPTS.push({title:String(pr.title).slice(0,60), cat:pr.cat||'MCP', icon:pr.icon||'sparkles', prompt:String(pr.prompt).slice(0,500), modes:Array.isArray(pr.modes)?pr.modes.slice(0,5):[]});
+        added++;
+      });
+      if(added){ saveCustomPrompts(); renderPromptCats(); renderPromptGrid(); renderPromptStrip(); toast(`Imported ${added} prompts${skipped?`, ${skipped} skipped (duplicate)`:''}`); }
+      else toast(skipped?'No new prompts — all duplicates':'No valid prompts found');
+    } catch(err){ toast('Import failed: '+(err?.message||'invalid JSON')); }
+    e.target.value='';
+  };
+  reader.readAsText(f);
 });
 closePromptModal?.addEventListener('click', ()=> closeDrawerWithFocus(promptModal));
 promptModalBackdrop?.addEventListener('click', ()=> closeDrawerWithFocus(promptModal));
@@ -3149,7 +3202,16 @@ promptGridEl?.addEventListener('click', e=>{
     e.stopPropagation();
     const title=copy.dataset.copy;
     const pr=getAllPrompts().find(p=>p.title===title);
-    if(pr){ navigator.clipboard.writeText(pr.prompt).then(()=> toast('Copied')).catch(()=> toast('Copy failed')); }
+    if(pr){
+      navigator.clipboard.writeText(pr.prompt).then(()=>{
+        const orig=copy.innerHTML;
+        copy.innerHTML='<i data-lucide="check" style="width:12px;height:12px"></i> Copied!';
+        copy.style.color='var(--ok)'; copy.style.borderColor='#bbf7d0'; copy.style.background='#f0fdf4';
+        refreshIcons();
+        toast('Copied');
+        setTimeout(()=>{ copy.innerHTML=orig; copy.style.color=''; copy.style.borderColor=''; copy.style.background=''; refreshIcons(); }, 1600);
+      }).catch(()=> toast('Copy failed'));
+    }
     return;
   }
   const del=e.target.closest('[data-del-custom]'); if(del){
