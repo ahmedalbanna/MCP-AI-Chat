@@ -671,7 +671,7 @@ tbody tr:hover td{background:#f8fafc}
 .tool .ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:#fff;margin-bottom:10px;box-shadow:var(--shadow-xs)}
 .tool b{font-size:13px;font-weight:700;letter-spacing:-.01em}
 .tool p{margin:4px 0 0;font-size:11px;color:var(--muted);font-weight:500}
-.market-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.market-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media(max-width:600px){.market-grid{grid-template-columns:1fr}}
 .mkt-card{border:1px solid var(--line);background:#fff;border-radius:14px;padding:13px;display:flex;flex-direction:column;gap:9px;transition:all .18s var(--ease);position:relative;overflow:visible;cursor:pointer;isolation:isolate}
 .mkt-card:hover{border-color:#93c5fd;box-shadow:var(--shadow-sm);transform:translateY(-1px)}
@@ -690,7 +690,7 @@ tbody tr:hover td{background:#f8fafc}
 .mkt-foot .stars{font-size:11px;color:#f59e0b;font-weight:700}
 .mkt-foot .installs{font-size:11px;color:var(--muted);font-family:var(--mono)}
 .market-tabs::-webkit-scrollbar{display:none}
-.market-tabs{scrollbar-width:none}
+.market-tabs{scrollbar-width:none;mask-image:linear-gradient(90deg, #000 96%, transparent 100%);-webkit-mask-image:linear-gradient(90deg, #000 96%, transparent 100%);padding-bottom:2px;scroll-behavior:smooth}
 .market-detail-hero{padding:18px;background:linear-gradient(135deg,#0f172a 0%, #1e293b 100%);color:#fff;position:relative}
 .market-detail-hero .ic{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;color:#fff;font-size:18px;font-weight:800}
 .market-detail-body{padding:16px;display:flex;flex-direction:column;gap:14px}
@@ -715,7 +715,7 @@ tbody tr:hover td{background:#f8fafc}
 #promptStatsFav{font-weight:600}
 #promptClearRecents{font-size:11px;font-weight:700;color:var(--primary);cursor:pointer;padding:4px 8px;border-radius:999px;border:1px solid transparent;transition:all .15s}
 #promptClearRecents:hover{background:#eff6ff;border-color:#dbeafe}
-.prompt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.prompt-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media(max-width:640px){.prompt-grid{grid-template-columns:1fr}}
 .prompt-item{border:1px solid var(--line);background:#fff;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;cursor:pointer;transition:all .18s var(--ease);position:relative;overflow:hidden}
 .prompt-item:hover{border-color:#cbd5e1;background:#fff;transform:translateY(-2px);box-shadow:var(--shadow-md)}
