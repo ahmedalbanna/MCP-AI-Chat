@@ -317,6 +317,8 @@ const toast=(m,d=2200)=>{
   const el = (typeof toastEl !== 'undefined' ? toastEl : document.getElementById('toast')); if(!el) return; el.textContent=m; el.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.add('hidden'),d);
 };
 const esc=s=> String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const escRegExp=s=> String(s||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+const hl=(text,q)=>{ if(!q) return esc(text); const t=String(text||''); const re=new RegExp('('+escRegExp(q)+')','gi'); return esc(t).replace(re,'<mark>$1</mark>'); };
 const scrollBottom=()=>{ const el = (typeof messagesEl !== 'undefined' ? messagesEl : document.getElementById('messages')); if(el) el.scrollTo({top:el.scrollHeight, behavior:'smooth'}); };
 // ——— A11y: focus trap & restore ———
 let _lastFocus=null;
@@ -3067,6 +3069,7 @@ function renderPromptGrid(){
       else if(activePromptCat!=='All'){ title=`No ${esc(activePromptCat)} prompts`; desc='Try another category'; }
       promptGridEl.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:28px 16px;background:#fff;border:1px dashed var(--line);border-radius:14px"><i data-lucide="${icon}" style="width:24px;height:24px;color:#cbd5e1;margin:0 auto;display:block"></i><p style="margin:10px 0 0;font-weight:700">${title}</p><p style="font-size:12px;color:var(--muted);margin:4px 0 0">${desc}</p><button class="ghost-btn sm" style="margin-top:10px" onclick="document.getElementById('promptSearch').value=''; document.getElementById('promptSearchClear')?.classList.add('hidden'); activePromptCat='All'; activePromptFilter='all'; renderPromptCats(); renderPromptGrid();">Clear filters</button></div>`;
     } else {
+      const q=(promptSearch?.value||'').trim();
       promptGridEl.innerHTML=filtered.map(p=>{
         const isFav=PROMPT_FAVS.includes(p.title);
         const isRecent=getRecentPrompts().includes(p.title);
@@ -3075,10 +3078,10 @@ function renderPromptGrid(){
         return `<div class="prompt-item ${isFav?'favorited':''} ${isRecent?'recent':''}" data-prompt="${esc(p.prompt)}" data-title="${esc(p.title)}" tabindex="0" role="button" aria-label="Use prompt ${esc(p.title)}">
           <div class="prompt-item-head">
             <div class="prompt-item-icon ${catCls}"><i data-lucide="${p.icon||'lightbulb'}" style="width:16px;height:16px"></i></div>
-            <div class="prompt-item-meta"><b>${esc(p.title)}</b><small>${esc(p.cat)} • ${esc((p.modes||[]).join(', ')||'general')}</small></div>
+            <div class="prompt-item-meta"><b>${hl(p.title,q)}</b><small>${hl(p.cat,q)} • ${hl((p.modes||[]).join(', ')||'general',q)}</small></div>
             <button class="icon-btn xs" data-fav="${esc(p.title)}" title="${isFav?'Unfavorite':'Favorite'}" aria-label="${isFav?'Unfavorite':'Favorite'} ${esc(p.title)}" style="color:${isFav?'#f59e0b':'var(--faint)'}"><i data-lucide="${isFav?'star':'star'}" style="width:14px;height:14px;${isFav?'fill:#f59e0b;color:#f59e0b':''}"></i></button>
           </div>
-          <p class="prompt-item-desc">${esc(p.prompt)}</p>
+          <p class="prompt-item-desc">${hl(p.prompt,q)}</p>
           <div class="prompt-item-badges"><span class="cat ${catCls}">${esc(p.cat)}</span>${modesBadge}${isRecent?'<span class="mono-badge" style="background:var(--primary-ghost);color:var(--primary);border-color:#dbeafe">recent</span>':''}<span style="margin-left:auto;font-size:10px;color:var(--faint);font-family:var(--mono)">${Math.ceil(p.prompt.length/4.2)} tok</span></div>
           <div class="prompt-item-actions">
             <button class="ghost-btn" data-copy="${esc(p.title)}" title="Copy" aria-label="Copy ${esc(p.title)}"><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button>
@@ -3510,6 +3513,7 @@ topbarOverflowMenu?.addEventListener('click', e=>{
   else if(act==='redo') document.getElementById('redoBtn')?.click();
   else if(act==='new') { const c=getActiveChat(); if(!c || c.messages.length) document.getElementById('newChatBtn')?.click(); else toast('New chat ready'); }
   else if(act==='servers') openSettings();
+  else if(act==='prompts'){ renderPromptCats(); renderPromptGrid(); openDrawerWithFocus(promptsView, '#promptSearch'); }
 });
 topbarOverflowMenu?.addEventListener('keydown', e=>{
   const items=[...topbarOverflowMenu.querySelectorAll('[data-overflow]:not([disabled])')];

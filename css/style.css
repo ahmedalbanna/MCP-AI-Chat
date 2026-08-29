@@ -720,6 +720,7 @@ tbody tr:hover td{background:#f8fafc}
 .prompt-item-meta b{font-size:13px;font-weight:750;display:flex;align-items:center;gap:6px;letter-spacing:-.01em}
 .prompt-item-meta small{font-size:11px;color:var(--faint);font-weight:600}
 .prompt-item-desc{margin:0;font-size:12.5px;color:var(--muted);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:36px}
+.prompt-item mark{background:#fef08a;color:#422006;padding:0 2px;border-radius:3px;font-weight:700;box-decoration-break:clone;-webkit-box-decoration-break:clone}
 .prompt-item-badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .prompt-item-badges .cat{font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 7px;border-radius:999px;border:1px solid var(--line);background:#f8fafc;color:var(--muted);text-transform:uppercase}
 .prompt-item-badges .cat.mcp{color:#2563eb;border-color:#dbeafe;background:#eff6ff}
@@ -824,6 +825,10 @@ tbody tr:hover td{background:#f8fafc}
   .send-btn{width:36px;height:36px}
 }
 #overflowServersItem{display:none}
+#overflowPromptsItem{display:none}
+@media(max-width:640px){
+  #overflowPromptsItem{display:flex}
+}
 @media(max-width:400px){
   #serversBtn{display:none}
   #overflowServersItem{display:flex}
