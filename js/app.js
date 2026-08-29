@@ -3086,7 +3086,7 @@ function renderPromptGrid(){
             <div class="prompt-item-meta"><b>${hl(p.title,q)}</b><small>${hl(p.cat,q)} • ${hl((p.modes||[]).join(', ')||'general',q)}</small></div>
             <button class="icon-btn xs" data-fav="${esc(p.title)}" title="${isFav?'Unfavorite':'Favorite'}" aria-label="${isFav?'Unfavorite':'Favorite'} ${esc(p.title)}" style="color:${isFav?'#f59e0b':'var(--faint)'}"><i data-lucide="${isFav?'star':'star'}" style="width:14px;height:14px;${isFav?'fill:#f59e0b;color:#f59e0b':''}"></i></button>
           </div>
-          <p class="prompt-item-desc">${hl(p.prompt,q)}</p>
+          <p class="prompt-item-desc" title="Click to expand • press E">${hl(p.prompt,q)}</p>
           <div class="prompt-item-badges"><span class="cat ${catCls}">${esc(p.cat)}</span>${modesBadge}${isRecent?'<span class="mono-badge" style="background:var(--primary-ghost);color:var(--primary);border-color:#dbeafe">recent</span>':''}<span style="margin-left:auto;font-size:10px;color:var(--faint);font-family:var(--mono)">${Math.ceil(p.prompt.length/4.2)} tok</span></div>
           <div class="prompt-item-actions">
             <button class="ghost-btn" data-copy="${esc(p.title)}" title="Copy" aria-label="Copy ${esc(p.title)}"><i data-lucide="copy" style="width:12px;height:12px"></i> Copy</button>
@@ -3191,6 +3191,9 @@ promptForm?.addEventListener('submit', e=>{
   saveCustomPrompts(); renderPromptCats(); renderPromptGrid(); renderPromptStrip(); closeDrawerWithFocus(promptModal);
 });
 promptGridEl?.addEventListener('click', e=>{
+  const desc=e.target.closest('.prompt-item-desc'); if(desc){
+    desc.classList.toggle('expanded'); e.stopPropagation(); return;
+  }
   const fav=e.target.closest('[data-fav]'); if(fav){
     e.stopPropagation();
     const title=fav.dataset.fav;
@@ -3232,8 +3235,27 @@ promptGridEl?.addEventListener('click', e=>{
   if(pr){ pushRecentPrompt(pr.title); inputEl.value=pr.prompt; autoResize(); syncComposer(); closeDrawerWithFocus(promptsView); toast('Prompt inserted'); inputEl.focus(); }
 });
 promptGridEl?.addEventListener('keydown', e=>{
-  if(e.key!=='Enter' && e.key!==' ') return;
   const card=e.target.closest('.prompt-item'); if(!card) return;
+  const items=[...promptGridEl.querySelectorAll('.prompt-item')];
+  const idx=items.indexOf(card);
+  if(e.key==='ArrowRight'){ e.preventDefault(); const n=(idx+1)%items.length; items[n]?.focus(); return; }
+  if(e.key==='ArrowLeft'){ e.preventDefault(); const n=(idx-1+items.length)%items.length; items[n]?.focus(); return; }
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    const cols=getComputedStyle(promptGridEl).gridTemplateColumns.split(' ').length||1;
+    const n=idx+cols; if(n<items.length) items[n].focus(); else items[items.length-1].focus();
+    return;
+  }
+  if(e.key==='ArrowUp'){
+    e.preventDefault();
+    const cols=getComputedStyle(promptGridEl).gridTemplateColumns.split(' ').length||1;
+    const n=idx-cols; if(n>=0) items[n].focus(); else items[0].focus();
+    return;
+  }
+  if(e.key==='Home'){ e.preventDefault(); items[0]?.focus(); return; }
+  if(e.key==='End'){ e.preventDefault(); items[items.length-1]?.focus(); return; }
+  if(e.key==='e' || e.key==='E'){ e.preventDefault(); card.querySelector('.prompt-item-desc')?.classList.toggle('expanded'); return; }
+  if(e.key!=='Enter' && e.key!==' ') return;
   e.preventDefault();
   const pr=getAllPrompts().find(p=>p.title===card.dataset.title);
   if(pr){ pushRecentPrompt(pr.title); inputEl.value=pr.prompt; autoResize(); syncComposer(); closeDrawerWithFocus(promptsView); toast('Prompt inserted'); inputEl.focus(); }
