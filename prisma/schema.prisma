@@ -1,0 +1,128 @@
+// Prisma schema — production data layer (Postgres)
+// Run: npx prisma migrate dev --name init  |  npx prisma generate
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Transport { sse stdio http }
+enum ServerStatus { connected disconnected connecting }
+enum MessageRole { user assistant system }
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatar    String?
+  role      String   @default("Admin")
+  createdAt DateTime @default(now())
+  chats     Chat[]
+  providers Provider[]
+  servers   Server[]
+}
+
+model Provider {
+  id        String  @id
+  name      String
+  baseUrl   String
+  apiKey    String? // encrypted at rest (app-level AES-GCM)
+  models    String[]
+  temp      Float   @default(0.7)
+  maxTokens Int     @default(4096)
+  enabled   Boolean @default(true)
+  streaming Boolean @default(true)
+  latency   Int     @default(120)
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Server {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  transport   Transport
+  endpoint    String
+  tools       String
+  status      ServerStatus @default(disconnected)
+  color       String       @default("custom")
+  desc        String?
+  timeout     Int          @default(10000)
+  retries     Int          @default(2)
+  env         Json?
+  latency     Int?
+  health      String?
+  autoConnect Boolean      @default(false)
+  healthCheck Boolean      @default(true)
+  userId      String?
+  user        User?        @relation(fields: [userId], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Chat {
+  id        String    @id @default(cuid())
+  title     String
+  archived  Boolean   @default(false)
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id])
+  messages  Message[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  @@index([userId, createdAt])
+}
+
+model Message {
+  id        String      @id @default(cuid())
+  chatId    String
+  chat      Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  role      MessageRole
+  content   String      @db.Text
+  html      String?     // pg | aws | fs | generic
+  status    String?     // done | streaming
+  attachments Json?
+  createdAt DateTime    @default(now())
+  @@index([chatId, createdAt])
+}
+
+model AgentMode {
+  id        String  @id
+  name      String
+  icon      String
+  color     String
+  desc      String
+  prompt    String  @db.Text
+  temp      Float
+  tokens    Int
+  provider  String?
+  model     String?
+  servers   String[]
+  tools     Json
+  builtin   Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+model MarketItem {
+  id        String  @id
+  name      String
+  cat       String
+  icon      String
+  color     String
+  desc      String  @db.Text
+  author    String
+  version   String
+  stars     Float
+  installs  Int
+  installed Boolean @default(false)
+  featured  Boolean @default(false)
+  trending  Boolean @default(false)
+  isNew     Boolean @default(false)
+  tags      String[]
+  tools     String[]
+  verified  Boolean @default(false)
+  updatedAt DateTime @updatedAt
+}
