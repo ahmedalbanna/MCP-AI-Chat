@@ -17,7 +17,7 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
-    command: "npm run start",
+    command: "node .next/standalone/server.js",
     url: "http://localhost:3000/api/health",
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
@@ -25,6 +25,8 @@ export default defineConfig({
       DATABASE_URL: process.env.DATABASE_URL || "",
       AUTH_SECRET: process.env.AUTH_SECRET || "test-secret-for-e2e-32chars!!",
       ENCRYPTION_KEY: process.env.ENCRYPTION_KEY || "0123456789abcdef0123456789abcdef",
+      PORT: "3000",
+      HOSTNAME: "0.0.0.0",
     },
   },
 });
