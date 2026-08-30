@@ -22,6 +22,7 @@ type AppState = {
   marketTab: string;
   serverTab: string;
   promptRecent: string[];
+  dbHydrated: boolean;
   // actions
   setProvider: (id: string) => void;
   setModel: (m: string) => void;
@@ -35,6 +36,7 @@ type AppState = {
   archiveChat: (id: string) => void;
   deleteChat: (id: string) => void;
   renameChat: (id: string, title: string) => void;
+  hydrateFromDb: () => Promise<void>;
   sendMessage: (text: string, attachments?: { name: string; size: number; type: string }[]) => void;
   editMessage: (msgId: string, text: string) => void;
   deleteMessage: (msgId: string) => void;
@@ -72,6 +74,7 @@ export const useStore = create<AppState>()(
       marketTab: "all",
       serverTab: "all",
       promptRecent: [],
+      dbHydrated: false,
 
       setProvider: (id) => {
         const prov = get().providers.find((p) => p.id === id);
@@ -89,18 +92,48 @@ export const useStore = create<AppState>()(
       removeServer: (id) => set((s) => ({ servers: s.servers.filter((x) => x.id !== id) })),
 
       newChat: () => {
+        // optimistic local — sync to DB best-effort
         const c: Chat = { id: uid(), title: "New conversation", created: Date.now(), archived: false, messages: [] };
         set((s) => ({ chats: [c, ...s.chats], activeChatId: c.id }));
+        // try remote create; on success replace temp id with DB id
+        (async () => {
+          try {
+            const res = await fetch("/api/chats", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: c.title }) });
+            if (!res.ok) return;
+            const data: any = await res.json();
+            if (data?.id && data.id !== c.id) {
+              set((s) => ({
+                chats: s.chats.map((ch) => ch.id === c.id ? { ...ch, id: data.id } : ch),
+                activeChatId: s.activeChatId === c.id ? data.id : s.activeChatId,
+              }));
+            }
+          } catch {}
+        })();
       },
       selectChat: (id) => set({ activeChatId: id, sidebarOpen: false }),
-      archiveChat: (id) => set((s) => ({ chats: s.chats.map((c) => c.id === id ? { ...c, archived: !c.archived } : c) })),
-      deleteChat: (id) => set((s) => {
-        const chats = s.chats.filter((c) => c.id !== id);
-        let activeChatId = s.activeChatId;
-        if (activeChatId === id) activeChatId = chats[0]?.id || null;
-        return { chats, activeChatId };
-      }),
-      renameChat: (id, title) => set((s) => ({ chats: s.chats.map((c) => c.id === id ? { ...c, title: title.slice(0, 80) } : c) })),
+      archiveChat: (id) => {
+        const prev = get().chats.find((c) => c.id === id);
+        set((s) => ({ chats: s.chats.map((c) => c.id === id ? { ...c, archived: !c.archived } : c) }));
+        (async () => {
+          try {
+            const nextArchived = !prev?.archived;
+            await fetch(`/api/chats/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archived: nextArchived }) });
+          } catch {}
+        })();
+      },
+      deleteChat: (id) => {
+        set((s) => {
+          const chats = s.chats.filter((c) => c.id !== id);
+          let activeChatId = s.activeChatId;
+          if (activeChatId === id) activeChatId = chats[0]?.id || null;
+          return { chats, activeChatId };
+        });
+        (async () => { try { await fetch(`/api/chats/${id}`, { method: "DELETE" }); } catch {} })();
+      },
+      renameChat: (id, title) => {
+        set((s) => ({ chats: s.chats.map((c) => c.id === id ? { ...c, title: title.slice(0, 80) } : c) }));
+        (async () => { try { await fetch(`/api/chats/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: title.slice(0, 80) }) }); } catch {} })();
+      },
       sendMessage: (text, attachments) => {
         const activeId = get().activeChatId;
         if (!activeId) return;
@@ -292,6 +325,57 @@ export const useStore = create<AppState>()(
       addProvider: (p) => set((s) => ({ providers: [...s.providers, p] })),
       deleteProvider: (id) => set((s) => ({ providers: s.providers.filter((p) => p.id !== id) })),
       recordPromptUse: (prompt) => set((s) => ({ promptRecent: [prompt, ...s.promptRecent.filter((p) => p !== prompt)].slice(0, 8) })),
+      hydrateFromDb: async () => {
+        if (get().dbHydrated) return;
+        try {
+          const h = await fetch("/api/health", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+          if (!h || h.persistence !== "postgres") { set({ dbHydrated: true }); return; }
+          // chats
+          try {
+            const cRes = await fetch("/api/chats?limit=50", { cache: "no-store" });
+            if (cRes.ok) {
+              const cData: any = await cRes.json();
+              if (Array.isArray(cData.chats) && cData.chats.length > 0) {
+                const chats: Chat[] = cData.chats;
+                set((s) => {
+                  const activeStillExists = chats.some((ch) => ch.id === s.activeChatId);
+                  return { chats, activeChatId: activeStillExists ? s.activeChatId : chats[0]?.id || null };
+                });
+              }
+            }
+          } catch {}
+          // servers
+          try {
+            const sRes = await fetch("/api/servers", { cache: "no-store" });
+            if (sRes.ok) {
+              const sData: any = await sRes.json();
+              if (Array.isArray(sData.servers) && sData.servers.length > 0) set({ servers: sData.servers });
+            }
+          } catch {}
+          // providers
+          try {
+            const pRes = await fetch("/api/providers", { cache: "no-store" });
+            if (pRes.ok) {
+              const pData: any = await pRes.json();
+              if (Array.isArray(pData.providers) && pData.providers.length > 0) {
+                const providers: Provider[] = pData.providers.map((p: any) => ({ ...p, apiKey: p.apiKey?.startsWith("•") ? "" : p.apiKey || "" }));
+                set({ providers });
+              }
+            }
+          } catch {}
+          // modes
+          try {
+            const mRes = await fetch("/api/modes", { cache: "no-store" });
+            if (mRes.ok) {
+              const mData: any = await mRes.json();
+              if (Array.isArray(mData.modes) && mData.modes.length > 0) set({ modes: mData.modes });
+            }
+          } catch {}
+          set({ dbHydrated: true });
+        } catch {
+          set({ dbHydrated: true });
+        }
+      },
     }),
     {
       name: "mcp-ai-chat-v2",

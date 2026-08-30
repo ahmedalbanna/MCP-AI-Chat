@@ -4,6 +4,7 @@ import { Topbar } from "@/components/shell/Topbar";
 import { ChatView } from "@/components/chat/ChatView";
 import { ServersDrawer, MarketplaceDrawer, PromptsDrawer, ProvidersDrawer, ProfileDrawer, ModesDrawer } from "@/components/drawers/Drawers";
 import { useEffect, useState } from "react";
+import { useStore } from "@/lib/store";
 
 export default function Page() {
   const [ready, setReady]=useState(false);
@@ -13,6 +14,8 @@ export default function Page() {
     // hydrate guard for zustand persist
     const t=setTimeout(()=>setReady(true), 80);
     const s=setTimeout(()=>setShowSplash(false), 900);
+    // DB hydration — best-effort, falls back to localStorage mock
+    useStore.getState().hydrateFromDb?.().catch(()=>{});
     return()=>{ clearTimeout(t); clearTimeout(s); };
   },[]);
 
