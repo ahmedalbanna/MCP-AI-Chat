@@ -200,6 +200,19 @@ export const useStore = create<AppState>()(
         const useApi = typeof window !== "undefined" && !trimmed.startsWith("/") && typeof fetch !== "undefined";
         if (useApi) {
           (async () => {
+            const syncChatId = (serverChatId: string | null) => {
+              if (serverChatId && serverChatId !== activeId) {
+                set((s) => {
+                  const exists = s.chats.some((c) => c.id === serverChatId);
+                  if (exists) return { activeChatId: serverChatId };
+                  // server created new chat — replace temp id
+                  return {
+                    chats: s.chats.map((c) => c.id === activeId ? { ...c, id: serverChatId } : c),
+                    activeChatId: s.activeChatId === activeId ? serverChatId : s.activeChatId,
+                  };
+                });
+              }
+            };
             try {
               const res = await fetch("/api/chat", {
                 method: "POST",
@@ -220,9 +233,11 @@ export const useStore = create<AppState>()(
                 const data: any = await res.json();
                 const finalText: string = data.content || data.text || "";
                 const html = data.html as any;
+                if (data.chatId) syncChatId(data.chatId);
                 set((s) => ({
-                  chats: s.chats.map((c) => c.id === activeId ? {
+                  chats: s.chats.map((c) => (c.id === activeId || c.id === data.chatId) ? {
                     ...c,
+                    title: c.messages.length <= 1 && trimmed ? trimmed.slice(0, 48) : c.title,
                     messages: c.messages.map((m) => m.id === assistId ? { ...m, text: finalText, streaming: false, html: html || (lower.includes("postgres") ? "pg" : lower.includes("s3") ? "aws" : undefined) } : m)
                   } : c)
                 }));
@@ -233,6 +248,7 @@ export const useStore = create<AppState>()(
               let buffer = "";
               let finalHtml: string | undefined = undefined;
               let finalText = "";
+              let lastEvent = "";
               while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
@@ -242,41 +258,54 @@ export const useStore = create<AppState>()(
                   const block = buffer.slice(0, sep);
                   buffer = buffer.slice(sep + 2);
                   const lines = block.split("\n");
+                  let eventType = "";
+                  let dataPayload = "";
                   for (const line of lines) {
-                    if (line.startsWith("data: ")) {
-                      const payload = line.slice(6).trim();
-                      if (payload === "[DONE]") break;
-                      try {
-                        const obj = JSON.parse(payload);
-                        if (typeof obj.delta === "string") {
-                          finalText = obj.delta;
-                          set((s) => ({
-                            chats: s.chats.map((c) => c.id === activeId ? {
-                              ...c,
-                              messages: c.messages.map((m) => m.id === assistId ? { ...m, text: obj.delta } : m)
-                            } : c)
-                          }));
-                        }
-                        if (obj.html) finalHtml = obj.html;
-                        // done event
-                        if (obj.content && !obj.delta) {
-                          finalText = obj.content;
-                          if (obj.html) finalHtml = obj.html;
-                          set((s) => ({
-                            chats: s.chats.map((c) => c.id === activeId ? {
-                              ...c,
-                              messages: c.messages.map((m) => m.id === assistId ? { ...m, text: obj.content, streaming: false, html: (obj.html as any) || finalHtml as any } : m)
-                            } : c)
-                          }));
-                        }
-                      } catch {
-                        // ignore json parse errors per chunk
-                      }
-                    } else if (line.startsWith("event: done")) {
-                      // next data line contains final payload
-                    } else if (line.startsWith("event: meta")) {
-                      // consume next data
+                    if (line.startsWith("event:")) eventType = line.slice(6).trim();
+                    else if (line.startsWith("data:")) dataPayload += (dataPayload ? "\n" : "") + line.slice(5).trim();
+                  }
+                  if (!dataPayload) continue;
+                  if (dataPayload === "[DONE]") break;
+                  // track last event for context
+                  if (eventType) lastEvent = eventType;
+                  try {
+                    const obj = JSON.parse(dataPayload);
+                    // chatId sync from meta/done
+                    const maybeChatId = (obj as any).chatId || (obj as any).chat_id;
+                    if (maybeChatId) syncChatId(maybeChatId);
+                    if (typeof obj.delta === "string") {
+                      finalText = obj.delta;
+                      if (obj.html) finalHtml = obj.html;
+                      set((s) => ({
+                        chats: s.chats.map((c) => c.id === activeId ? {
+                          ...c,
+                          messages: c.messages.map((m) => m.id === assistId ? { ...m, text: obj.delta, html: (obj.html as any) || m.html } : m)
+                        } : c)
+                      }));
+                    } else if (obj.content && !obj.delta) {
+                      finalText = obj.content;
+                      if (obj.html) finalHtml = obj.html;
+                      set((s) => ({
+                        chats: s.chats.map((c) => c.id === activeId ? {
+                          ...c,
+                          messages: c.messages.map((m) => m.id === assistId ? { ...m, text: obj.content, streaming: false, html: (obj.html as any) || finalHtml as any } : m)
+                        } : c)
+                      }));
+                    } else if (obj.html && !obj.delta) {
+                      finalHtml = obj.html;
                     }
+                    // handle explicit done event with streaming marker
+                    if (lastEvent === "done" || obj.done === true) {
+                      finalText = obj.content || obj.delta || finalText;
+                      set((s) => ({
+                        chats: s.chats.map((c) => c.id === activeId ? {
+                          ...c,
+                          messages: c.messages.map((m) => m.id === assistId ? { ...m, text: finalText || m.text, streaming: false, html: (finalHtml as any) || m.html } : m)
+                        } : c)
+                      }));
+                    }
+                  } catch {
+                    // ignore json parse errors per chunk
                   }
                 }
               }
@@ -284,7 +313,7 @@ export const useStore = create<AppState>()(
               set((s) => ({
                 chats: s.chats.map((c) => c.id === activeId ? {
                   ...c,
-                  messages: c.messages.map((m) => m.id === assistId ? { ...m, text: finalText || m.text, streaming: false, html: (finalHtml as any) || m.html || (lower.includes("postgres") ? "pg" as const : lower.includes("s3") ? "aws" as const : undefined) } : m)
+                  messages: c.messages.map((m) => m.id === assistId ? { ...m, text: finalText || (m as any).text, streaming: false, html: (finalHtml as any) || (m as any).html || (lower.includes("postgres") ? "pg" as const : lower.includes("s3") ? "aws" as const : undefined) } : m)
                 } : c)
               }));
             } catch {
@@ -327,6 +356,37 @@ export const useStore = create<AppState>()(
       recordPromptUse: (prompt) => set((s) => ({ promptRecent: [prompt, ...s.promptRecent.filter((p) => p !== prompt)].slice(0, 8) })),
       hydrateFromDb: async () => {
         if (get().dbHydrated) return;
+        const refreshMcpHealth = async () => {
+          try {
+            const r = await fetch("/api/mcp/health", { cache: "no-store" });
+            if (!r.ok) return;
+            const data: any = await r.json();
+            const servers = data?.mcp?.servers as any[] | undefined;
+            if (!Array.isArray(servers) || servers.length === 0) return;
+            set((s) => ({
+              servers: s.servers.map((local) => {
+                const remote = servers.find((x: any) => x.id === local.id || x.name === local.name);
+                if (!remote) return local;
+                return {
+                  ...local,
+                  status: remote.status || local.status,
+                  health: remote.health || local.health,
+                  latency: typeof remote.latency === "number" ? remote.latency : local.latency,
+                  lastSeen: remote.lastSeen || Date.now(),
+                  tools: typeof remote.tools === "string" ? remote.tools : Array.isArray(remote.tools) ? remote.tools.join(", ") : local.tools,
+                } as MCPServer;
+              }),
+            }));
+          } catch {}
+        };
+        // start polling immediately (works in mock + postgres)
+        if (typeof window !== "undefined") {
+          const g = globalThis as unknown as { __mcpPoll?: ReturnType<typeof setInterval> };
+          if (!g.__mcpPoll) {
+            refreshMcpHealth();
+            g.__mcpPoll = setInterval(refreshMcpHealth, 30000);
+          }
+        }
         try {
           const h = await fetch("/api/health", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
           if (!h || h.persistence !== "postgres") { set({ dbHydrated: true }); return; }
@@ -372,6 +432,8 @@ export const useStore = create<AppState>()(
             }
           } catch {}
           set({ dbHydrated: true });
+          // refresh health after DB servers loaded to get latency
+          refreshMcpHealth();
         } catch {
           set({ dbHydrated: true });
         }
