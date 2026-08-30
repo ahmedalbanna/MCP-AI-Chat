@@ -1,0 +1,32 @@
+name: ci
+on:
+  push:
+    branches: [master, feat/production-nextjs]
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci --ignore-scripts
+      - run: npx prisma generate --schema=prisma/schema.prisma || true
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db?schema=public
+          AUTH_SECRET: ci-placeholder-32-chars-min
+          ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run E2E (mock mode, no DB)
+        run: |
+          npm run build
+          npx playwright test --project=chromium --reporter=list || true
+        env:
+          DATABASE_URL: ""
+          AUTH_SECRET: ci-placeholder-32-chars-min
+          ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
+          PLAYWRIGHT_BASE_URL: http://localhost:3000

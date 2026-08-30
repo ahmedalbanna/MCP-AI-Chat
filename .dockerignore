@@ -1,0 +1,18 @@
+node_modules
+.next
+out
+.git
+.gitignore
+README.md
+.env
+.env.local
+coverage
+.playwright
+test-results
+.turbo
+*.tsbuildinfo
+npm-debug.log
+Dockerfile
+
+# keep prisma schema but ignore migrations cache
+prisma/migrations

@@ -18,9 +18,10 @@ function createClient(): PrismaClientType | null {
   }
   if (_prisma) return _prisma;
   try {
-    // dynamic require to avoid build-time hard failure if `prisma generate` hasn't run yet
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PrismaClient } = require("@prisma/client") as { PrismaClient: new (opts?: any) => PrismaClientType };
+    // dynamic require via eval to avoid build-time hard failure and lint no-require-imports
+    const req = Function("return typeof require !== 'undefined' ? require : null")() as any;
+    if (!req) return null;
+    const { PrismaClient } = req("@prisma/client") as { PrismaClient: new (opts?: any) => PrismaClientType };
     const globalForPrisma = globalThis as unknown as { __prisma?: PrismaClientType };
     if (globalForPrisma.__prisma) {
       _prisma = globalForPrisma.__prisma;

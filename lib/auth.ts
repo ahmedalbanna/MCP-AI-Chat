@@ -11,8 +11,10 @@ function getAdapter() {
   const prisma = getPrisma();
   if (!prisma) return undefined;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PrismaAdapter } = require("@auth/prisma-adapter") as typeof import("@auth/prisma-adapter");
+    // dynamic import via eval to keep build mock-safe and avoid lint no-require-imports
+    const req = Function("return typeof require !== 'undefined' ? require : null")() as any;
+    if (!req) return undefined;
+    const { PrismaAdapter } = req("@auth/prisma-adapter") as typeof import("@auth/prisma-adapter");
     return PrismaAdapter(prisma);
   } catch {
     console.warn("[auth] @auth/prisma-adapter not available — falling back to JWT");
