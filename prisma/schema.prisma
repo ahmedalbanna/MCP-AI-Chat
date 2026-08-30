@@ -9,27 +9,82 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Transport { sse stdio http }
-enum ServerStatus { connected disconnected connecting }
-enum MessageRole { user assistant system }
+enum Transport {
+  sse
+  stdio
+  http
+}
 
+enum ServerStatus {
+  connected
+  disconnected
+  connecting
+}
+
+enum MessageRole {
+  user
+  assistant
+  system
+}
+
+// ── Auth.js models (required by @auth/prisma-adapter) ──
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  avatar    String?
-  role      String   @default("Admin")
-  createdAt DateTime @default(now())
-  chats     Chat[]
-  providers Provider[]
-  servers   Server[]
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?   // avatar URL (Auth.js standard)
+  avatar        String?   // legacy alias — keep for prototype compat
+  role          String    @default("Admin")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // app relations
+  chats         Chat[]
+  providers     Provider[]
+  servers       Server[]
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
 }
 
 model Provider {
   id        String  @id
   name      String
   baseUrl   String
-  apiKey    String? // encrypted at rest (app-level AES-GCM)
+  apiKey    String? // encrypted at rest (app-level AES-GCM) — see lib/encryption.ts
   models    String[]
   temp      Float   @default(0.7)
   maxTokens Int     @default(4096)

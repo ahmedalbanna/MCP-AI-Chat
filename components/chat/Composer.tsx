@@ -13,7 +13,11 @@ export function Composer() {
   const [pending, setPending]=useState<{id:string; name:string; size:number; type:string; url?:string}[]>([]);
   const [modeOpen, setModeOpen]=useState(false);
   const [todoDraft, setTodoDraft]=useState<{text:string; done:boolean}[]>(()=>{
-    try{ const v=JSON.parse(localStorage.getItem("mcp_todos_draft")||"null"); return Array.isArray(v)? v:[];}catch{return[];}
+    try{
+      if(typeof window==="undefined") return [];
+      const v=JSON.parse(localStorage.getItem("mcp_todos_draft")||"null");
+      return Array.isArray(v)? v:[];
+    }catch{return[];}
   });
   const [todoInput, setTodoInput]=useState("");
   const inputRef=useRef<HTMLTextAreaElement>(null);
@@ -23,7 +27,7 @@ export function Composer() {
   const activeMode = modes.find(m=>m.id===selectedMode);
 
   useEffect(()=>{
-    localStorage.setItem("mcp_todos_draft", JSON.stringify(todoDraft));
+    try{ if(typeof window!=="undefined") localStorage.setItem("mcp_todos_draft", JSON.stringify(todoDraft)); }catch{}
   },[todoDraft]);
 
   const handleSend=()=>{

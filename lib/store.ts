@@ -127,40 +127,140 @@ export const useStore = create<AppState>()(
         const assistId = uid();
         const streamingMsg = { id: assistId, role: "assistant" as const, text: "", time: timeNow(), streaming: true as const };
         set((s) => ({ chats: s.chats.map((c) => c.id === activeId ? { ...c, messages: [...c.messages, streamingMsg] } : c) }));
-        // simulate streaming via interval then finalize with mock html table
-        let full = "";
-        // choose response based on keyword
+
         const lower = trimmed.toLowerCase();
-        if (lower.includes("postgres") || lower.includes("sql") || lower.includes("users")) {
-          full = "Here are the last 5 user registrations from **remote_db.users** (via `postgres-mcp`):\n\n| id | email | created_at |\n|---|---|---|\n| 1042 | alice@example.com | 2024-10-20 |\n| 1041 | bob@example.com | 2024-10-19 |\n| 1040 | carol@example.com | 2024-10-18 |\n| 1039 | dave@example.com | 2024-10-17 |\n| 1038 | eve@example.com | 2024-10-16 |\n\nTLS 1.3 • latency 68ms • `SELECT * FROM users ORDER BY created_at DESC LIMIT 5`";
-        } else if (lower.includes("s3") || lower.includes("bucket")) {
-          full = "S3 buckets in **aws-us-east** (via `aws-us-east`):\n\n- `app-prod-assets` — 1.2 GB • 342 objects\n- `logs-archive` — 842 MB • 12k objects\n- `ml-datasets` — 4.1 GB • 89 objects\n\nTotal 3 buckets • 6.1 GB";
-        } else if (lower.includes("/help")) {
-          full = "Available commands: `/sql`, `/s3`, `/fs`, `/github`, `/marketplace`, `/servers`, `/new`, `/clear`, `/export`, `/help`, `/todo`, `/mode`, `/model`, `/connect`, `/retry`.\n\nTry: `Query the remote PostgreSQL database for the last 5 user registrations`";
-        } else {
-          full = `Got it — **${trimmed.slice(0, 120)}**\n\nI'm running in **${get().selectedMode}** mode via **${get().selectedProvider} / ${get().selectedModel}** with ${get().servers.filter(s => s.status === "connected").length} MCP server(s) connected.\n\nHow would you like to proceed? You can ask me to query Postgres, list S3 buckets, or browse the marketplace.`;
-        }
-        let i = 0;
-        const iv = setInterval(() => {
-          i += Math.ceil(full.length / 24);
-          if (i >= full.length) {
-            clearInterval(iv);
-            set((s) => ({
-              chats: s.chats.map((c) => c.id === activeId ? {
-                ...c,
-                messages: c.messages.map((m) => m.id === assistId ? { ...m, text: full, streaming: false, html: lower.includes("postgres") ? "pg" as const : lower.includes("s3") ? "aws" as const : undefined } : m)
-              } : c)
-            }));
+        const fallbackSimulate = () => {
+          let full = "";
+          if (lower.includes("postgres") || lower.includes("sql") || lower.includes("users")) {
+            full = "Here are the last 5 user registrations from **remote_db.users** (via `postgres-mcp`):\n\n| id | email | created_at |\n|---|---|---|\n| 1042 | alice@example.com | 2024-10-20 |\n| 1041 | bob@example.com | 2024-10-19 |\n| 1040 | carol@example.com | 2024-10-18 |\n| 1039 | dave@example.com | 2024-10-17 |\n| 1038 | eve@example.com | 2024-10-16 |\n\nTLS 1.3 • latency 68ms • `SELECT * FROM users ORDER BY created_at DESC LIMIT 5`";
+          } else if (lower.includes("s3") || lower.includes("bucket")) {
+            full = "S3 buckets in **aws-us-east** (via `aws-us-east`):\n\n- `app-prod-assets` — 1.2 GB • 342 objects\n- `logs-archive` — 842 MB • 12k objects\n- `ml-datasets` — 4.1 GB • 89 objects\n\nTotal 3 buckets • 6.1 GB";
+          } else if (lower.includes("/help")) {
+            full = "Available commands: `/sql`, `/s3`, `/fs`, `/github`, `/marketplace`, `/servers`, `/new`, `/clear`, `/export`, `/help`, `/todo`, `/mode`, `/model`, `/connect`, `/retry`.\n\nTry: `Query the remote PostgreSQL database for the last 5 user registrations`";
           } else {
-            const chunk = full.slice(0, i);
-            set((s) => ({
-              chats: s.chats.map((c) => c.id === activeId ? {
-                ...c,
-                messages: c.messages.map((m) => m.id === assistId ? { ...m, text: chunk } : m)
-              } : c)
-            }));
+            full = `Got it — **${trimmed.slice(0, 120)}**\n\nI'm running in **${get().selectedMode}** mode via **${get().selectedProvider} / ${get().selectedModel}** with ${get().servers.filter(s => s.status === "connected").length} MCP server(s) connected.\n\nHow would you like to proceed? You can ask me to query Postgres, list S3 buckets, or browse the marketplace.`;
           }
-        }, 42);
+          let i = 0;
+          const iv = setInterval(() => {
+            i += Math.ceil(full.length / 24);
+            if (i >= full.length) {
+              clearInterval(iv);
+              set((s) => ({
+                chats: s.chats.map((c) => c.id === activeId ? {
+                  ...c,
+                  messages: c.messages.map((m) => m.id === assistId ? { ...m, text: full, streaming: false, html: lower.includes("postgres") ? "pg" as const : lower.includes("s3") ? "aws" as const : undefined } : m)
+                } : c)
+              }));
+            } else {
+              const chunk = full.slice(0, i);
+              set((s) => ({
+                chats: s.chats.map((c) => c.id === activeId ? {
+                  ...c,
+                  messages: c.messages.map((m) => m.id === assistId ? { ...m, text: chunk } : m)
+                } : c)
+              }));
+            }
+          }, 42);
+        };
+
+        // Try real API streaming (SSE) — falls back to local simulate on failure/offline
+        const useApi = typeof window !== "undefined" && !trimmed.startsWith("/") && typeof fetch !== "undefined";
+        if (useApi) {
+          (async () => {
+            try {
+              const res = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+                body: JSON.stringify({
+                  messages: [{ role: "user", content: trimmed }],
+                  provider: get().selectedProvider,
+                  model: get().selectedModel,
+                  mode: get().selectedMode,
+                  stream: true,
+                  chatId: activeId,
+                  attachments,
+                }),
+              });
+              if (!res.ok || !res.body) throw new Error(`api ${res.status}`);
+              const ct = res.headers.get("content-type") || "";
+              if (!ct.includes("text/event-stream")) {
+                const data: any = await res.json();
+                const finalText: string = data.content || data.text || "";
+                const html = data.html as any;
+                set((s) => ({
+                  chats: s.chats.map((c) => c.id === activeId ? {
+                    ...c,
+                    messages: c.messages.map((m) => m.id === assistId ? { ...m, text: finalText, streaming: false, html: html || (lower.includes("postgres") ? "pg" : lower.includes("s3") ? "aws" : undefined) } : m)
+                  } : c)
+                }));
+                return;
+              }
+              const reader = res.body.getReader();
+              const decoder = new TextDecoder();
+              let buffer = "";
+              let finalHtml: string | undefined = undefined;
+              let finalText = "";
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                let sep: number;
+                while ((sep = buffer.indexOf("\n\n")) !== -1) {
+                  const block = buffer.slice(0, sep);
+                  buffer = buffer.slice(sep + 2);
+                  const lines = block.split("\n");
+                  for (const line of lines) {
+                    if (line.startsWith("data: ")) {
+                      const payload = line.slice(6).trim();
+                      if (payload === "[DONE]") break;
+                      try {
+                        const obj = JSON.parse(payload);
+                        if (typeof obj.delta === "string") {
+                          finalText = obj.delta;
+                          set((s) => ({
+                            chats: s.chats.map((c) => c.id === activeId ? {
+                              ...c,
+                              messages: c.messages.map((m) => m.id === assistId ? { ...m, text: obj.delta } : m)
+                            } : c)
+                          }));
+                        }
+                        if (obj.html) finalHtml = obj.html;
+                        // done event
+                        if (obj.content && !obj.delta) {
+                          finalText = obj.content;
+                          if (obj.html) finalHtml = obj.html;
+                          set((s) => ({
+                            chats: s.chats.map((c) => c.id === activeId ? {
+                              ...c,
+                              messages: c.messages.map((m) => m.id === assistId ? { ...m, text: obj.content, streaming: false, html: (obj.html as any) || finalHtml as any } : m)
+                            } : c)
+                          }));
+                        }
+                      } catch {
+                        // ignore json parse errors per chunk
+                      }
+                    } else if (line.startsWith("event: done")) {
+                      // next data line contains final payload
+                    } else if (line.startsWith("event: meta")) {
+                      // consume next data
+                    }
+                  }
+                }
+              }
+              // finalize (if not already finalized via done event)
+              set((s) => ({
+                chats: s.chats.map((c) => c.id === activeId ? {
+                  ...c,
+                  messages: c.messages.map((m) => m.id === assistId ? { ...m, text: finalText || m.text, streaming: false, html: (finalHtml as any) || m.html || (lower.includes("postgres") ? "pg" as const : lower.includes("s3") ? "aws" as const : undefined) } : m)
+                } : c)
+              }));
+            } catch {
+              fallbackSimulate();
+            }
+          })();
+          return;
+        }
+        fallbackSimulate();
       },
       editMessage: (msgId, text) => {
         const aid = get().activeChatId;
