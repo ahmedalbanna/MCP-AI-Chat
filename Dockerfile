@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Multi-stage Next.js 15 standalone build — Node 20 alpine
 FROM node:20-alpine AS base
-RUN apk add --no-cache libc6-compat openssl
+RUN apk add --no-cache libc6-compat openssl wget
 
 FROM base AS deps
 WORKDIR /app
@@ -17,8 +17,8 @@ RUN npx prisma generate --schema=prisma/schema.prisma || true
 ENV NEXT_TELEMETRY_DISABLED=1
 # Build-time env fallbacks so build succeeds without real secrets (runtime uses real env)
 ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db?schema=public"
-ENV AUTH_SECRET="build-time-placeholder-32-chars-min"
-ENV ENCRYPTION_KEY="0123456789abcdef0123456789abcdef"
+ENV AUTH_SECRET="build-time-placeholder-32-chars-min-1234567890"
+ENV ENCRYPTION_KEY="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 RUN npm run build
 
 FROM base AS runner

@@ -22,9 +22,7 @@ services:
     ports: ["3000:3000"]
     environment:
       DATABASE_URL: postgresql://mcp:mcp_password_change_me@db:5432/mcp_ai_chat?schema=public
-      AUTH_SECRET: change-me-generate-openssl-rand-base64-32
       AUTH_URL: http://localhost:3000
-      ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
       NEXT_PUBLIC_APP_URL: http://localhost:3000
     env_file: [.env]
 

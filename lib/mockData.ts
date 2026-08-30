@@ -17,16 +17,16 @@ export const DEFAULT_CHATS: Chat[] = [
   {
     id: "c1", title: "PostgreSQL users query", created: Date.now() - 3600000, archived: false, messages: [
       { id: "m1", role: "user", text: "Query the remote PostgreSQL database for the last 5 user registrations and format as a table.", time: "10:21 AM" },
-      { id: "m2", role: "assistant", html: "pg", time: "10:21 AM", status: "done" },
+      { id: "m2", role: "assistant", text: "Here are the last 5 user registrations from **remote_db.users** (via `postgres-mcp`):\n\n| id | email | created_at |\n|---|---|---|\n| 1042 | alice@example.com | 2024-10-20 |\n| 1041 | bob@example.com | 2024-10-19 |\n| 1040 | carol@example.com | 2024-10-18 |\n| 1039 | dave@example.com | 2024-10-17 |\n| 1038 | eve@example.com | 2024-10-16 |\n\nTLS 1.3 • latency 68ms • `SELECT * FROM users ORDER BY created_at DESC LIMIT 5`", html: "pg", time: "10:21 AM", status: "done", tasks: [{ id: "t1", text: "Verify table schema", done: false }, { id: "t2", text: "Run SELECT on remote_db.users", done: true }, { id: "t3", text: "Format as markdown table", done: true }], todos: [{ text: "Export to CSV", done: false }, { text: "Share with team", done: false }] },
     ]
   },
   {
     id: "c2", title: "S3 bucket audit", created: Date.now() - 86400000, archived: false, messages: [
       { id: "m3", role: "user", text: "List S3 buckets in aws-us-east", time: "09:12 AM" },
-      { id: "m4", role: "assistant", html: "aws", time: "09:12 AM", status: "done" },
+      { id: "m4", role: "assistant", text: "S3 buckets in **aws-us-east** (via `aws-us-east`):\n\n- `app-prod-assets` — 1.2 GB • 342 objects\n- `logs-archive` — 842 MB • 12k objects\n- `ml-datasets` — 4.1 GB • 89 objects\n\nTotal 3 buckets • 6.1 GB", html: "aws", time: "09:12 AM", status: "done", todos: [{ text: "Review lifecycle policies", done: false }, { text: "Enable versioning", done: true }] },
     ]
   },
-  { id: "c3", title: "Local filesystem", created: Date.now() - 172800000, archived: true, messages: [{ id: "m5", role: "user", text: "List files in /data", time: "Yesterday" }] },
+  { id: "c3", title: "Local filesystem", created: Date.now() - 172800000, archived: true, messages: [{ id: "m5", role: "user", text: "List files in /data", time: "Yesterday" }, { id: "m6", role: "assistant", text: "Files in `/data` (via `local-fs`):\n\n- `users.csv` — 2.4 MB • 10,420 rows\n- `logs.json` — 842 KB • 3,291 entries\n- `report.pdf` — 1.1 MB\n- `dataset.parquet` — 4.7 MB\n\nSandboxed • read-only", html: "fs", time: "Yesterday", status: "done" }] },
 ];
 
 export const MARKET: MarketItem[] = [

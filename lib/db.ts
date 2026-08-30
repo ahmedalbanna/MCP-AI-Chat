@@ -1,15 +1,12 @@
-import { env, hasDatabase } from "./env";
+import { env } from "./env";
 
-// Lazy singleton — avoids hard failure when DATABASE_URL is absent or client not generated (e.g. CI/build without DB).
-// Consumers must check `hasDatabase` and handle `prisma === null`.
-
-type PrismaClientType = any; // avoid hard import at build time when client not yet generated
+type PrismaClientType = any;
 
 let _prisma: PrismaClientType | null = null;
 let _warned = false;
 
 function createClient(): PrismaClientType | null {
-  if (!hasDatabase) {
+  if (!process.env.DATABASE_URL) {
     if (!_warned && process.env.NODE_ENV !== "production") {
       console.warn("[db] DATABASE_URL not set — running in mock mode (no persistence). Set DATABASE_URL to enable Postgres.");
       _warned = true;
@@ -18,10 +15,15 @@ function createClient(): PrismaClientType | null {
   }
   if (_prisma) return _prisma;
   try {
-    // dynamic require via eval to avoid build-time hard failure and lint no-require-imports
-    const req = Function("return typeof require !== 'undefined' ? require : null")() as any;
-    if (!req) return null;
-    const { PrismaClient } = req("@prisma/client") as { PrismaClient: new (opts?: any) => PrismaClientType };
+    let PrismaClient: any;
+    try {
+      // eslint-disable-next-line
+      PrismaClient = require("@prisma/client").PrismaClient;
+    } catch {
+      const req = Function("return typeof require !== 'undefined' ? require : null")() as any;
+      if (!req) return null;
+      PrismaClient = req("@prisma/client").PrismaClient;
+    }
     const globalForPrisma = globalThis as unknown as { __prisma?: PrismaClientType };
     if (globalForPrisma.__prisma) {
       _prisma = globalForPrisma.__prisma;
@@ -45,5 +47,5 @@ export function getPrisma(): PrismaClientType | null {
 }
 
 export function isDatabaseEnabled(): boolean {
-  return hasDatabase && !!getPrisma();
+  return !!process.env.DATABASE_URL && !!getPrisma();
 }

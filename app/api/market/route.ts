@@ -24,3 +24,17 @@ export async function GET(req: Request) {
   if (items.length === 0) return NextResponse.json({ persistence: "postgres", items: MARKET, seeded: false });
   return NextResponse.json({ persistence: "postgres", items });
 }
+
+export async function POST(req: Request) {
+  let body: any;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  const { id, installed } = body || {};
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  if (!isDatabaseEnabled()) return NextResponse.json({ ok: true, persistence: "mock" });
+  const prisma = getPrisma();
+  if (!prisma) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });
+  try {
+    const updated = await prisma.marketItem.update({ where: { id }, data: { installed: !!installed } });
+    return NextResponse.json({ ok: true, item: updated });
+  } catch { return NextResponse.json({ error: "not found" }, { status: 404 }); }
+}

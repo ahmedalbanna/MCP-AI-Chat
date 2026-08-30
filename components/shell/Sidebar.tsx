@@ -6,8 +6,8 @@ import { useState, useMemo } from "react";
 export function Sidebar() {
   const {
     chats, activeChatId, selectChat, newChat, deleteChat, archiveChat, showArchived, setShowArchived,
-    servers, toggleServer, selectedProvider, selectedModel, providers, setProvider, setModel,
-    drawer, setDrawer, sidebarOpen, toggleSidebar
+    servers, toggleServer, selectedProvider, selectedModel, selectedMode, providers, setProvider, setModel,
+    drawer, setDrawer, sidebarOpen, toggleSidebar, currentUser
   } = useStore();
   const [q, setQ] = useState("");
   const [sectionOpen, setSectionOpen] = useState({ workspace: true, servers: true });
@@ -25,8 +25,9 @@ export function Sidebar() {
 
   const grouped = useMemo(()=>{
     const now=Date.now();
-    const groups: Record<string, typeof filteredChats> = { Today: [], Yesterday: [], Earlier: [] };
+    const groups: Record<string, typeof filteredChats> = { Today: [], Yesterday: [], Earlier: [], Archived: [] };
     filteredChats.forEach(c=>{
+      if (c.archived) { groups.Archived.push(c); return; }
       const diff=now-c.created;
       if(diff< 24*3600*1000) groups.Today.push(c);
       else if(diff< 48*3600*1000) groups.Yesterday.push(c);
@@ -99,7 +100,7 @@ export function Sidebar() {
                 <p style={{ fontSize:12, color:"var(--muted)", textAlign:"center", padding:"10px 8px", border:"1px dashed var(--line)", borderRadius:12, background:"#fff"}}>No chats yet<br/><small>Start a new conversation</small></p>
               ) : (
                 <div className="chat-groups">
-                  {(["Today","Yesterday","Earlier"] as const).map(g=> grouped[g].length ? (
+                  {(["Today","Yesterday","Earlier","Archived"] as const).map(g=> grouped[g].length ? (
                     <div key={g}>
                       <p className="group-title">{g} • {grouped[g].length}</p>
                       <div style={{ display:"flex", flexDirection:"column", gap:8}}>
@@ -107,7 +108,7 @@ export function Sidebar() {
                           <div key={c.id} className={`chat-item ${c.id===activeChatId?"active":""} ${c.archived?"archived":""}`} onClick={()=>selectChat(c.id)}>
                             <div className="chat-item-main">
                               <b>{c.title}</b>
-                              <p>{c.messages[c.messages.length-1]?.text?.slice(0,64) || "Empty conversation"}</p>
+                              <p>{c.messages[c.messages.length-1]?.text?.replace(/\*\*/g,"").replace(/\|/g," ").replace(/`/g,"").slice(0,64) || "Empty conversation"}</p>
                             </div>
                             <div className="flex flex-col items-end gap-1 shrink-0">
                               <span className="chat-item-meta">{new Date(c.created).toLocaleDateString()}</span>
@@ -163,12 +164,12 @@ export function Sidebar() {
 
         <div className="sidebar-foot" onClick={()=>setDrawer("profile")} role="button" tabIndex={0}>
           <div className="foot-avatar-wrap">
-            <img src="https://i.pravatar.cc/100?img=33" alt="avatar" />
+            <img src={currentUser?.avatar || "https://i.pravatar.cc/100?img=33"} alt="avatar" />
             <span className="foot-status-dot" />
           </div>
           <div className="foot-meta">
-            <strong>Alex Rivera</strong>
-            <p>Admin • {selectedModel}</p>
+            <strong style={{display:"flex", gap:6, alignItems:"center"}}>{currentUser?.name || "Alex Rivera"} {currentUser?.isGuest && <span style={{background:"#f59e0b", color:"#fff", fontSize:9, fontWeight:800, padding:"1px 5px", borderRadius:999}}>GUEST</span>}</strong>
+            <p>{currentUser?.role || "Admin"} • {selectedModel} • {selectedMode}</p>
           </div>
           <ChevronDown size={16} className="foot-chevron" />
         </div>

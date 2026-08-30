@@ -22,8 +22,11 @@ export const messageCreateSchema = z.object({
   content: z.string().min(1).max(20000),
   html: z.enum(["pg", "aws", "fs", "generic"]).optional(),
   status: z.enum(["done", "streaming"]).optional(),
+  tasks: z.array(z.object({ id: z.string(), text: z.string(), done: z.boolean() })).optional(),
+  todos: z.array(z.object({ text: z.string(), done: z.boolean() })).optional(),
   attachments: z.array(z.object({ id: z.string(), name: z.string(), size: z.number(), type: z.string(), kind: z.enum(["image","video","audio","file"]).optional(), url: z.string().optional() })).optional(),
 });
+export const messagePatchSchema = messageCreateSchema.partial().extend({ content: z.string().min(1).max(20000).optional() });
 
 export const serverCreateSchema = z.object({
   name: z.string().min(2).max(48).regex(/^[a-z0-9-]+$/),

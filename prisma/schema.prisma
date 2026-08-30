@@ -139,6 +139,8 @@ model Message {
   content   String      @db.Text
   html      String?     // pg | aws | fs | generic
   status    String?     // done | streaming
+  tasks     Json?       // [{id,text,done}]
+  todos     Json?       // [{text,done}]
   attachments Json?
   createdAt DateTime    @default(now())
   @@index([chatId, createdAt])

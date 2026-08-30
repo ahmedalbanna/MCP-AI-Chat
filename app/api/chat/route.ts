@@ -34,6 +34,9 @@ async function persistIfEnabled({
   assistantContent,
   assistantHtml,
   title,
+  tasks,
+  todos,
+  attachments,
 }: {
   userId?: string | null;
   chatId?: string | null;
@@ -41,6 +44,9 @@ async function persistIfEnabled({
   assistantContent: string;
   assistantHtml?: string;
   title: string;
+  tasks?: any;
+  todos?: any;
+  attachments?: any;
 }) {
   if (!isDatabaseEnabled()) return null;
   try {
@@ -59,7 +65,7 @@ async function persistIfEnabled({
       });
     }
     await prisma.message.create({
-      data: { chatId: chat.id, role: "user", content: userContent, status: "done", attachments: undefined as any },
+      data: { chatId: chat.id, role: "user", content: userContent, status: "done", attachments: (attachments as any) || undefined },
     });
     const assistant = await prisma.message.create({
       data: {
@@ -68,6 +74,8 @@ async function persistIfEnabled({
         content: assistantContent,
         html: assistantHtml as any,
         status: "done",
+        tasks: (tasks as any) || undefined,
+        todos: (todos as any) || undefined,
       },
     });
     await prisma.chat.update({ where: { id: chat.id }, data: { updatedAt: new Date() } });
@@ -333,6 +341,7 @@ export async function POST(req: Request) {
             assistantContent: full || prompt,
             assistantHtml: html,
             title: persistTitle,
+            attachments,
           });
           if (r?.chatId) persistedChatId = r.chatId;
         })();
@@ -415,6 +424,7 @@ export async function POST(req: Request) {
             assistantContent: full,
             assistantHtml: html,
             title: persistTitle,
+            attachments,
           });
           return NextResponse.json(
             {
@@ -458,6 +468,15 @@ export async function POST(req: Request) {
   const fullText = orchestrated.text;
   const html = orchestrated.html;
   const tools = orchestrated.tools;
+  // tasks/todos for rich demo parity (prototype had them for pg)
+  const mockTasks = html === "pg"
+    ? [{ id: "t1", text: "Verify table schema", done: false }, { id: "t2", text: "Run SELECT on remote_db.users", done: true }, { id: "t3", text: "Format as markdown table", done: true }]
+    : undefined;
+  const mockTodos = html === "pg"
+    ? [{ text: "Export to CSV", done: false }, { text: "Share with team", done: false }]
+    : html === "aws"
+      ? [{ text: "Review lifecycle policies", done: false }, { text: "Enable versioning", done: true }]
+      : undefined;
 
   if (!shouldStream) {
     if (shouldPersist) {
@@ -468,6 +487,9 @@ export async function POST(req: Request) {
         assistantContent: fullText,
         assistantHtml: html,
         title: persistTitle,
+        tasks: mockTasks,
+        todos: mockTodos,
+        attachments,
       });
       return NextResponse.json(
         {
@@ -517,6 +539,9 @@ export async function POST(req: Request) {
         assistantContent: fullText,
         assistantHtml: html,
         title: persistTitle,
+        tasks: mockTasks,
+        todos: mockTodos,
+        attachments,
       });
       if (r?.chatId) persistedChatId = r.chatId;
     })();
@@ -538,7 +563,7 @@ export async function POST(req: Request) {
         await new Promise((r) => setTimeout(r, 42));
       }
       if (persistDone) await persistDone.catch(() => {});
-      send("done", { content: fullText, html, tools, chatId: persistedChatId, persisted: !!persistedChatId });
+      send("done", { content: fullText, html, tools, chatId: persistedChatId, persisted: !!persistedChatId, tasks: mockTasks, todos: mockTodos });
       controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
       controller.close();
     },

@@ -25,6 +25,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       html: m.html || undefined,
       time: new Date(m.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
       status: m.status || "done",
+      tasks: m.tasks || undefined,
+      todos: m.todos || undefined,
       attachments: m.attachments || undefined,
     })),
   });

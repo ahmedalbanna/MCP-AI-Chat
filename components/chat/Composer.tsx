@@ -55,15 +55,39 @@ export function Composer() {
     if(text.startsWith("/")) { setSlashOpen(true); setSlashIdx(0); } else setSlashOpen(false);
   },[text]);
 
+  const [dragOver, setDragOver]=useState(false);
+  const composerRef=useRef<HTMLDivElement>(null);
   const handleFiles=(files:FileList | null)=>{
     if(!files) return;
     const arr=[...files].slice(0, 6 - pending.length);
     const mapped = arr.map(f=> ({ id: uid(), name: f.name, size: f.size, type: f.type||"application/octet-stream", url: f.type.startsWith("image/")? URL.createObjectURL(f): undefined }));
     setPending(p=> [...p, ...mapped]);
   };
+  // drag & drop + paste (prototype parity: dropOverlay + mediaInput drag)
+  useEffect(()=>{
+    const el=composerRef.current;
+    if(!el) return;
+    const onDragOver=(e:DragEvent)=>{ e.preventDefault(); setDragOver(true); };
+    const onDragLeave=(e:DragEvent)=>{ e.preventDefault(); setDragOver(false); };
+    const onDrop=(e:DragEvent)=>{ e.preventDefault(); setDragOver(false); const dt=e.dataTransfer; if(dt?.files) handleFiles(dt.files); };
+    el.addEventListener("dragover", onDragOver as any);
+    el.addEventListener("dragleave", onDragLeave as any);
+    el.addEventListener("drop", onDrop as any);
+    return()=>{ el.removeEventListener("dragover", onDragOver as any); el.removeEventListener("dragleave", onDragLeave as any); el.removeEventListener("drop", onDrop as any); };
+  },[pending.length]);
+  useEffect(()=>{
+    const ta=inputRef.current;
+    if(!ta) return;
+    const onPaste=(e:ClipboardEvent)=>{
+      const files=(e.clipboardData as any)?.files as FileList | undefined;
+      if(files && files.length){ handleFiles(files); }
+    };
+    ta.addEventListener("paste", onPaste as any);
+    return()=> ta.removeEventListener("paste", onPaste as any);
+  },[pending.length]);
 
   return (
-    <div className="composer">
+    <div className={`composer ${dragOver?"drag-over":""}`} ref={composerRef as any} style={dragOver?{outline:"2px dashed var(--primary)", outlineOffset:2, borderRadius:18}:undefined}>
       {/* slash suggest */}
       {slashOpen && filtered.length>0 && (
         <div className="prompt-suggest">

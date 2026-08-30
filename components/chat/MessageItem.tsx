@@ -1,22 +1,23 @@
 "use client";
 import type { ChatMessage } from "@/lib/types";
-import { Copy, Pencil, Trash2, RefreshCw, Check, Terminal, Database, Cloud, FileText } from "lucide-react";
+import { Copy, Pencil, Trash2, RefreshCw, Check, Terminal, Database, Cloud, FileText, ListChecks, CheckCheck } from "lucide-react";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 
 function renderMarkdown(text: string) {
   // minimal md: tables, code blocks, bold/italic handled via prototype CSS classes
   const escaped = text;
-  // simple table detection -> wrap
   if (escaped.includes("|") && escaped.includes("---")) {
     const lines = escaped.split("\n");
-    const tableLines = lines.filter(l=>l.includes("|"));
+    const tableLines = lines.filter(l=>l.trim().includes("|"));
     if (tableLines.length >= 2) {
       const header = tableLines[0].split("|").map(s=>s.trim()).filter(Boolean);
       const rows = tableLines.slice(2).map(r=> r.split("|").map(s=>s.trim()).filter(Boolean));
+      // non-table text (hide all table lines)
+      const nonTable = escaped.split("\n").filter(l=> !l.trim().startsWith("|")).join("\n").trim();
       return (
         <>
-          <div className="md-text" style={{ whiteSpace:"pre-wrap"}}>{escaped.split("\n").filter(l=>!l.includes("|") || l.includes("---")).join("\n").slice(0,300)}</div>
+          {nonTable && <div className="md-text" style={{ whiteSpace:"pre-wrap", marginBottom:12 }}>{nonTable}</div>}
           <div className="table-wrap has-scroll">
             <table>
               <thead><tr>{header.map((h,i)=><th key={i}>{h}</th>)}</tr></thead>
@@ -41,7 +42,16 @@ function renderMarkdown(text: string) {
       </div>
     );
   }
-  return <div className="md-text" style={{whiteSpace:"pre-wrap"}}>{escaped}</div>;
+  // basic inline formatting: **bold**, `code`
+  const fmt = (s: string) => {
+    const parts = s.split(/(\*\*.*?\*\*|`[^`]+`)/g);
+    return parts.map((p, i) => {
+      if (p.startsWith("**") && p.endsWith("**") && p.length > 4) return <strong key={i} style={{fontWeight:700}}>{p.slice(2, -2)}</strong>;
+      if (p.startsWith("`") && p.endsWith("`") && p.length > 2) return <code key={i} style={{fontFamily:"var(--mono)", background:"#f1f5f9", border:"1px solid var(--line)", padding:"1px 5px", borderRadius:6, fontSize:12}}>{p.slice(1, -1)}</code>;
+      return <span key={i}>{p}</span>;
+    });
+  };
+  return <div className="md-text" style={{whiteSpace:"pre-wrap"}}>{escaped.split("\n").map((line,i)=><span key={i}>{fmt(line)}<br/></span>)}</div>;
 }
 
 export function MessageItem({ msg, onCopy, onEdit, onDelete, onRetry }: { msg: ChatMessage; onCopy:()=>void; onEdit:()=>void; onDelete:()=>void; onRetry:()=>void }) {
@@ -113,6 +123,27 @@ export function MessageItem({ msg, onCopy, onEdit, onDelete, onRetry }: { msg: C
           </div>
         )}
       </div>
+      {/* Tasks — prototype parity:  index.html:488-502 task-card */}
+      {msg.tasks && msg.tasks.length>0 && (
+        <div className="task-card">
+          <div className="task-head"><b><ListChecks size={14} /> Tasks</b><span>{msg.tasks.filter(t=>t.done).length}/{msg.tasks.length} done</span><div className="task-actions"><button className="accept">Accept</button><button className="cancel">Dismiss</button></div></div>
+          <ul className="todo-list">
+            {msg.tasks.map(t=>(
+              <li key={t.id} className={`todo-item ${t.done?"done":""}`}><input type="checkbox" checked={t.done} readOnly /><span>{t.text}</span></li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {msg.todos && msg.todos.length>0 && (
+        <div className="task-card" style={{marginTop:8}}>
+          <div className="task-head"><b><CheckCheck size={14} /> Todos</b><span>{msg.todos.filter(t=>t.done).length}/{msg.todos.length}</span></div>
+          <ul className="todo-list">
+            {msg.todos.map((t,i)=>(
+              <li key={i} className={`todo-item ${t.done?"done":""}`}><input type="checkbox" checked={t.done} readOnly /><span>{t.text}</span></li>
+            ))}
+          </ul>
+        </div>
+      )}
       {!msg.streaming && (
         <div className="message-assist-actions">
           <button className="msg-action" onClick={handleCopy}><Copy size={12} /> Copy</button>

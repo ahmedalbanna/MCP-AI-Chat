@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { DEFAULT_PROVIDERS, DEFAULT_SERVERS, DEFAULT_MODES, MARKET } from "../lib/mockData";
+import { DEFAULT_PROVIDERS, DEFAULT_SERVERS, DEFAULT_MODES, MARKET, DEFAULT_CHATS } from "../lib/mockData";
 
 const prisma = new PrismaClient();
 
@@ -45,6 +45,51 @@ async function main() {
     });
   }
   console.log(`[seed] market: ${MARKET.length}`);
+
+  // Chats + Messages — ensure demo conversations have full content (including tasks/todos)
+  for (const ch of DEFAULT_CHATS) {
+    const existing = await prisma.chat.findUnique({ where: { id: ch.id } });
+    if (!existing) {
+      await prisma.chat.create({
+        data: {
+          id: ch.id,
+          title: ch.title,
+          archived: ch.archived,
+          createdAt: new Date(ch.created),
+          updatedAt: new Date(ch.created),
+          messages: {
+            create: ch.messages.map((m: any) => ({
+              id: m.id,
+              role: m.role,
+              content: m.text || "",
+              html: m.html || null,
+              status: m.status || "done",
+              tasks: m.tasks ? (m.tasks as any) : undefined,
+              todos: m.todos ? (m.todos as any) : undefined,
+            })),
+          },
+        } as any,
+      });
+    } else {
+      await prisma.chat.update({ where: { id: ch.id }, data: { title: ch.title, archived: ch.archived } });
+      for (const m of ch.messages as any[]) {
+        const em = await prisma.message.findUnique({ where: { id: m.id } });
+        if (!em) {
+          await prisma.message.create({
+            data: { id: m.id, chatId: ch.id, role: m.role, content: m.text || "", html: m.html || null, status: m.status || "done", tasks: m.tasks as any, todos: m.todos as any } as any,
+          });
+        } else {
+          const patch: any = {};
+          if (!em.content || em.content.length < 10) patch.content = m.text || em.content;
+          if (m.html && (em as any).html !== m.html) patch.html = m.html;
+          if (m.tasks && JSON.stringify((em as any).tasks) !== JSON.stringify(m.tasks)) patch.tasks = m.tasks;
+          if (m.todos && JSON.stringify((em as any).todos) !== JSON.stringify(m.todos)) patch.todos = m.todos;
+          if (Object.keys(patch).length) await prisma.message.update({ where: { id: m.id }, data: patch });
+        }
+      }
+    }
+  }
+  console.log(`[seed] chats: ${DEFAULT_CHATS.length}`);
 
   console.log("[seed] done");
 }

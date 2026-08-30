@@ -23,6 +23,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       html: m.html || undefined,
       time: new Date(m.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
       status: m.status || "done",
+      tasks: m.tasks || undefined,
+      todos: m.todos || undefined,
       attachments: m.attachments || undefined,
       createdAt: m.createdAt,
     })),
@@ -48,6 +50,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       content: parsed.data.content,
       html: parsed.data.html as any,
       status: parsed.data.status || "done",
+      tasks: (parsed.data as any).tasks as any,
+      todos: (parsed.data as any).todos as any,
       attachments: parsed.data.attachments as any,
     },
   });
@@ -56,9 +60,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     id: msg.id,
     role: msg.role,
     text: msg.content,
-    html: msg.html || undefined,
-    status: msg.status || "done",
-    attachments: msg.attachments || undefined,
+    html: (msg as any).html || undefined,
+    status: (msg as any).status || "done",
+    tasks: (msg as any).tasks || undefined,
+    todos: (msg as any).todos || undefined,
+    attachments: (msg as any).attachments || undefined,
     time: new Date(msg.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
   }, { status: 201 });
 }
