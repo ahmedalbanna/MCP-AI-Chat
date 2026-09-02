@@ -54,6 +54,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -494,7 +495,7 @@ fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
 }
 
 @Suppress("CyclomaticComplexMethod")
-private fun parseInlineMarkdown(text: String): androidx.compose.ui.text.AnnotatedString {
+private fun parseInlineMarkdown(text: String): AnnotatedString {
     return buildAnnotatedString {
         var idx = 0
         while (idx < text.length) {
@@ -515,71 +516,79 @@ private fun parseInlineMarkdown(text: String): androidx.compose.ui.text.Annotate
                 append(text.substring(idx, nextSpecial))
             }
 
-            when (nextSpecial) {
-                boldStart -> {
-                    val boldEnd = text.indexOf("**", boldStart + 2)
-                    if (boldEnd != -1) {
-                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                            append(text.substring(boldStart + 2, boldEnd))
-                        }
-                        idx = boldEnd + 2
-                    } else {
-                        append("**")
-                        idx = boldStart + 2
-                    }
-                }
-                codeStart -> {
-                    val codeEnd = text.indexOf("`", codeStart + 1)
-                    if (codeEnd != -1) {
-                        withStyle(
-                            SpanStyle(
-                                fontFamily = FontFamily.Monospace,
-                                color = CyanSecondary,
-                                background = Color(0xFFE2E8F0).copy(alpha = 0.6f),
-                            ),
-                        ) {
-                            append(text.substring(codeStart + 1, codeEnd))
-                        }
-                        idx = codeEnd + 1
-                    } else {
-                        append("`")
-                        idx = codeStart + 1
-                    }
-                }
-                linkStart -> {
-                    val linkEnd = text.indexOf("]", linkStart + 1)
-                    val parenStart = if (linkEnd != -1) text.indexOf("(", linkEnd) else -1
-                    val parenEnd = if (parenStart == linkEnd + 1) text.indexOf(")", parenStart + 1) else -1
-                    if (linkEnd != -1 && parenStart == linkEnd + 1 && parenEnd != -1) {
-                        val label = text.substring(linkStart + 1, linkEnd)
-                        val url = text.substring(parenStart + 1, parenEnd)
-                        if (url.startsWith("http://") || url.startsWith("https://")) {
-                            withLink(
-                                LinkAnnotation.Url(
-                                    url = url,
-                                    styles = TextLinkStyles(
-                                        style = SpanStyle(color = CyanSecondary, fontWeight = FontWeight.Medium),
-                                    ),
-                                ),
-                            ) {
-                                append(label)
-                            }
-                        } else {
-                            append(text.substring(linkStart, parenEnd + 1))
-                        }
-                        idx = parenEnd + 1
-                    } else {
-                        append("[")
-                        idx = linkStart + 1
-                    }
-                }
+            idx = when (nextSpecial) {
+                boldStart -> appendBold(text, boldStart)
+                codeStart -> appendCode(text, codeStart)
+                linkStart -> appendLink(text, linkStart)
                 else -> {
                     append(text.substring(idx, nextSpecial + 1))
-                    idx = nextSpecial + 1
+                    nextSpecial + 1
                 }
             }
         }
     }
+}
+
+/** Appends a `**bold**` span starting at [start]; returns the next scan index. */
+private fun AnnotatedString.Builder.appendBold(text: String, start: Int): Int {
+    val end = text.indexOf("**", start + 2)
+    return if (end != -1) {
+        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+            append(text.substring(start + 2, end))
+        }
+        end + 2
+    } else {
+        append("**")
+        start + 2
+    }
+}
+
+/** Appends a `` `code` `` span starting at [start]; returns the next scan index. */
+private fun AnnotatedString.Builder.appendCode(text: String, start: Int): Int {
+    val end = text.indexOf("`", start + 1)
+    return if (end != -1) {
+        withStyle(
+            SpanStyle(
+                fontFamily = FontFamily.Monospace,
+                color = CyanSecondary,
+                background = Color(0xFFE2E8F0).copy(alpha = 0.6f),
+            ),
+        ) {
+            append(text.substring(start + 1, end))
+        }
+        end + 1
+    } else {
+        append("`")
+        start + 1
+    }
+}
+
+/** Appends a `[label](url)` link starting at [start]; returns the next scan index. */
+private fun AnnotatedString.Builder.appendLink(text: String, start: Int): Int {
+    val linkEnd = text.indexOf("]", start + 1)
+    val parenStart = if (linkEnd != -1) text.indexOf("(", linkEnd) else -1
+    val parenEnd = if (parenStart == linkEnd + 1) text.indexOf(")", parenStart + 1) else -1
+    if (linkEnd != -1 && parenStart == linkEnd + 1 && parenEnd != -1) {
+        val label = text.substring(start + 1, linkEnd)
+        val url = text.substring(parenStart + 1, parenEnd)
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            withLink(
+                LinkAnnotation.Url(
+                    url = url,
+                    styles = TextLinkStyles(
+                        style = SpanStyle(color = CyanSecondary, fontWeight = FontWeight.Medium),
+                    ),
+                ),
+            ) {
+                append(label)
+            }
+        } else {
+            append(text.substring(start, parenEnd + 1))
+        }
+        return parenEnd + 1
+    }
+    append("[")
+    return start + 1
 }
 
 @Composable

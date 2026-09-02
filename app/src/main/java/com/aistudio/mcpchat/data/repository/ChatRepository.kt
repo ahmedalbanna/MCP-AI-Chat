@@ -94,7 +94,12 @@ class ChatRepository(
         val session = chatDao.getSessionById(sessionId) ?: createNewSession(
             title = userPrompt.take(28) + if (userPrompt.length > 28) "..." else "",
         )
-        persistUserTurn(sessionId, session, userPrompt)
+        // The fallback above creates a NEW session when the requested id is
+        // gone (e.g. deleted while a send was in flight). Every write below
+        // must target the session that actually exists — persisting under the
+        // stale id would create orphaned rows no Flow ever reads.
+        val effectiveSessionId = session.id
+        persistUserTurn(effectiveSessionId, session, userPrompt)
 
         // 2. Fetch all enabled tools from active MCP servers
         val enabledServers = mcpRepository.getEnabledServers()
@@ -113,10 +118,13 @@ class ChatRepository(
             GeminiApiService.sanitizeFunctionNameStatic(tool.name) to tool.name
         }
 
-        // 3. Construct conversation history for Gemini
-        val allMsgs = chatDao.getMessagesList(sessionId)
-        val systemInstruction = systemPromptBuilder.buildSystemPrompt(session.systemPrompt, activeTools)
-        val history = buildHistory(allMsgs)
+        // 3. Construct conversation history for Gemini — synchronous realtime,
+        // no cache: every message rebuilds fresh history + prompt.
+        val allMsgs = chatDao.getMessagesList(effectiveSessionId)
+        val systemInstruction = withContext(Dispatchers.Default) {
+            systemPromptBuilder.buildSystemPrompt(session.systemPrompt, activeTools)
+        }
+        val history = withContext(Dispatchers.Default) { buildHistory(allMsgs) }
 
         val accumulatedToolCalls = mutableListOf<McpToolCall>()
         var finalResponseText = ""
@@ -124,14 +132,17 @@ class ChatRepository(
         var failureException: ChatException? = null
         val startTime = System.currentTimeMillis()
 
+        // Capture provider once per message: the current generation finishes
+        // with the config it started with; the next message picks up any
+        // settings change the user made in between.
+        val providerConfig = activeProvider.getActive()
+
         // 4. Multi-turn execution loop (up to 5 function call hops)
         var currentHop = 0
         var continueLoop = true
 
         while (continueLoop && currentHop < MAX_TOOL_HOPS) {
             currentHop++
-
-            val providerConfig = activeProvider.getActive()
             val geminiResponse = aiService.generateContent(
                 config = providerConfig,
                 modelName = session.model,
@@ -177,7 +188,7 @@ class ChatRepository(
 
         val totalLatency = System.currentTimeMillis() - startTime
         return@withContext persistAssistantTurn(
-            sessionId,
+            effectiveSessionId,
             session,
             finalResponseText,
             accumulatedToolCalls,
@@ -292,17 +303,17 @@ class ChatRepository(
             for (c in calls) {
                 parts.add(GeminiPart.FunctionCall(c.toolName, c.inputArguments, c.thoughtSignature))
             }
-            // Rebuild the matching function responses: Gemini rejects a
-            // request where a functionCall is not followed by its
-            // functionResponse in the next message.
-            val rebuiltResponses = calls.mapNotNull { c ->
-                c.outputResult?.takeIf { it.isNotBlank() }?.let { output ->
-                    GeminiPart.FunctionResponse(
-                        name = c.toolName,
-                        response = parseResultToMap(output),
-                        thoughtSignature = c.thoughtSignature,
-                    )
-                }
+            // Rebuild the matching function responses: strict providers
+            // (Anthropic, AgentRouter) reject a request where any tool_use
+            // lacks its tool_result, so always pair — even for calls whose
+            // output was blank/lost.
+            val rebuiltResponses = calls.map { c ->
+                val output = c.outputResult?.takeIf { it.isNotBlank() } ?: "Empty response"
+                GeminiPart.FunctionResponse(
+                    name = c.toolName,
+                    response = parseResultToMap(output),
+                    thoughtSignature = c.thoughtSignature,
+                )
             }
             if (rebuiltResponses.isNotEmpty()) {
                 responseParts = rebuiltResponses

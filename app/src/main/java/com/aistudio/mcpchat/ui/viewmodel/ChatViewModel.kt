@@ -13,6 +13,8 @@ import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.data.repository.ChatRepository
 import com.aistudio.mcpchat.data.repository.McpRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,8 +23,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.IOException
 import javax.inject.Inject
@@ -203,25 +203,26 @@ class ChatViewModel @Inject constructor(
             _inProgressToolCalls.value = emptyList()
 
             try {
-                chatRepository.sendMessage(
+                val result = chatRepository.sendMessage(
                     sessionId = sessionId,
                     userPrompt = prompt.trim(),
                     onToolCallUpdate = { toolCalls ->
                         _inProgressToolCalls.value = toolCalls
                     },
                 )
+                followPersistedSession(sessionId, result)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ChatException) {
                 val error = when (e) {
                     is ChatException.ApiKeyMissing ->
-                        UiError.Api("Gemini API key is missing. Configure it in the Secrets panel.")
+                        UiError.Api("AI provider API key is missing. Add one in the Providers screen.")
                     is ChatException.RateLimit ->
                         UiError.Api("Rate limit exceeded. Please wait a moment and try again.")
                     is ChatException.Network ->
                         UiError.Network("Server unreachable. Check your network connection.")
                     is ChatException.GeminiApi ->
-                        UiError.Api(e.message ?: "Gemini request failed.")
+                        UiError.Api(e.message ?: "AI request failed.")
                 }
                 _errorMessage.value = error.message
                 _uiError.value = error
@@ -237,6 +238,18 @@ class ChatViewModel @Inject constructor(
                 _isGenerating.value = false
                 _inProgressToolCalls.value = emptyList()
             }
+        }
+    }
+
+    /**
+     * The repository may fall back to a freshly created session when the
+     * requested one no longer exists (deleted mid-flight). Follow the
+     * persisted messages so the user sees the turn instead of an empty chat.
+     */
+    private fun followPersistedSession(requestedSessionId: String, result: Result<ChatMessageEntity>) {
+        val persistedSessionId = result.getOrNull()?.sessionId ?: return
+        if (persistedSessionId != requestedSessionId) {
+            updateCurrentSessionId(persistedSessionId)
         }
     }
 

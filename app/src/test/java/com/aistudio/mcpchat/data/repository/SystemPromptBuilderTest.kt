@@ -40,7 +40,7 @@ class SystemPromptBuilderTest {
     }
 
     @Test
-    fun `buildSystemPrompt includes tool descriptions`() {
+    fun `buildSystemPrompt includes tool names without descriptions`() {
         val tools = listOf(
             McpTool(
                 id = "erpnext_1",
@@ -65,10 +65,12 @@ class SystemPromptBuilderTest {
         val result = builder.buildSystemPrompt("", tools)
 
         assertTrue(result.contains("Available MCP Tools"))
-        assertTrue(result.contains("get_balance"))
-        assertTrue(result.contains("ERPNext"))
-        assertTrue(result.contains("Get account balance"))
-        assertTrue(result.contains("create_invoice"))
+        assertTrue(result.contains("- get_balance (ERPNext)"))
+        assertTrue(result.contains("- create_invoice (ERPNext)"))
+        // Full descriptions live in the tools array of the API request, not
+        // in the system prompt — duplicating them inflates every call's tokens.
+        assertFalse(result.contains("Get account balance"))
+        assertFalse(result.contains("Create a sales invoice"))
     }
 
     @Test

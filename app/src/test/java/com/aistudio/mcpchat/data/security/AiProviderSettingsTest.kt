@@ -1,10 +1,12 @@
 package com.aistudio.mcpchat.data.security
 
 import android.content.SharedPreferences
+import com.aistudio.mcpchat.BuildConfig
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.AiProviderIds
 import com.aistudio.mcpchat.data.model.AiProviderType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -38,6 +40,17 @@ class AiProviderSettingsTest {
         assertTrue(all.any { it.type == AiProviderType.ANTHROPIC })
         assertTrue(all.any { it.type == AiProviderType.OPENAI_COMPATIBLE })
         assertEquals(AiProviderIds.ID_GOOGLE, settings.getActiveId())
+    }
+
+    @Test
+    fun `google preset seeds api key from BuildConfig env`() {
+        val google = settings.getAll().first { it.id == AiProviderIds.ID_GOOGLE }
+        // Whatever the build injected (real .env key or the template value),
+        // the placeholder must never surface as a usable key.
+        val expected = BuildConfig.GEMINI_API_KEY.trim()
+            .takeUnless { it.isEmpty() || it == "MY_GEMINI_API_KEY" }
+            ?: ""
+        assertEquals(expected, google.apiKey)
     }
 
     @Test
@@ -82,6 +95,32 @@ class AiProviderSettingsTest {
         settings.upsert(config)
         val loaded = settings.getAll().first { it.id == config.id }
         assertEquals(config, loaded)
+    }
+
+    @Test
+    fun `default prefs factory tolerates missing keystore in test runtimes`() {
+        val context = RuntimeEnvironment.getApplication()
+        // Robolectric fingerprint ("robolectric") → fallback allowed, prefs usable.
+        val prefs = AiProviderSettings.createEncryptedPrefs(context)
+        prefs.edit().putString("probe", "ok").apply()
+        assertEquals("ok", prefs.getString("probe", null))
+    }
+
+    @Test
+    fun `encrypted prefs failure refuses plaintext fallback in production`() {
+        val context = RuntimeEnvironment.getApplication()
+        // No AndroidKeyStore under Robolectric, and the policy forbids plaintext.
+        assertThrows(IllegalStateException::class.java) {
+            AiProviderSettings.createEncryptedPrefs(context) { false }
+        }
+    }
+
+    @Test
+    fun `encrypted prefs failure may fall back when policy allows`() {
+        val context = RuntimeEnvironment.getApplication()
+        val prefs = AiProviderSettings.createEncryptedPrefs(context) { true }
+        prefs.edit().putString("probe", "ok").apply()
+        assertEquals("ok", prefs.getString("probe", null))
     }
 }
 

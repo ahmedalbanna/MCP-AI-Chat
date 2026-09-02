@@ -10,6 +10,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -77,7 +78,9 @@ class OpenAiCompatibleClientTest {
         assertEquals("It is 22°C in Tokyo.", response.text)
         assertTrue(response.functionCalls.isEmpty())
 
-        val sent = JSONObject(server.takeRequest().body.readUtf8())
+        val recorded = server.takeRequest(10, TimeUnit.SECONDS)
+        assertNotNull("expected the client to send a request", recorded)
+        val sent = JSONObject(recorded!!.body.readUtf8())
         assertEquals("gpt-4o-mini", sent.getString("model"))
         assertEquals("Be helpful.", sent.getJSONArray("messages").getJSONObject(0).getString("content"))
         assertEquals("system", sent.getJSONArray("messages").getJSONObject(0).getString("role"))
@@ -89,12 +92,12 @@ class OpenAiCompatibleClientTest {
         // assistant turn carries positional synthetic tool_calls id
         val assistant = sent.getJSONArray("messages").getJSONObject(2)
         assertEquals("assistant", assistant.getString("role"))
-        assertEquals("call_0", assistant.getJSONArray("tool_calls").getJSONObject(0).getString("id"))
+        assertEquals("call_t0_c0", assistant.getJSONArray("tool_calls").getJSONObject(0).getString("id"))
 
         // response feeds back as role:"tool" with matching id
         val toolMsg = sent.getJSONArray("messages").getJSONObject(3)
         assertEquals("tool", toolMsg.getString("role"))
-        assertEquals("call_0", toolMsg.getString("tool_call_id"))
+        assertEquals("call_t0_c0", toolMsg.getString("tool_call_id"))
         assertEquals("""{"temp":22}""", toolMsg.getString("content"))
     }
 
@@ -126,5 +129,41 @@ class OpenAiCompatibleClientTest {
         server.enqueue(MockResponse().setResponseCode(429).setBody("{}"))
         val r2 = client.generateContent(config, "m", history, emptyList(), "")
         assertTrue(r2.error!!.contains("Rate limit"))
+    }
+
+    @Test
+    fun `tool call ids stay unique across multiple tool rounds in one request`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setBody("""{"choices":[{"message":{"content":"done"}}]}"""),
+        )
+        val multiHop = listOf(
+            GeminiMessage("user", listOf(GeminiPart.Text("Q"))),
+            GeminiMessage("model", listOf(GeminiPart.FunctionCall("tool_a", mapOf("x" to 1)))),
+            GeminiMessage("tool", listOf(GeminiPart.FunctionResponse("tool_a", mapOf("x" to 1)))),
+            GeminiMessage("model", listOf(GeminiPart.FunctionCall("tool_b", mapOf("y" to 2)))),
+            GeminiMessage("tool", listOf(GeminiPart.FunctionResponse("tool_b", mapOf("y" to 2)))),
+        )
+
+        client.generateContent(config, "gpt-4o-mini", multiHop, emptyList(), "")
+
+        val recorded = server.takeRequest(10, TimeUnit.SECONDS)
+        assertNotNull("expected the client to send a request", recorded)
+        val messages = JSONObject(recorded!!.body.readUtf8()).getJSONArray("messages")
+
+        val callIds = mutableSetOf<String>()
+        val resultIds = mutableSetOf<String>()
+        for (i in 0 until messages.length()) {
+            val msg = messages.getJSONObject(i)
+            msg.optJSONArray("tool_calls")?.let { calls ->
+                for (j in 0 until calls.length()) callIds.add(calls.getJSONObject(j).getString("id"))
+            }
+            if (msg.optString("role") == "tool") resultIds.add(msg.getString("tool_call_id"))
+        }
+
+        // Rounds get distinct ids and each call keeps its matching result —
+        // reusing "call_0" per round makes strict servers reject/mispair.
+        assertEquals(setOf("call_t0_c0", "call_t1_c0"), callIds)
+        assertEquals(callIds, resultIds)
     }
 }

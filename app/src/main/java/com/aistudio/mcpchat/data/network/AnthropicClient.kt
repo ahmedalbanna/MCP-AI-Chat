@@ -37,15 +37,19 @@ class AnthropicClient(private val client: OkHttpClient) {
 
         try {
             val body = buildRequestJson(config, modelName, history, tools, systemInstruction)
+            // Tolerate base URLs that already carry the /v1 suffix (a common
+            // habit from OpenAI-style endpoints) instead of building /v1/v1/messages.
+            val base = config.baseUrl.trimEnd('/')
+            val endpoint = if (base.endsWith("/v1")) "$base/messages" else "$base/v1/messages"
             val request = Request.Builder()
-                .url(config.baseUrl.trimEnd('/') + "/v1/messages")
+                .url(endpoint)
                 .post(body.toString().toRequestBody(jsonMediaType))
                 .header("Content-Type", "application/json")
                 .header("x-api-key", config.apiKey)
                 .header("anthropic-version", ANTHROPIC_VERSION)
                 .build()
 
-            client.newCall(request).execute().use { response ->
+            client.newCall(request).await().use { response ->
                 val responseBody = response.body?.string() ?: ""
                 if (!response.isSuccessful) {
                     Log.e(TAG, "Anthropic request failed (${response.code}): $responseBody")
@@ -53,6 +57,8 @@ class AnthropicClient(private val client: OkHttpClient) {
                 }
                 parseResponse(responseBody)
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: IOException) {
             Log.e(TAG, "Network error contacting ${config.name}", e)
             GeminiResponse(text = null, error = "unreachable: ${e.message}")
@@ -85,6 +91,13 @@ class AnthropicClient(private val client: OkHttpClient) {
             }
         }
 
+        // Tool ids must be unique across ALL turns in one request: a request
+        // containing several rounds of tool use would otherwise reuse
+        // "toolu_call_0" for every round, and strict servers (Anthropic,
+        // AgentRouter) reject or mispair them. A turn-scoped counter keeps
+        // the nth-call ↔ nth-result pairing within a round while staying
+        // unique across rounds.
+        var turnIndex = 0
         history.forEach { message ->
             when (message.role) {
                 "user" -> {
@@ -107,7 +120,7 @@ class AnthropicClient(private val client: OkHttpClient) {
                                 blocks.put(
                                     JSONObject()
                                         .put("type", "tool_use")
-                                        .put("id", syntheticToolUseId(callsEmitted++))
+                                        .put("id", syntheticToolUseId(turnIndex, callsEmitted++))
                                         .put("name", sanitizeName(part.name))
                                         .put("input", JSONObject(part.args)),
                                 )
@@ -126,11 +139,12 @@ class AnthropicClient(private val client: OkHttpClient) {
                             blocks.put(
                                 JSONObject()
                                     .put("type", "tool_result")
-                                    .put("tool_use_id", syntheticToolUseId(index))
+                                    .put("tool_use_id", syntheticToolUseId(turnIndex, index))
                                     .put("content", JSONObject(part.response).toString()),
                             )
                         }
                     appendContent("user", blocks)
+                    turnIndex++
                 }
             }
         }
@@ -224,7 +238,10 @@ class AnthropicClient(private val client: OkHttpClient) {
         const val ANTHROPIC_VERSION = "2023-06-01"
         const val MAX_TOKENS = 8192
 
-        /** Deterministic positional id: pairs nth call with nth result per turn. */
-        fun syntheticToolUseId(index: Int): String = "toolu_call_$index"
+        /**
+         * Deterministic turn-scoped id: pairs the nth call with the nth result
+         * of the SAME round while staying unique across rounds in one request.
+         */
+        fun syntheticToolUseId(turn: Int, index: Int): String = "toolu_t${turn}_c$index"
     }
 }

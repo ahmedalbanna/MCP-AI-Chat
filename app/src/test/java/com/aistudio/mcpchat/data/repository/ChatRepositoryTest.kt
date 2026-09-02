@@ -4,11 +4,14 @@ import com.aistudio.mcpchat.data.local.AppDatabase
 import com.aistudio.mcpchat.data.local.ChatDao
 import com.aistudio.mcpchat.data.local.ChatMessageEntity
 import com.aistudio.mcpchat.data.local.ChatSessionEntity
+import com.aistudio.mcpchat.data.model.GeminiMessage
+import com.aistudio.mcpchat.data.model.GeminiPart
 import com.aistudio.mcpchat.data.network.GeminiApiService
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -198,5 +201,65 @@ class ChatRepositoryTest {
 
         assertTrue(result.isSuccess)
         assertNotNull(result.getOrNull())
+    }
+
+    @Test
+    fun `sendMessage with unknown sessionId persists turns under the fallback session`() = runTest {
+        coEvery { chatDao.getSessionById("stale") } returns null
+        coEvery { chatDao.getMessagesList(any()) } returns emptyList()
+        coEvery { geminiService.generateContent(any(), any(), any(), any(), any()) } returns
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = null, error = "API_KEY_MISSING")
+
+        createRepository()
+        val result = repository.sendMessage(sessionId = "stale", userPrompt = "Hello")
+        advanceUntilIdle()
+
+        assertTrue(result.isSuccess)
+        // A fallback session was created…
+        coVerify { chatDao.insertSession(any()) }
+        // …and both turns (user + assistant) were persisted into it — never
+        // under the stale id, which would create orphaned rows.
+        coVerify(exactly = 0) { chatDao.insertMessage(match { it.sessionId == "stale" }) }
+        coVerify(exactly = 2) { chatDao.insertMessage(any()) }
+    }
+
+    @Test
+    fun `history rebuild pairs every persisted tool call with a result even when output blank`() = runTest {
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList("s1") } returns listOf(
+            ChatMessageEntity(id = "m1", sessionId = "s1", role = "user", content = "weather?"),
+            ChatMessageEntity(
+                id = "m2",
+                sessionId = "s1",
+                role = "assistant",
+                content = "",
+                toolCallsJson = """[
+                    {"callId":"c1","toolName":"get_weather","inputArguments":{"city":"Tokyo"},
+                     "outputResult":"","status":"SUCCESS","timestamp":1},
+                    {"callId":"c2","toolName":"get_forecast","inputArguments":{},
+                     "outputResult":"","status":"SUCCESS","timestamp":2}
+                ]""",
+            ),
+        )
+        val historySlot = slot<List<GeminiMessage>>()
+        coEvery { geminiService.generateContent(any(), any(), capture(historySlot), any(), any()) } returns
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "done")
+
+        createRepository()
+        repository.sendMessage(sessionId = "s1", userPrompt = "thanks")
+        advanceUntilIdle()
+
+        val history = historySlot.captured
+        val modelMsg = history.lastOrNull { it.role == "model" && it.parts.any { p -> p is GeminiPart.FunctionCall } }
+        val toolMsg = history.lastOrNull { it.role == "tool" }
+        assertNotNull("expected a rebuilt model message with function calls", modelMsg)
+        assertNotNull("expected a rebuilt tool message with function responses", toolMsg)
+        val calls = modelMsg!!.parts.filterIsInstance<GeminiPart.FunctionCall>()
+        val responses = toolMsg!!.parts.filterIsInstance<GeminiPart.FunctionResponse>()
+        // Strict providers (Anthropic, AgentRouter) reject a request where a
+        // tool_use has no matching tool_result — blank outputs must still pair.
+        assertEquals(calls.size, responses.size)
+        assertEquals(2, responses.size)
+        assertTrue(responses.all { it.response["result"] == "Empty response" })
     }
 }

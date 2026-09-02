@@ -11,6 +11,7 @@ import com.aistudio.mcpchat.data.network.McpHttpClient
 import com.aistudio.mcpchat.data.repository.McpRepository
 import com.aistudio.mcpchat.data.security.CryptoManager
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,6 +25,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -514,6 +516,9 @@ class ServerLifecycleTest {
 
     @Test
     fun `add custom server allows plain http for non-loopback host but flags insecure`() = runTest {
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
+        coEvery { httpClient.discoverTools(any()) } returns listOf()
+
         val server = repository.addCustomServer(
             name = "Insecure",
             description = "desc",
@@ -522,5 +527,109 @@ class ServerLifecycleTest {
         )
         assertNotNull(server)
         assertTrue(com.aistudio.mcpchat.data.repository.McpRepository.isInsecureEndpoint(server.endpointUrl))
+    }
+
+    @Test
+    fun `update custom server persists edited fields and re-syncs tools`() = runTest {
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
+        coEvery { httpClient.discoverTools(any()) } returns listOf()
+
+        val server = repository.addCustomServer(
+            name = "Original",
+            description = "original desc",
+            endpointUrl = "http://localhost:3000",
+            authHeader = "Bearer old-token",
+        )
+
+        val updated = repository.updateCustomServer(
+            serverId = server.id,
+            name = "Renamed",
+            description = "new desc",
+            endpointUrl = "https://secure.example.com/mcp",
+            authHeader = "Bearer new-token",
+        )
+
+        assertEquals("Renamed", updated.name)
+        assertEquals("new desc", updated.description)
+        assertEquals("https://secure.example.com/mcp", updated.endpointUrl)
+        assertEquals("Bearer new-token", updated.authHeader)
+
+        val dbServer = database.mcpServerDao().getServerById(server.id)
+        assertNotNull(dbServer)
+        assertEquals("Renamed", dbServer?.name)
+        assertEquals("https://secure.example.com/mcp", dbServer?.endpointUrl)
+        // Secret re-encrypted at rest and decrypts to the new value.
+        assertTrue(dbServer!!.authHeader.startsWith("enc:v1:"))
+        assertEquals("Bearer new-token", testCrypto.decrypt(dbServer.authHeader))
+        // Endpoint changed → handshake ran again (add + edit).
+        coVerify(exactly = 2) { httpClient.testConnection(any()) }
+    }
+
+    @Test
+    fun `update custom server skips re-sync when endpoint and auth unchanged`() = runTest {
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
+        coEvery { httpClient.discoverTools(any()) } returns listOf()
+
+        val server = repository.addCustomServer(
+            name = "Original",
+            description = "desc",
+            endpointUrl = "https://stable.example.com",
+            authHeader = "Bearer token",
+        )
+
+        val updated = repository.updateCustomServer(
+            serverId = server.id,
+            name = "Renamed only",
+            description = server.description,
+            endpointUrl = server.endpointUrl,
+            authHeader = server.authHeader,
+        )
+
+        assertEquals("Renamed only", updated.name)
+        // No endpoint/auth change → no extra handshake (only the one from add).
+        coVerify(exactly = 1) { httpClient.testConnection(any()) }
+    }
+
+    @Test
+    fun `update custom server rejects blank name and bad URL`() = runTest {
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
+        coEvery { httpClient.discoverTools(any()) } returns listOf()
+
+        val server = repository.addCustomServer(
+            name = "Original",
+            description = "desc",
+            endpointUrl = "https://stable.example.com",
+            authHeader = "",
+        )
+
+        try {
+            repository.updateCustomServer(server.id, " ", "d", "https://x.com", "")
+            fail("expected blank name to be rejected")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message?.contains("name") == true)
+        }
+
+        try {
+            repository.updateCustomServer(server.id, "Name", "d", "ftp://bad", "")
+            fail("expected invalid URL to be rejected")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message?.contains("URL") == true || e.message?.contains("scheme") == true)
+        }
+    }
+
+    @Test
+    fun `update custom server fails for unknown id`() = runTest {
+        try {
+            repository.updateCustomServer(
+                serverId = "missing_server",
+                name = "Name",
+                description = "d",
+                endpointUrl = "https://x.com",
+                authHeader = "",
+            )
+            fail("expected unknown server id to be rejected")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message?.contains("not found") == true)
+        }
     }
 }

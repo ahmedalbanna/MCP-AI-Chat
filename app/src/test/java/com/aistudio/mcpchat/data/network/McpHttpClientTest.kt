@@ -9,6 +9,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class McpHttpClientTest {
 
@@ -16,7 +17,13 @@ class McpHttpClientTest {
 
     @Before
     fun setUp() {
-        client = McpHttpClient()
+        client = McpHttpClient(
+            client = okhttp3.OkHttpClient.Builder()
+                .connectTimeout(1, TimeUnit.SECONDS)
+                .readTimeout(1, TimeUnit.SECONDS)
+                .writeTimeout(1, TimeUnit.SECONDS)
+                .build(),
+        )
     }
 
     private fun createServer(endpointUrl: String = "http://localhost:8080/mcp", authHeader: String = "") = McpServer(
@@ -33,6 +40,64 @@ class McpHttpClientTest {
         val (status, latency) = client.testConnection(server)
         assertEquals(ServerStatus.ERROR, status)
         assertTrue(latency >= 0)
+    }
+
+    @Test
+    fun `testConnection records handshake failure reason for HTTP error`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(404),
+            )
+            val server = createServer(endpointUrl = mockServer.url("/mcp").toString())
+            val (status, _) = client.testConnection(server)
+
+            assertEquals(ServerStatus.ERROR, status)
+            val reason = client.lastHandshakeError(server.id)
+            assertNotNull(reason)
+            assertTrue(reason!!.contains("HTTP 404"))
+        } finally {
+            mockServer.shutdown()
+        }
+    }
+
+    @Test
+    fun `testConnection records network failure reason for unreachable server`() = runTest {
+        val server = createServer(endpointUrl = "http://localhost:1/mcp")
+        val (status, _) = client.testConnection(server)
+
+        assertEquals(ServerStatus.ERROR, status)
+        assertNotNull(client.lastHandshakeError(server.id))
+    }
+
+    @Test
+    fun `testConnection clears failure reason after later success`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(500))
+            val server = createServer(endpointUrl = mockServer.url("/mcp").toString())
+            val (first, _) = client.testConnection(server)
+            assertEquals(ServerStatus.ERROR, first)
+            assertTrue(client.lastHandshakeError(server.id)!!.contains("HTTP 500"))
+
+            // initialize + notifications/initialized.
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody(
+                    """{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05",
+                       "capabilities":{},"serverInfo":{"name":"t","version":"1"}}}""",
+                ),
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody("{}"),
+            )
+            val (second, _) = client.testConnection(server)
+            assertEquals(ServerStatus.CONNECTED, second)
+            assertNull(client.lastHandshakeError(server.id))
+        } finally {
+            mockServer.shutdown()
+        }
     }
 
     @Test
@@ -90,6 +155,67 @@ class McpHttpClientTest {
         )
         val tools = client.discoverTools(server)
         assertTrue(tools.isEmpty())
+    }
+
+    @Test
+    fun `initialize sends every configured header from JSON multi-header form`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            // initialize + notifications/initialized both POST to the endpoint.
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody(
+                    """{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05",
+                       "capabilities":{},"serverInfo":{"name":"t","version":"1"}}}""",
+                ),
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody("{}"),
+            )
+
+            val server = createServer(
+                endpointUrl = mockServer.url("/mcp").toString(),
+                authHeader = """{"Authorization":"Bearer t1","X-API-Key":"k1"}""",
+            )
+            val (status, _) = client.testConnection(server)
+
+            assertEquals(ServerStatus.CONNECTED, status)
+            val recorded = mockServer.takeRequest(10, TimeUnit.SECONDS)
+            assertNotNull(recorded)
+            assertEquals("Bearer t1", recorded!!.getHeader("Authorization"))
+            assertEquals("k1", recorded.getHeader("X-API-Key"))
+        } finally {
+            mockServer.shutdown()
+        }
+    }
+
+    @Test
+    fun `initialize maps legacy bare auth value to Authorization header`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody(
+                    """{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05",
+                       "capabilities":{},"serverInfo":{"name":"t","version":"1"}}}""",
+                ),
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody("{}"),
+            )
+
+            val server = createServer(
+                endpointUrl = mockServer.url("/mcp").toString(),
+                authHeader = "Bearer legacy-token",
+            )
+            client.testConnection(server)
+
+            val recorded = mockServer.takeRequest(10, TimeUnit.SECONDS)
+            assertNotNull(recorded)
+            assertEquals("Bearer legacy-token", recorded!!.getHeader("Authorization"))
+        } finally {
+            mockServer.shutdown()
+        }
     }
 
     @Test

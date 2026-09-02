@@ -132,6 +132,7 @@ fun ChatScreen(
     viewModel: ChatViewModel,
     providerViewModel: com.aistudio.mcpchat.ui.viewmodel.AiProviderSettingsViewModel,
     onNavigateToServers: () -> Unit,
+    onNavigateToProviders: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
@@ -145,13 +146,27 @@ fun ChatScreen(
     var inputText by remember { mutableStateOf("") }
     var showServersSheet by remember { mutableStateOf(false) }
     var showSessionsSheet by remember { mutableStateOf(false) }
-    var showProviderSheet by remember { mutableStateOf(false) }
     val providerUiState by providerViewModel.uiState.collectAsStateWithLifecycle()
     val activeProviderConfig = providerUiState.configs.find { it.id == providerUiState.activeId }
     val keyboardController = LocalSoftwareKeyboardController.current
 
     val currentSession = sessions.find { it.id == currentSessionId }
     val enabledServersCount = servers.count { it.isEnabled }
+
+    // Keep the session's model compatible whenever the active provider changes
+    // (Google providers need gemini-* models, the others non-gemini ones).
+    LaunchedEffect(providerUiState.activeId, currentSessionId) {
+        val config = providerUiState.configs.find { it.id == providerUiState.activeId }
+            ?: return@LaunchedEffect
+        val session = currentSession ?: return@LaunchedEffect
+        val compatible = when (config.type) {
+            com.aistudio.mcpchat.data.model.AiProviderType.GOOGLE -> session.model.startsWith("gemini")
+            else -> !session.model.startsWith("gemini")
+        }
+        if (!compatible) {
+            viewModel.updateSessionModel(config.model)
+        }
+    }
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -196,7 +211,7 @@ fun ChatScreen(
                             )
                             Spacer(modifier = Modifier.width(Spacing.sm))
                             Surface(
-                                onClick = { showProviderSheet = true },
+                                onClick = onNavigateToProviders,
                                 color = MaterialTheme.colorScheme.primaryContainer,
                                 shape = RoundedCornerShape(Dimens.cornerRadiusSm),
                                 border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
@@ -298,7 +313,7 @@ fun ChatScreen(
                 .padding(padding),
         ) {
             Box(modifier = Modifier.weight(1f)) {
-                    if (messages.isEmpty() && inProgressToolCalls.isEmpty()) {
+                if (messages.isEmpty() && inProgressToolCalls.isEmpty()) {
                     EmptyChatView(
                         onPromptSelected = { prompt ->
                             viewModel.sendMessage(prompt)
@@ -602,50 +617,6 @@ fun ChatScreen(
                     }
                 }
             }
-        }
-    }
-
-    if (showProviderSheet) {
-        val sheetState = rememberModalBottomSheetState()
-        ModalBottomSheet(
-            onDismissRequest = { showProviderSheet = false },
-            sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface,
-        ) {
-            ProviderSettingsSheetContent(
-                uiState = providerUiState,
-                onSelectActive = { id ->
-                    providerViewModel.selectActive(id)
-                    // Keep the session's model compatible with the new provider.
-                    val config = providerUiState.configs.find { it.id == id }
-                    if (config != null) {
-                        val compatible = when (config.type) {
-                            com.aistudio.mcpchat.data.model.AiProviderType.GOOGLE ->
-                                currentSession?.model?.startsWith("gemini") == true
-                            else -> currentSession?.model?.startsWith("gemini") != true
-                        }
-                        if (!compatible && currentSession != null) {
-                            viewModel.updateSessionModel(config.model)
-                        }
-                    }
-                },
-                onStartEdit = providerViewModel::startEdit,
-                onDelete = providerViewModel::delete,
-                onDraftChange = providerViewModel::updateDraft,
-                onSaveDraft = providerViewModel::saveDraft,
-                onDismissDraft = providerViewModel::dismissDraft,
-                onNewDraft = { type ->
-                    val preset = when (type) {
-                        com.aistudio.mcpchat.data.model.AiProviderType.GOOGLE ->
-                            com.aistudio.mcpchat.data.model.AiProviderConfig.google()
-                        com.aistudio.mcpchat.data.model.AiProviderType.ANTHROPIC ->
-                            com.aistudio.mcpchat.data.model.AiProviderConfig.anthropic()
-                        else -> com.aistudio.mcpchat.data.model.AiProviderConfig.custom()
-                    }
-                    providerViewModel.startEdit(preset.copy(id = ""))
-                },
-            )
-            Spacer(modifier = Modifier.height(Spacing.lg))
         }
     }
 

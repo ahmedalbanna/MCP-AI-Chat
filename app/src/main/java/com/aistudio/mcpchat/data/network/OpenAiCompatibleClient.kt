@@ -50,7 +50,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
                 }
                 .build()
 
-            client.newCall(request).execute().use { response ->
+            client.newCall(request).await().use { response ->
                 val responseBody = response.body?.string() ?: ""
                 if (!response.isSuccessful) {
                     Log.e(TAG, "OpenAI-compatible request failed (${response.code}): $responseBody")
@@ -58,6 +58,8 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
                 }
                 parseResponse(responseBody)
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: IOException) {
             Log.e(TAG, "Network error contacting ${config.name}", e)
             GeminiResponse(text = null, error = "unreachable: ${e.message}")
@@ -83,6 +85,12 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
             messages.put(JSONObject().put("role", "system").put("content", systemInstruction))
         }
 
+        // Tool-call ids must be unique across ALL rounds in one request; a
+        // per-round counter would reuse "call_0" for every round and strict
+        // OpenAI-compatible servers reject or mispair them. Incrementing the
+        // round counter on each role:"tool" message keeps the nth-call ↔
+        // nth-result pairing while staying unique.
+        var turnIndex = 0
         history.forEach { message ->
             when (message.role) {
                 "user" -> messages.put(
@@ -95,18 +103,21 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
                         ),
                 )
 
-                "model" -> messages.put(buildAssistantMessage(message))
+                "model" -> messages.put(buildAssistantMessage(message, turnIndex))
 
                 // Gemini-style function responses -> one role:"tool" per call.
-                "tool" -> message.parts.filterIsInstance<GeminiPart.FunctionResponse>()
-                    .forEachIndexed { index, part ->
-                        messages.put(
-                            JSONObject()
-                                .put("role", "tool")
-                                .put("tool_call_id", toolCallIdFor(index))
-                                .put("content", JSONObject(part.response).toString()),
-                        )
-                    }
+                "tool" -> {
+                    message.parts.filterIsInstance<GeminiPart.FunctionResponse>()
+                        .forEachIndexed { index, part ->
+                            messages.put(
+                                JSONObject()
+                                    .put("role", "tool")
+                                    .put("tool_call_id", toolCallIdFor(turnIndex, index))
+                                    .put("content", JSONObject(part.response).toString()),
+                            )
+                        }
+                    turnIndex++
+                }
             }
         }
 
@@ -140,7 +151,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
         return requestJson
     }
 
-    private fun buildAssistantMessage(message: GeminiMessage): JSONObject {
+    private fun buildAssistantMessage(message: GeminiMessage, turnIndex: Int): JSONObject {
         val text = message.parts.filterIsInstance<GeminiPart.Text>().joinToString("\n") { it.text }
         val calls = message.parts.filterIsInstance<GeminiPart.FunctionCall>()
 
@@ -154,7 +165,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
             calls.forEachIndexed { index, call ->
                 toolCalls.put(
                     JSONObject()
-                        .put("id", toolCallIdFor(index))
+                        .put("id", toolCallIdFor(turnIndex, index))
                         .put("type", "function")
                         .put(
                             "function",
@@ -218,6 +229,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
         const val TAG = "OpenAiCompatClient"
         const val API_KEY_MISSING = "API_KEY_MISSING"
 
-        fun toolCallIdFor(index: Int): String = "call_$index"
+        /** Deterministic turn-scoped id: pairs the nth call with the nth result of the same round. */
+        fun toolCallIdFor(turn: Int, index: Int): String = "call_t${turn}_c$index"
     }
 }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
+import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.repository.McpRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -74,8 +75,12 @@ class McpServersViewModel @Inject constructor(
         _isTesting.value = server.id
         try {
             val updated = repository.pingServer(server)
+            val reason = repository.lastConnectionError(server.id)
             _feedbackMessage.value = FeedbackMessage(
-                "Ping to ${server.name}: ${updated.status} (${updated.latencyMs}ms)",
+                "Ping to ${server.name}: ${updated.status}" +
+                    (reason?.let { " — $it" } ?: "") +
+                    " (${updated.latencyMs}ms)",
+                isError = updated.status != ServerStatus.CONNECTED,
             )
         } catch (e: Exception) {
             _feedbackMessage.value = FeedbackMessage(
@@ -95,9 +100,17 @@ class McpServersViewModel @Inject constructor(
         _isTesting.value = server.id
         try {
             val discovered = repository.syncServerTools(server)
-            _feedbackMessage.value = FeedbackMessage(
-                "Discovered ${discovered.size} tools from ${server.name}",
-            )
+            val reason = repository.lastConnectionError(server.id)
+            _feedbackMessage.value = if (discovered.isEmpty() && reason != null) {
+                FeedbackMessage(
+                    "Sync failed for ${server.name}: $reason",
+                    isError = true,
+                )
+            } else {
+                FeedbackMessage(
+                    "Discovered ${discovered.size} tools from ${server.name}",
+                )
+            }
         } catch (e: Exception) {
             _feedbackMessage.value = FeedbackMessage(
                 "Sync failed: ${e.message}",
@@ -130,6 +143,31 @@ class McpServersViewModel @Inject constructor(
             } catch (e: Exception) {
                 _feedbackMessage.value = FeedbackMessage(
                     "Error adding server: ${e.message}",
+                    isError = true,
+                )
+            }
+        }
+    }
+
+    fun updateServer(server: McpServer, name: String, description: String, endpointUrl: String, authHeader: String) {
+        viewModelScope.launch {
+            try {
+                repository.updateCustomServer(
+                    serverId = server.id,
+                    name = name.trim(),
+                    description = description.trim(),
+                    endpointUrl = endpointUrl.trim(),
+                    authHeader = authHeader.trim(),
+                )
+                _feedbackMessage.value = FeedbackMessage("Updated MCP Server: ${name.trim()}")
+            } catch (e: IllegalArgumentException) {
+                _feedbackMessage.value = FeedbackMessage(
+                    "Error: ${e.message}",
+                    isError = true,
+                )
+            } catch (e: Exception) {
+                _feedbackMessage.value = FeedbackMessage(
+                    "Error updating server: ${e.message}",
                     isError = true,
                 )
             }

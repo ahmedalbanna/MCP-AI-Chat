@@ -740,7 +740,12 @@ fun ExecutionResultCard(result: String, latencyMs: Long, isSuccess: Boolean, mod
 }
 
 @Composable
-fun LogItemCard(logItem: McpLogItem, dateFormatter: SimpleDateFormat? = null, onReExecute: ((String, String, Map<String, Any?>) -> Unit)? = null, modifier: Modifier = Modifier) {
+fun LogItemCard(
+    logItem: McpLogItem,
+    dateFormatter: SimpleDateFormat? = null,
+    onReExecute: ((String, String, Map<String, Any?>) -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
     var isExpanded by remember { mutableStateOf(false) }
 
     Surface(

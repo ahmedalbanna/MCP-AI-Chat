@@ -46,15 +46,18 @@ class GeminiApiService(
             val targetModel = if (modelName.contains("/")) modelName else "models/$modelName"
             val baseUrl = config.baseUrl.trimEnd('/')
                 .ifBlank { "https://generativelanguage.googleapis.com/v1beta" }
-            val url = "$baseUrl/$targetModel:generateContent?key=$apiKey"
+            val url = "$baseUrl/$targetModel:generateContent"
 
             val request = Request.Builder()
                 .url(url)
                 .post(requestJson.toString().toRequestBody(jsonMediaType))
                 .header("Content-Type", "application/json")
+                // Header instead of ?key= query param so the key never lands
+                // in server/redirect access logs.
+                .header("x-goog-api-key", apiKey)
                 .build()
 
-            val response = client.newCall(request).execute()
+            val response = client.newCall(request).await()
             val responseBody = response.body?.string() ?: ""
 
             if (!response.isSuccessful) {
@@ -62,6 +65,8 @@ class GeminiApiService(
             }
 
             parseGeminiResponse(responseBody)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Exception during Gemini generateContent", e)
             GeminiResponse(

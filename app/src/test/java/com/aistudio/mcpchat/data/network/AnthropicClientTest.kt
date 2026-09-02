@@ -3,6 +3,10 @@ package com.aistudio.mcpchat.data.network
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -10,6 +14,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -38,7 +43,9 @@ class AnthropicClientTest {
 
     @After
     fun tearDown() {
-        server.shutdown()
+        // Tolerant shutdown: after the cancellation test the server still has
+        // an in-flight delayed response whose socket close surfaces here.
+        runCatching { server.shutdown() }
     }
 
     private val history = listOf(
@@ -65,11 +72,13 @@ class AnthropicClientTest {
 
         assertEquals("Tokyo is 22°C.", response.text)
 
-        val sent = JSONObject(server.takeRequest().body.readUtf8())
+        val recorded = server.takeRequest(10, TimeUnit.SECONDS)
+        assertNotNull("expected the client to send a request", recorded)
+        val sent = JSONObject(recorded!!.body.readUtf8())
         assertEquals("claude-sonnet-4-5", sent.getString("model"))
         assertEquals("Be brief.", sent.getString("system"))
         assertTrue(sent.getLong("max_tokens") > 0)
-        assertEquals("sk-ant-test", server.takeRequest().getHeader("x-api-key"))
+        assertEquals("sk-ant-test", recorded.getHeader("x-api-key"))
 
         val messages = sent.getJSONArray("messages")
         // [user text, assistant tool_use, user tool_result]
@@ -78,14 +87,93 @@ class AnthropicClientTest {
         val assistantBlock = messages.getJSONObject(1)
             .getJSONArray("content").getJSONObject(0)
         assertEquals("tool_use", assistantBlock.getString("type"))
-        assertEquals("toolu_call_0", assistantBlock.getString("id"))
+        assertEquals("toolu_t0_c0", assistantBlock.getString("id"))
         assertEquals("get_weather", assistantBlock.getString("name"))
 
         val resultBlock = messages.getJSONObject(2)
             .getJSONArray("content").getJSONObject(0)
         assertEquals("tool_result", resultBlock.getString("type"))
-        assertEquals("toolu_call_0", resultBlock.getString("tool_use_id"))
+        assertEquals("toolu_t0_c0", resultBlock.getString("tool_use_id"))
         assertEquals("""{"temp":22}""", resultBlock.getString("content"))
+    }
+
+    @Test
+    fun `base URL already ending in slash-v1 is not doubled`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn"}""",
+            ),
+        )
+        val configWithV1 = config.copy(baseUrl = server.url("/v1").toString().trimEnd('/'))
+
+        client.generateContent(configWithV1, "claude-opus-4-8", emptyList(), emptyList(), "")
+
+        val recorded = server.takeRequest(10, TimeUnit.SECONDS)
+        assertNotNull("expected the client to send a request", recorded)
+        assertEquals("/v1/messages", recorded!!.path)
+    }
+
+    @Test
+    fun `tool use ids stay unique across multiple tool rounds in one request`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"content":[{"type":"text","text":"done"}],"stop_reason":"end_turn"}""",
+            ),
+        )
+        val multiHop = listOf(
+            GeminiMessage("user", listOf(GeminiPart.Text("Q"))),
+            GeminiMessage("model", listOf(GeminiPart.FunctionCall("tool_a", mapOf("x" to 1)))),
+            GeminiMessage("tool", listOf(GeminiPart.FunctionResponse("tool_a", mapOf("x" to 1)))),
+            GeminiMessage("model", listOf(GeminiPart.FunctionCall("tool_b", mapOf("y" to 2)))),
+            GeminiMessage("tool", listOf(GeminiPart.FunctionResponse("tool_b", mapOf("y" to 2)))),
+        )
+
+        client.generateContent(config, "claude-x", multiHop, emptyList(), "")
+
+        val recorded = server.takeRequest(10, TimeUnit.SECONDS)
+        assertNotNull("expected the client to send a request", recorded)
+        val messages = JSONObject(recorded!!.body.readUtf8()).getJSONArray("messages")
+
+        val useIds = mutableSetOf<String>()
+        val resultIds = mutableSetOf<String>()
+        for (i in 0 until messages.length()) {
+            val content = messages.getJSONObject(i).optJSONArray("content") ?: continue
+            for (j in 0 until content.length()) {
+                val block = content.getJSONObject(j)
+                when (block.optString("type")) {
+                    "tool_use" -> useIds.add(block.getString("id"))
+                    "tool_result" -> resultIds.add(block.getString("tool_use_id"))
+                }
+            }
+        }
+
+        // Rounds get distinct ids and each tool_use keeps its tool_result —
+        // reusing "toolu_call_0" per round makes strict servers reject/mispair.
+        assertEquals(setOf("toolu_t0_c0", "toolu_t1_c0"), useIds)
+        assertEquals(useIds, resultIds)
+    }
+
+    @Test
+    fun `cancelling the coroutine cuts the in-flight request`() {
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setBody("""{"content":[{"type":"text","text":"late"}],"stop_reason":"end_turn"}""")
+                .setHeadersDelay(10, TimeUnit.SECONDS),
+        )
+
+        val start = System.currentTimeMillis()
+        runBlocking {
+            val job = launch {
+                client.generateContent(config, "claude-x", emptyList(), emptyList(), "")
+            }
+            delay(300)
+            job.cancelAndJoin()
+        }
+        val elapsed = System.currentTimeMillis() - start
+
+        // Without cancellable HTTP + CancellationException rethrow the call
+        // would keep blocking until the server responds (~10s here).
+        assertTrue("cancellation should cut the request quickly (took ${elapsed}ms)", elapsed < 5000)
     }
 
     @Test

@@ -2,8 +2,10 @@ package com.aistudio.mcpchat.data.security
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.aistudio.mcpchat.BuildConfig
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.AiProviderIds
 import com.aistudio.mcpchat.data.model.AiProviderType
@@ -12,8 +14,10 @@ import org.json.JSONObject
 
 /**
  * Stores the user-configured AI provider endpoints (including API keys) in
- * hardware-backed encrypted preferences. API keys therefore never live in
- * plaintext on disk or in BuildConfig.
+ * hardware-backed encrypted preferences. A build-time key from `.env`
+ * (`BuildConfig.GEMINI_API_KEY`) only seeds the Google preset on first run;
+ * it is written straight into the encrypted store and everything the user
+ * edits afterwards lives in encrypted prefs only.
  *
  * The prefs implementation is injectable so JVM tests can supply an
  * in-memory map (EncryptedSharedPreferences itself needs AndroidKeyStore).
@@ -116,7 +120,7 @@ class AiProviderSettings(
     /** First-run seed so chat works out of the box with Google + placeholders. */
     private fun defaultPresets(): List<AiProviderConfig> {
         val presets = listOf(
-            AiProviderConfig.google(),
+            AiProviderConfig.google(apiKey = buildTimeGeminiKey()),
             AiProviderConfig.anthropic(),
             AiProviderConfig.openAi(),
             AiProviderConfig.openCode(),
@@ -130,11 +134,34 @@ class AiProviderSettings(
         return presets
     }
 
-    private companion object {
-        const val KEY_PROVIDERS = "ai_providers"
-        const val KEY_ACTIVE_ID = "ai_provider_active"
+    /**
+     * The `.env` `GEMINI_API_KEY` (injected via the secrets Gradle plugin)
+     * seeds the Google preset on first run so a development build works
+     * without manual key entry. The key is immediately persisted into the
+     * encrypted prefs; later runtime edits happen in-app only. The
+     * placeholder template value is treated as "not configured".
+     */
+    private fun buildTimeGeminiKey(): String {
+        val key = BuildConfig.GEMINI_API_KEY.trim()
+        return if (key.isEmpty() || key == MY_GEMINI_API_KEY_PLACEHOLDER) "" else key
+    }
 
-        fun createEncryptedPrefs(context: Context): SharedPreferences {
+    companion object {
+        private const val KEY_PROVIDERS = "ai_providers"
+        private const val KEY_ACTIVE_ID = "ai_provider_active"
+        private const val MY_GEMINI_API_KEY_PLACEHOLDER = "MY_GEMINI_API_KEY"
+
+        fun createEncryptedPrefs(context: Context): SharedPreferences =
+            createEncryptedPrefs(context, allowPlaintextFallback = ::isRuntimeWithoutKeystore)
+
+        /**
+         * Opens the encrypted prefs, deciding via [allowPlaintextFallback]
+         * whether a failure may degrade to plaintext storage. Production
+         * must never silently store API keys unencrypted, so the default
+         * ([isRuntimeWithoutKeystore]) only permits the fallback under
+         * Robolectric / stubbed android.jar where no AndroidKeyStore exists.
+         */
+        internal fun createEncryptedPrefs(context: Context, allowPlaintextFallback: () -> Boolean): SharedPreferences {
             return try {
                 val masterKey = MasterKey.Builder(context)
                     .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -147,10 +174,26 @@ class AiProviderSettings(
                     EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                     EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
                 )
-            } catch (_: Exception) {
-                // Fallback for Robolectric / environments without AndroidKeyStore.
+            } catch (e: Exception) {
+                if (!allowPlaintextFallback()) {
+                    throw IllegalStateException(
+                        "EncryptedSharedPreferences is unavailable on this device; " +
+                            "refusing to store provider API keys in plaintext",
+                        e,
+                    )
+                }
                 context.getSharedPreferences("ai_provider_prefs", Context.MODE_PRIVATE)
             }
+        }
+
+        /**
+         * Robolectric reports a "robolectric" fingerprint; the mockable
+         * android.jar used by plain JVM tests leaves statics null. A real
+         * device always has a genuine non-empty fingerprint.
+         */
+        private fun isRuntimeWithoutKeystore(): Boolean {
+            val fingerprint = Build.FINGERPRINT
+            return fingerprint.isNullOrEmpty() || fingerprint.startsWith("robolectric")
         }
     }
 }

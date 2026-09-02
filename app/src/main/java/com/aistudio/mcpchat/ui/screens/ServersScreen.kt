@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,13 +19,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Hub
@@ -42,7 +41,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -59,7 +57,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -94,13 +91,17 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier) {
+fun ServersScreen(
+    viewModel: McpServersViewModel,
+    onAddServer: () -> Unit = {},
+    onEditServer: (McpServer) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val servers by viewModel.servers.collectAsStateWithLifecycle()
     val tools by viewModel.tools.collectAsStateWithLifecycle()
     val isTesting by viewModel.isTesting.collectAsStateWithLifecycle()
     val feedback by viewModel.feedbackMessage.collectAsStateWithLifecycle()
 
-    var showAddServerSheet by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var serverToDelete by remember { mutableStateOf<McpServer?>(null) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -152,7 +153,7 @@ fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier)
         },
         floatingActionButton = {
             SmallFloatingActionButton(
-                onClick = { showAddServerSheet = true },
+                onClick = onAddServer,
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.testTag("add_custom_server_fab"),
@@ -289,7 +290,7 @@ fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier)
                                 )
                                 Spacer(modifier = Modifier.height(Spacing.md))
                                 Button(
-                                    onClick = { showAddServerSheet = true },
+                                    onClick = onAddServer,
                                     colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
                                 ) { Text("Add Server") }
                             }
@@ -307,6 +308,7 @@ fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier)
                         onToggleTool = { toolId, isEnabled -> viewModel.toggleTool(toolId, isEnabled) },
                         onPing = { viewModel.pingServer(server) },
                         onSync = { viewModel.syncTools(server) },
+                        onEdit = { onEditServer(server) },
                         onDelete = { serverToDelete = server },
                     )
                 }
@@ -340,23 +342,6 @@ fun ServersScreen(viewModel: McpServersViewModel, modifier: Modifier = Modifier)
                 },
             )
         }
-
-        if (showAddServerSheet) {
-            val sheetState = rememberModalBottomSheetState()
-            ModalBottomSheet(
-                onDismissRequest = { showAddServerSheet = false },
-                sheetState = sheetState,
-                containerColor = MaterialTheme.colorScheme.surface,
-            ) {
-                AddServerSheetContent(
-                    onDismiss = { showAddServerSheet = false },
-                    onAdd = { name, desc, url, auth ->
-                        viewModel.addCustomServer(name, desc, url, auth)
-                        showAddServerSheet = false
-                    },
-                )
-            }
-        }
     }
 }
 
@@ -369,6 +354,7 @@ fun ServerCardItem(
     onToggleTool: (String, Boolean) -> Unit,
     onPing: () -> Unit,
     onSync: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -503,7 +489,7 @@ fun ServerCardItem(
                             )
                             Spacer(modifier = Modifier.width(Spacing.xs))
                             Text(
-                                text = "Not Secure — plain HTTP, data can be intercepted",
+                                text = "Not Secure â€” plain HTTP, data can be intercepted",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = AmberWarning,
@@ -544,6 +530,21 @@ fun ServerCardItem(
                             Icon(Icons.Default.Sync, contentDescription = "Sync tools", modifier = Modifier.size(Dimens.iconSizeSm))
                             Spacer(modifier = Modifier.width(Spacing.xs))
                             Text("Sync (${tools.size})", fontSize = 11.sp)
+                        }
+
+                        IconButton(
+                            onClick = onEdit,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .minimumInteractiveComponentSize()
+                                .testTag("edit_server_${server.id}"),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit server",
+                                tint = IndigoPrimary,
+                                modifier = Modifier.size(Dimens.iconSizeMd),
+                            )
                         }
 
                         if (!server.isPreset) {
@@ -659,205 +660,6 @@ fun ServerCardItem(
                     }
                 }
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AddServerSheetContent(onDismiss: () -> Unit, onAdd: (name: String, description: String, endpointUrl: String, authHeader: String) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var endpointUrl by remember { mutableStateOf("") }
-    var authHeader by remember { mutableStateOf("") }
-    var showInsecureConfirm by remember { mutableStateOf(false) }
-    val isInsecureInput = McpRepository.isInsecureEndpoint(endpointUrl)
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(Spacing.sheetPadding),
-    ) {
-        Box(
-            modifier = Modifier
-                .width(40.dp)
-                .height(Spacing.xs)
-                .align(Alignment.CenterHorizontally)
-                .clip(RoundedCornerShape(Dimens.cornerRadiusFull))
-                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.lg))
-
-        Text(
-            text = "Add Remote MCP Server",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = "Connect any remote server implementing the Model Context Protocol (HTTP POST or SSE).",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = Spacing.xxs),
-        )
-
-        Spacer(modifier = Modifier.height(Spacing.md))
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        ) {
-            QuickActionChip("Local (10.0.2.2:3000)") {
-                name = "Localhost Dev MCP"
-                description = "Local node / python MCP server"
-                endpointUrl = "http://10.0.2.2:3000/mcp"
-            }
-            QuickActionChip("FastMCP SSE") {
-                name = "FastMCP Remote"
-                description = "FastMCP Python cloud runner"
-                endpointUrl = "https://fastmcp-runner.fly.dev/sse"
-            }
-        }
-
-        Spacer(modifier = Modifier.height(Spacing.md))
-
-        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap)) {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Server Name") },
-                placeholder = { Text("e.g. Production Database MCP") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = { Text("Description") },
-                placeholder = { Text("e.g. Query production read replica") },
-                maxLines = 2,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            val urlError = endpointUrl.isNotBlank() && !endpointUrl.startsWith("http")
-            OutlinedTextField(
-                value = endpointUrl,
-                onValueChange = { endpointUrl = it },
-                label = { Text("Endpoint URL") },
-                placeholder = { Text("https://mcp.my-domain.com/v1") },
-                singleLine = true,
-                isError = urlError,
-                supportingText = if (urlError) {
-                    { Text("Must start with http:// or https://", color = RoseError) }
-                } else {
-                    null
-                },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            OutlinedTextField(
-                value = authHeader,
-                onValueChange = { authHeader = it },
-                label = { Text("Auth Header (Optional)") },
-                placeholder = { Text("Bearer sk-mcp-token-xyz") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            if (isInsecureInput) {
-                Surface(
-                    color = AmberWarning.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(Dimens.cornerRadiusMd),
-                    border = BorderStroke(Dimens.borderWidth, AmberWarning.copy(alpha = 0.4f)),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(Spacing.sm),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            tint = AmberWarning,
-                            modifier = Modifier.size(Dimens.iconSizeMd),
-                        )
-                        Spacer(modifier = Modifier.width(Spacing.sm))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Not Secure MCP",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = AmberWarning,
-                            )
-                            Text(
-                                text = "This server uses plain HTTP. Tokens and tool data can be intercepted. Only connect if you trust the network.",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(Spacing.xl))
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            OutlinedButton(
-                onClick = onDismiss,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text("Cancel")
-            }
-            Button(
-                onClick = {
-                    if (name.isNotBlank() && endpointUrl.isNotBlank()) {
-                        if (isInsecureInput) {
-                            showInsecureConfirm = true
-                        } else {
-                            onAdd(name, description, endpointUrl, authHeader)
-                        }
-                    }
-                },
-                enabled = name.isNotBlank() && endpointUrl.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
-                modifier = Modifier.weight(1f),
-            ) {
-                Text("Connect & Sync")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(Spacing.xl))
-
-        if (showInsecureConfirm) {
-            AlertDialog(
-                onDismissRequest = { showInsecureConfirm = false },
-                icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = AmberWarning) },
-                title = { Text("Not Secure MCP — Continue?") },
-                text = {
-                    Text(
-                        "You are about to connect to \"$endpointUrl\" over plain HTTP.\n\n" +
-                            "Auth headers and tool payloads will be sent without encryption and can be intercepted on the network. " +
-                            "Only proceed if you trust this server and network.",
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            showInsecureConfirm = false
-                            onAdd(name, description, endpointUrl, authHeader)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = AmberWarning),
-                    ) { Text("Accept & Connect") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showInsecureConfirm = false }) { Text("Cancel") }
-                },
-            )
         }
     }
 }

@@ -127,6 +127,30 @@ class McpServersViewModelTest {
     }
 
     @Test
+    fun `pingServer reports handshake failure reason and error state`() = runTest {
+        val server = McpServer(
+            id = "s1",
+            name = "Test Server",
+            description = "desc",
+            endpointUrl = "http://test.com",
+        )
+        coEvery { repository.pingServer(any()) } returns server.copy(
+            status = ServerStatus.ERROR,
+            latencyMs = 99,
+        )
+        every { repository.lastConnectionError("s1") } returns "HTTP 401"
+
+        createViewModel()
+        viewModel.pingServer(server)
+        advanceUntilIdle()
+
+        assertNull(viewModel.isTesting.value)
+        assertNotNull(viewModel.feedbackMessage.value)
+        assertTrue(viewModel.feedbackMessage.value!!.isError)
+        assertTrue(viewModel.feedbackMessage.value!!.text.contains("HTTP 401"))
+    }
+
+    @Test
     fun `syncTools sets isTesting and shows success feedback`() = runTest {
         val server = McpServer(
             id = "s1",
@@ -204,6 +228,37 @@ class McpServersViewModelTest {
 
         assertNotNull(viewModel.feedbackMessage.value)
         assertTrue(viewModel.feedbackMessage.value!!.isError)
+    }
+
+    @Test
+    fun `updateServer calls repository with trimmed values`() = runTest {
+        val server = McpServer(id = "srv1", name = "Old", description = "", endpointUrl = "https://x.com")
+        coEvery { repository.updateCustomServer(any(), any(), any(), any(), any()) } returns server
+
+        createViewModel()
+        viewModel.updateServer(server, "  New  ", " desc ", " https://x.com ", " Bearer tok ")
+        advanceUntilIdle()
+
+        coVerify {
+            repository.updateCustomServer("srv1", "New", "desc", "https://x.com", "Bearer tok")
+        }
+        assertNotNull(viewModel.feedbackMessage.value)
+        assertFalse(viewModel.feedbackMessage.value!!.isError)
+    }
+
+    @Test
+    fun `updateServer shows error feedback for invalid input`() = runTest {
+        val server = McpServer(id = "srv1", name = "Old", description = "", endpointUrl = "https://x.com")
+        coEvery { repository.updateCustomServer(any(), any(), any(), any(), any()) } throws
+            IllegalArgumentException("URL must use http or https scheme")
+
+        createViewModel()
+        viewModel.updateServer(server, "Name", "d", "ftp://bad", "")
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.feedbackMessage.value)
+        assertTrue(viewModel.feedbackMessage.value!!.isError)
+        assertTrue(viewModel.feedbackMessage.value!!.text.contains("http or https"))
     }
 
     @Test

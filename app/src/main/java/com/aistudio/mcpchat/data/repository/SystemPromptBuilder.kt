@@ -21,9 +21,12 @@ class SystemPromptBuilder {
         )
 
         if (tools.isNotEmpty()) {
-            builder.append("\nAvailable MCP Tools:\n")
+            // Names only — full descriptions/schemas already travel in the
+            // tools array of the API request; duplicating them here bloats
+            // every message's token cost (e.g. 69 ERPNext tools ≈ 40KB).
+            builder.append("\nAvailable MCP Tools (name — server):\n")
             for (tool in tools) {
-                builder.append("- ${tool.name} (${tool.serverName}): ${tool.description}\n")
+                builder.append("- ${tool.name} (${tool.serverName})\n")
             }
         }
 

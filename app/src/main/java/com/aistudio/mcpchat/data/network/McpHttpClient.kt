@@ -1,6 +1,7 @@
 package com.aistudio.mcpchat.data.network
 
 import android.util.Log
+import com.aistudio.mcpchat.data.model.McpHeaderCodec
 import com.aistudio.mcpchat.data.model.McpLogItem
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
@@ -22,23 +23,30 @@ class McpHttpClient(
     private val circuitBreaker: CircuitBreaker = CircuitBreaker(),
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(12, TimeUnit.SECONDS)
+        .writeTimeout(12, TimeUnit.SECONDS)
         .build(),
 ) {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     private val sessions = ConcurrentHashMap<String, String>()
+
+    /**
+     * Human-readable reason for the most recent handshake failure per server
+     * (e.g. "HTTP 401", "Failed to connect to …"). Cleared on success. Used to
+     * surface WHY a ping/sync failed instead of a bare ERROR status.
+     */
+    private val lastHandshakeErrors = ConcurrentHashMap<String, String>()
+
+    fun lastHandshakeError(serverId: String): String? = lastHandshakeErrors[serverId]
+
     private val rpcIdCounter = AtomicLong(0)
 
     private fun Request.Builder.applyAuthHeaders(server: McpServer): Request.Builder {
-        if (server.authHeader.isNotBlank()) {
-            val parts = server.authHeader.split(":", limit = 2)
-            if (parts.size == 2) {
-                header(parts[0].trim(), parts[1].trim())
-            } else {
-                header("Authorization", server.authHeader.trim())
-            }
+        // Supports the JSON multi-header form and the legacy single-value form
+        // ("Name: value" or a bare Authorization value).
+        McpHeaderCodec.decode(server.authHeader).forEach { (name, value) ->
+            header(name, value)
         }
         return this
     }
@@ -133,12 +141,15 @@ class McpHttpClient(
 
             if (statusCode !in 200..299) {
                 Log.e(TAG, "Initialize failed for ${server.name}: HTTP $statusCode")
+                lastHandshakeErrors[server.id] = "HTTP $statusCode"
                 return@withContext false
             }
 
             val json = extractJsonRpcBody(body)
             if (json == null || !json.has("result")) {
                 Log.e(TAG, "Initialize returned invalid response for ${server.name}")
+                lastHandshakeErrors[server.id] =
+                    "HTTP $statusCode but response is not a JSON-RPC result"
                 return@withContext false
             }
 
@@ -152,9 +163,13 @@ class McpHttpClient(
             }
 
             Log.d(TAG, "Handshake completed for ${server.name} in ${System.currentTimeMillis() - startTime}ms")
+            lastHandshakeErrors.remove(server.id)
             true
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Handshake failed for ${server.name}: ${e.message}")
+            lastHandshakeErrors[server.id] = e.message ?: e.javaClass.simpleName
             false
         }
     }
@@ -187,6 +202,8 @@ class McpHttpClient(
                     } else {
                         postWithSession(server, requestJson)
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Request failed for ${server.name}: ${e.message}")
                     Pair(-1, "")
@@ -231,7 +248,10 @@ class McpHttpClient(
     }
 
     suspend fun discoverTools(server: McpServer): List<McpTool> = withContext(Dispatchers.IO) {
-        if (isCircuitOpen(server)) return@withContext emptyList()
+        if (isCircuitOpen(server)) {
+            lastHandshakeErrors[server.id] = "circuit breaker open — retry after a cool-down"
+            return@withContext emptyList()
+        }
         try {
             val requestPayload = buildJsonRpcRequest("tools/list")
             val json = callWithSessionRetry(server, requestPayload, retriable = true)
@@ -265,6 +285,8 @@ class McpHttpClient(
                 )
             }
             tools
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Tool discovery error on ${server.name}: ${e.message}")
             circuitBreaker.recordFailure(server.id)
@@ -334,6 +356,8 @@ class McpHttpClient(
                 isCircuitOpen(server) -> errorResult("Server ${server.name} is temporarily unavailable")
                 else -> try {
                     parseToolResponse(callWithSessionRetry(server, requestJson, retriable = false))
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     errorResult(e.message ?: "Failed to connect to remote MCP server")
                 }

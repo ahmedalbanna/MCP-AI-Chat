@@ -156,6 +156,12 @@ detekt {
   config.setFrom(file("$rootDir/detekt-config.yml"))
 }
 
+// detekt 1.23.x caps jvm-target at 22; without this the Detekt tasks infer
+// the daemon's JDK (e.g. 24) and fail. 11 matches compileOptions.
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+  jvmTarget = "11"
+}
+
 kover {
   reports {
     filters {

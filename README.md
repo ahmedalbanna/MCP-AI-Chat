@@ -39,9 +39,11 @@ UI Layer (Compose)                  ViewModel Layer                      Data La
    ```
 
 2. **Configure API key (optional):**
-   Copy `.env.example` to `.env` to set a default Gemini key. At runtime, API keys for
-   any provider are added in-app via the **AI Provider settings sheet** and stored
-   encrypted on-device:
+   Copy `.env.example` to `.env` to set a default Gemini key. It is baked into
+   the build and seeds the Google preset in the **AI Provider settings sheet**
+   on first run (placeholder values like `MY_GEMINI_API_KEY` are ignored).
+   The key is then stored encrypted on-device, and API keys for any provider
+   can be added or changed in-app at any time:
    ```
    GEMINI_API_KEY=your_key_here
    ```
@@ -76,9 +78,11 @@ STORE_PASSWORD=... KEY_PASSWORD=... \
 > `KEYSTORE_PATH` defaults to `my-upload-key.jks` in the repo root. Never commit
 > keystores or passwords (`my-upload-key.jks` is already in `.gitignore`).
 
-> **Note:** MCP server endpoints must use `https://` (plain `http` is only
-> accepted for localhost development servers) so auth headers are never sent
-> in cleartext. The local Room database is excluded from Android cloud
+> **Note:** MCP server endpoints work with both `https://` and plain `http://`
+> (the app permits cleartext so LAN/local runtimes like Ollama or vLLM are
+> reachable). Non-loopback `http` endpoints are flagged as insecure in the UI
+> because auth headers travel unencrypted — prefer `https` for remote servers.
+> The local Room database is excluded from Android cloud
 > backups because it stores server credentials and audit logs.
 
 > **Note:** Network timeouts are global defaults (MCP: 15s connect / 30s read/write via `AppModule.provideMcpOkHttpClient`; AI providers: 60s via `AppModule.provideOkHttpClient`). Per-server timeout tuning is intentionally deferred — all servers share the same timeouts (see `ROADMAP.md` Phase 10.3, WONTFIX).

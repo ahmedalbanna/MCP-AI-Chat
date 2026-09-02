@@ -83,6 +83,36 @@ class McpRepository(
             server
         }
 
+    suspend fun updateCustomServer(serverId: String, name: String, description: String, endpointUrl: String, authHeader: String = ""): McpServer =
+        withContext(Dispatchers.IO) {
+            validateEndpointUrl(endpointUrl)
+            require(name.isNotBlank()) { "Server name cannot be empty" }
+
+            val existing = serverDao.getServerById(serverId)
+                ?: throw IllegalArgumentException("Server not found: $serverId")
+
+            val endpointChanged = existing.endpointUrl != endpointUrl ||
+                crypto.decrypt(existing.authHeader) != authHeader
+
+            val updatedEntity = existing.copy(
+                name = name,
+                description = description,
+                endpointUrl = endpointUrl,
+                // Entities store the encrypted secret; the model below decrypts it.
+                authHeader = crypto.encrypt(authHeader),
+            )
+            serverDao.updateServer(updatedEntity)
+
+            val model = updatedEntity.toModel()
+            if (endpointChanged) {
+                // Cached tools belong to the old endpoint/credentials — drop them
+                // and re-handshake so the tool list matches the new configuration.
+                toolDao.deleteToolsForServer(serverId)
+                syncServerTools(model)
+            }
+            model
+        }
+
     suspend fun updateServer(server: McpServer) = withContext(Dispatchers.IO) {
         serverDao.updateServer(server.toEntity())
     }
@@ -109,6 +139,9 @@ class McpRepository(
         serverDao.updateServer(updated.toEntity())
         updated
     }
+
+    /** Why the most recent handshake for this server failed, if it did. */
+    fun lastConnectionError(serverId: String): String? = mcpHttpClient.lastHandshakeError(serverId)
 
     suspend fun syncServerTools(server: McpServer): List<McpTool> = withContext(Dispatchers.IO) {
         val (status, latency) = mcpHttpClient.testConnection(server)
