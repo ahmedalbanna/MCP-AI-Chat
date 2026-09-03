@@ -13,6 +13,7 @@ data class McpServer(
     val protocolVersion: String = "2024-11-05",
     val toolsCount: Int = 0,
     val lastSyncTime: Long = 0,
+    val sessionTtlMs: Long = 0,
 )
 
 enum class ServerStatus {

@@ -80,27 +80,24 @@ class DatabaseMigrationTest {
     @Test
     fun migrate1To2_addsIsPinnedAndMemoryNotes_preservingData() = runBlocking {
         val db = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-            .addMigrations(AppDatabase.migration1To2)
+            .addMigrations(AppDatabase.migration1To2, AppDatabase.migration2To3)
             .allowMainThreadQueries()
             .build()
 
         try {
             val dao = db.chatDao()
 
-            // Existing row survived and gained isPinned with a false default.
             val migrated = dao.getSessionById("s1")
             assertNotNull(migrated)
             assertEquals("Legacy Session", migrated?.title)
             assertFalse(migrated?.isPinned == true)
 
-            // The new memory_notes table is usable.
             val noteId = db.memoryNoteDao().insertNote(
                 MemoryNoteEntity(content = "post-migration note"),
             )
             assertTrue(noteId > 0)
 
-            // Version bumped to 2.
-            assertEquals(2, db.openHelper.writableDatabase.version)
+            assertEquals(3, db.openHelper.writableDatabase.version)
         } finally {
             db.close()
         }

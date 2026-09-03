@@ -27,12 +27,13 @@ class McpHttpClientTest {
         )
     }
 
-    private fun createServer(endpointUrl: String = "http://localhost:8080/mcp", authHeader: String = "") = McpServer(
+    private fun createServer(endpointUrl: String = "http://localhost:8080/mcp", authHeader: String = "", sessionTtlMs: Long = 0) = McpServer(
         id = "test_server",
         name = "Test Server",
         description = "A test server",
         endpointUrl = endpointUrl,
         authHeader = authHeader,
+        sessionTtlMs = sessionTtlMs,
     )
 
     @Test
@@ -278,5 +279,178 @@ class McpHttpClientTest {
         assertNull(McpHttpClient.extractJsonRpcBody("{not json"))
         assertNull(McpHttpClient.extractJsonRpcBody("event: message\ndata: [1,2,3]\n"))
         assertNull(McpHttpClient.extractJsonRpcBody("event: ping\n\n"))
+    }
+
+    @Test
+    fun `session cache expires after TTL and triggers fresh handshake`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).apply {
+                    setHeader("Mcp-Session-Id", "session-1")
+                    setBody(
+                        """{"jsonrpc":"2.0","id":1,"result":{
+                            "protocolVersion":"2024-11-05",
+                            "capabilities":{},
+                            "serverInfo":{"name":"t","version":"1"}
+                        }}""",
+                    )
+                },
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody("{}"),
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200)
+                    .setBody("""{"jsonrpc":"2.0","id":3,"result":{"tools":[]}}"""),
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).apply {
+                    setHeader("Mcp-Session-Id", "session-2")
+                    setBody(
+                        """{"jsonrpc":"2.0","id":1,"result":{
+                            "protocolVersion":"2024-11-05",
+                            "capabilities":{},
+                            "serverInfo":{"name":"t","version":"1"}
+                        }}""",
+                    )
+                },
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody("{}"),
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200)
+                    .setBody("""{"jsonrpc":"2.0","id":3,"result":{"tools":[]}}"""),
+            )
+
+            val server = createServer(
+                endpointUrl = mockServer.url("/mcp").toString(),
+                sessionTtlMs = 50,
+            )
+
+            client.discoverTools(server)
+            Thread.sleep(100)
+            client.discoverTools(server)
+
+            assertEquals(6, mockServer.requestCount)
+        } finally {
+            mockServer.shutdown()
+        }
+    }
+
+    @Test
+    fun `session cache is reused within TTL without re-handshake`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).apply {
+                    setHeader("Mcp-Session-Id", "session-1")
+                    setBody(
+                        """{"jsonrpc":"2.0","id":1,"result":{
+                            "protocolVersion":"2024-11-05",
+                            "capabilities":{},
+                            "serverInfo":{"name":"t","version":"1"}
+                        }}""",
+                    )
+                },
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody("{}"),
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200)
+                    .setBody("""{"jsonrpc":"2.0","id":3,"result":{"tools":[]}}"""),
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200)
+                    .setBody("""{"jsonrpc":"2.0","id":3,"result":{"tools":[]}}"""),
+            )
+
+            val server = createServer(
+                endpointUrl = mockServer.url("/mcp").toString(),
+                sessionTtlMs = 5000,
+            )
+
+            client.discoverTools(server)
+            Thread.sleep(100)
+            client.discoverTools(server)
+
+            assertEquals(4, mockServer.requestCount)
+        } finally {
+            mockServer.shutdown()
+        }
+    }
+
+    @Test
+    fun `server with sessionTtlMs zero uses five minute default TTL`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).apply {
+                    setHeader("Mcp-Session-Id", "session-1")
+                    setBody(
+                        """{"jsonrpc":"2.0","id":1,"result":{
+                            "protocolVersion":"2024-11-05",
+                            "capabilities":{},
+                            "serverInfo":{"name":"t","version":"1"}
+                        }}""",
+                    )
+                },
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody("{}"),
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200)
+                    .setBody("""{"jsonrpc":"2.0","id":3,"result":{"tools":[]}}"""),
+            )
+
+            val server = createServer(
+                endpointUrl = mockServer.url("/mcp").toString(),
+                sessionTtlMs = 0,
+            )
+
+            client.discoverTools(server)
+
+            val sessionsField = McpHttpClient::class.java.getDeclaredField("sessions")
+            sessionsField.isAccessible = true
+            @Suppress("UNCHECKED_CAST")
+            val sessionsMap = sessionsField.get(client) as java.util.concurrent.ConcurrentHashMap<String, *>
+            val key = sessionsMap.keys.first()
+            val entry = sessionsMap[key]!!
+            val createdAtField = entry.javaClass.getDeclaredField("createdAt")
+            createdAtField.isAccessible = true
+            createdAtField.setLong(entry, System.currentTimeMillis() - 6 * 60_000L)
+
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).apply {
+                    setHeader("Mcp-Session-Id", "session-2")
+                    setBody(
+                        """{"jsonrpc":"2.0","id":1,"result":{
+                            "protocolVersion":"2024-11-05",
+                            "capabilities":{},
+                            "serverInfo":{"name":"t","version":"1"}
+                        }}""",
+                    )
+                },
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody("{}"),
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200)
+                    .setBody("""{"jsonrpc":"2.0","id":3,"result":{"tools":[]}}"""),
+            )
+
+            client.discoverTools(server)
+
+            assertEquals(6, mockServer.requestCount)
+        } finally {
+            mockServer.shutdown()
+        }
     }
 }

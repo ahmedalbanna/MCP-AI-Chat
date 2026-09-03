@@ -220,6 +220,7 @@ class McpRepository(
             protocolVersion = protocolVersion,
             toolsCount = toolsCount,
             lastSyncTime = lastSyncTime,
+            sessionTtlMs = sessionTtlMs,
         )
     }
 
@@ -238,6 +239,7 @@ class McpRepository(
             protocolVersion = protocolVersion,
             toolsCount = toolsCount,
             lastSyncTime = lastSyncTime,
+            sessionTtlMs = sessionTtlMs,
         )
     }
 

@@ -32,7 +32,7 @@ class McpHttpClient(
     /** Exposes the default OkHttpClient for unit-test assertions on timeout contract. */
     internal val defaultClientForTesting: OkHttpClient get() = client
 
-    private val sessions = ConcurrentHashMap<String, String>()
+    private val sessions = ConcurrentHashMap<String, SessionEntry>()
 
     /**
      * Human-readable reason for the most recent handshake failure per server
@@ -55,7 +55,7 @@ class McpHttpClient(
     }
 
     private fun Request.Builder.applySessionHeader(sessionKey: String): Request.Builder {
-        sessions[sessionKey]?.let { header(HEADER_SESSION_ID, it) }
+        sessions[sessionKey]?.let { header(HEADER_SESSION_ID, it.sessionId) }
         return this
     }
 
@@ -157,7 +157,7 @@ class McpHttpClient(
             }
 
             if (!sessionIdHeader.isNullOrBlank()) {
-                sessions[sessionKey(server)] = sessionIdHeader
+                sessions[sessionKey(server)] = SessionEntry(sessionIdHeader)
             }
 
             val notification = buildJsonRpcNotification("notifications/initialized")
@@ -178,7 +178,9 @@ class McpHttpClient(
     }
 
     private suspend fun ensureSession(server: McpServer): Boolean {
-        if (sessions.containsKey(sessionKey(server))) return true
+        val entry = sessions[sessionKey(server)]
+        if (entry != null && !entry.isExpired(server.sessionTtlMs)) return true
+        if (entry != null) sessions.remove(sessionKey(server))
         return performHandshake(server)
     }
 
@@ -391,6 +393,17 @@ class McpHttpClient(
         private const val TAG = "McpHttpClient"
         private const val HEADER_SESSION_ID = "Mcp-Session-Id"
         private const val MAX_ERROR_MESSAGE_LENGTH = 500
+        private const val DEFAULT_SESSION_TTL_MS = 5 * 60_000L
+
+        private class SessionEntry(
+            var sessionId: String,
+            var createdAt: Long = System.currentTimeMillis(),
+        ) {
+            fun isExpired(ttlMs: Long): Boolean {
+                val effectiveTtl = if (ttlMs > 0) ttlMs else DEFAULT_SESSION_TTL_MS
+                return System.currentTimeMillis() - createdAt > effectiveTtl
+            }
+        }
 
         internal fun extractJsonRpcBody(raw: String): JSONObject? {
             if (raw.isBlank()) return null

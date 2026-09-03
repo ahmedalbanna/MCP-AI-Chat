@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         McpLogEntity::class,
         MemoryNoteEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -47,6 +47,12 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val migration2To3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE mcp_servers ADD COLUMN sessionTtlMs INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return instance ?: synchronized(this) {
                 val current = instance
@@ -55,7 +61,7 @@ abstract class AppDatabase : RoomDatabase() {
                         AppDatabase::class.java,
                         "mcp_chat_database",
                     )
-                        .addMigrations(migration1To2)
+                        .addMigrations(migration1To2, migration2To3)
                         .build()
                         .also { created -> instance = created }
                 current
