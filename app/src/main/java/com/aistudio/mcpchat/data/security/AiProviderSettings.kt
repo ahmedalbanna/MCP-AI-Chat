@@ -124,6 +124,9 @@ class AiProviderSettings(
             AiProviderConfig.anthropic(),
             AiProviderConfig.openAi(),
             AiProviderConfig.openCode(),
+            AiProviderConfig.groq(),
+            AiProviderConfig.openRouter(),
+            AiProviderConfig.ollama(),
         )
         if (prefs.getString(KEY_PROVIDERS, null) == null) {
             prefs.edit()

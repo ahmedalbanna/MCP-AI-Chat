@@ -166,4 +166,13 @@ class OpenAiCompatibleClientTest {
         assertEquals(setOf("call_t0_c0", "call_t1_c0"), callIds)
         assertEquals(callIds, resultIds)
     }
+
+    @Test
+    fun `handles malformed JSON response gracefully`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{not valid json"))
+
+        val response = client.generateContent(config, "gpt-4o-mini", history, emptyList(), "")
+        assertTrue(response.text == null)
+        assertNotNull(response.error)
+    }
 }

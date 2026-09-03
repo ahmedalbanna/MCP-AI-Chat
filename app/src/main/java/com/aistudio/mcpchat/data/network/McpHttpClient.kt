@@ -23,11 +23,14 @@ class McpHttpClient(
     private val circuitBreaker: CircuitBreaker = CircuitBreaker(),
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(12, TimeUnit.SECONDS)
-        .writeTimeout(12, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
         .build(),
 ) {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
+
+    /** Exposes the default OkHttpClient for unit-test assertions on timeout contract. */
+    internal val defaultClientForTesting: OkHttpClient get() = client
 
     private val sessions = ConcurrentHashMap<String, String>()
 
@@ -225,7 +228,7 @@ class McpHttpClient(
             json
         }
 
-    private fun isCircuitOpen(server: McpServer): Boolean {
+    private fun shouldSkipDueToCircuit(server: McpServer): Boolean {
         if (!circuitBreaker.canExecute(server.id)) {
             Log.w(TAG, "Circuit open for ${server.name}, skipping call")
             return true
@@ -248,7 +251,7 @@ class McpHttpClient(
     }
 
     suspend fun discoverTools(server: McpServer): List<McpTool> = withContext(Dispatchers.IO) {
-        if (isCircuitOpen(server)) {
+        if (shouldSkipDueToCircuit(server)) {
             lastHandshakeErrors[server.id] = "circuit breaker open — retry after a cool-down"
             return@withContext emptyList()
         }
@@ -353,7 +356,7 @@ class McpHttpClient(
             )
 
             val result = when {
-                isCircuitOpen(server) -> errorResult("Server ${server.name} is temporarily unavailable")
+                shouldSkipDueToCircuit(server) -> errorResult("Server ${server.name} is temporarily unavailable")
                 else -> try {
                     parseToolResponse(callWithSessionRetry(server, requestJson, retriable = false))
                 } catch (e: kotlinx.coroutines.CancellationException) {

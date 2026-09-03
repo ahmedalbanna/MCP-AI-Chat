@@ -65,6 +65,9 @@ class ChatViewModel @Inject constructor(
     private val _inProgressToolCalls = MutableStateFlow<List<McpToolCall>>(emptyList())
     val inProgressToolCalls: StateFlow<List<McpToolCall>> = _inProgressToolCalls.asStateFlow()
 
+    private val _hasPendingUserTurn = MutableStateFlow(false)
+    val hasPendingUserTurn: StateFlow<Boolean> = _hasPendingUserTurn.asStateFlow()
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
@@ -198,6 +201,7 @@ class ChatViewModel @Inject constructor(
         generateJob?.cancel()
         generateJob = viewModelScope.launch {
             _isGenerating.value = true
+            _hasPendingUserTurn.value = true
             _errorMessage.value = null
             _uiError.value = null
             _inProgressToolCalls.value = emptyList()
@@ -236,6 +240,7 @@ class ChatViewModel @Inject constructor(
                 _uiError.value = error
             } finally {
                 _isGenerating.value = false
+                _hasPendingUserTurn.value = false
                 _inProgressToolCalls.value = emptyList()
             }
         }
@@ -248,7 +253,7 @@ class ChatViewModel @Inject constructor(
      */
     private fun followPersistedSession(requestedSessionId: String, result: Result<ChatMessageEntity>) {
         val persistedSessionId = result.getOrNull()?.sessionId ?: return
-        if (persistedSessionId != requestedSessionId) {
+        if (persistedSessionId != requestedSessionId && _currentSessionId.value == requestedSessionId) {
             updateCurrentSessionId(persistedSessionId)
         }
     }

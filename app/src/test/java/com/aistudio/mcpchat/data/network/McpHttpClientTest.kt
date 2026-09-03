@@ -3,6 +3,7 @@ package com.aistudio.mcpchat.data.network
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.ServerStatus
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -33,6 +34,15 @@ class McpHttpClientTest {
         endpointUrl = endpointUrl,
         authHeader = authHeader,
     )
+
+    @Test
+    fun `default client uses documented MCP timeout contract`() {
+        val defaultClient = McpHttpClient()
+        val okHttp = defaultClient.defaultClientForTesting
+        assertEquals(15000, okHttp.connectTimeoutMillis)
+        assertEquals(30000, okHttp.readTimeoutMillis)
+        assertEquals(30000, okHttp.writeTimeoutMillis)
+    }
 
     @Test
     fun `testConnection returns ERROR for unreachable server`() = runTest {

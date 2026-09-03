@@ -171,17 +171,17 @@ kover {
         classes("hilt_aggregated_deps.*")
       }
     }
-    verify {
-      rule {
-        // Placeholder 60% threshold until coverage ratchets up (see ROADMAP Phase 12.4)
-        // Set to 0 to keep CI green while baseline is measured; raise to 60 after follow-up
-        minBound(0)
-      }
+     verify {
+        rule {
+            // 40% gate is the first enforced threshold (see ROADMAP Phase 12.4).
+            // Raise to 60 once coverage baseline stabilises.
+            minBound(40)
+        }
     }
     total {
       verify {
         rule {
-          minBound(0)
+            minBound(0)
         }
       }
     }

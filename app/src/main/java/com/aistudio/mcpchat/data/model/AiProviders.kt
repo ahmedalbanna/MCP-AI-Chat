@@ -60,6 +60,32 @@ data class AiProviderConfig(
             model = model,
         )
 
+        fun groq(apiKey: String = "", model: String = "llama-3.1-8b-instant") = AiProviderConfig(
+            id = ID_GROQ,
+            name = "Groq",
+            type = AiProviderType.OPENAI_COMPATIBLE,
+            baseUrl = "https://api.groq.com/openapi-1",
+            apiKey = apiKey,
+            model = model,
+        )
+
+        fun openRouter(apiKey: String = "", model: String = "meta-llama/llama-3.1-8b-instant") = AiProviderConfig(
+            id = ID_OPENROUTER,
+            name = "OpenRouter",
+            type = AiProviderType.OPENAI_COMPATIBLE,
+            baseUrl = "https://openrouter.ai/api/v1",
+            apiKey = apiKey,
+            model = model,
+        )
+
+        fun ollama(endpoint: String = "http://localhost:11434/v1", model: String = "llama3.2") = AiProviderConfig(
+            id = ID_OLLAMA,
+            name = "Ollama (local)",
+            type = AiProviderType.OPENAI_COMPATIBLE,
+            baseUrl = endpoint,
+            model = model,
+        )
+
         fun custom() = AiProviderConfig(
             name = "Custom provider",
             type = AiProviderType.OPENAI_COMPATIBLE,
@@ -73,9 +99,15 @@ object AiProviderIds {
     const val ID_OPENAI = "preset_openai"
     const val ID_ANTHROPIC = "preset_anthropic"
     const val ID_OPENCODE = "preset_opencode"
+    const val ID_GROQ = "preset_groq"
+    const val ID_OPENROUTER = "preset_openrouter"
+    const val ID_OLLAMA = "preset_ollama"
 }
 
 private const val ID_GOOGLE = AiProviderIds.ID_GOOGLE
 private const val ID_OPENAI = AiProviderIds.ID_OPENAI
 private const val ID_ANTHROPIC = AiProviderIds.ID_ANTHROPIC
 private const val ID_OPENCODE = AiProviderIds.ID_OPENCODE
+private const val ID_GROQ = AiProviderIds.ID_GROQ
+private const val ID_OPENROUTER = AiProviderIds.ID_OPENROUTER
+private const val ID_OLLAMA = AiProviderIds.ID_OLLAMA

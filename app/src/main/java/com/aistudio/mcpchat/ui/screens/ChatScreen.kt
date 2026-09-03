@@ -141,6 +141,7 @@ fun ChatScreen(
     val servers by viewModel.servers.collectAsStateWithLifecycle()
     val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
     val inProgressToolCalls by viewModel.inProgressToolCalls.collectAsStateWithLifecycle()
+    val hasPendingUserTurn by viewModel.hasPendingUserTurn.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
 
     var inputText by remember { mutableStateOf("") }
@@ -369,7 +370,7 @@ fun ChatScreen(
                             }
                         }
 
-                        if (isGenerating && inProgressToolCalls.isEmpty() && messages.lastOrNull()?.role == "user") {
+                        if (isGenerating && inProgressToolCalls.isEmpty() && hasPendingUserTurn) {
                             item {
                                 TypingIndicator(
                                     modifier = Modifier.padding(start = Spacing.md, end = Spacing.xxl),

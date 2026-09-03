@@ -49,13 +49,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    # Coverage gate placeholder — enable once Kover/JaCoCo is configured.
-    # Requires `kover` plugin and `koverReport` task; threshold 60% for new code
-    # (see ROADMAP.md Phase 10.5). Currently reports but does not gate.
-    - name: Coverage report (informational)
-      run: |
-        echo "Coverage threshold 60% not yet enforced — Kover not configured."
-        echo "To enable: apply Kover plugin, run ./gradlew koverReport, and gate on coverage."
+    - name: Enforce coverage gate
+      run: ./gradlew koverVerify
 
     - name: Upload nightly results
       if: always()

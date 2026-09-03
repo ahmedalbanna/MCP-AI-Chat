@@ -283,4 +283,70 @@ class ChatViewModelTest {
         assertEquals(1, viewModel.uiState.value.servers.size)
         assertEquals("Server 1", viewModel.uiState.value.servers[0].name)
     }
+
+    @Test
+    fun `sendMessage sets hasPendingUserTurn true during generation and clears on completion`() = runTest {
+        coEvery { chatRepository.sendMessage(any(), any(), any()) } coAnswers {
+            kotlinx.coroutines.delay(1000)
+            Result.success(ChatMessageEntity(id = "msg_1", sessionId = "s1", role = "assistant", content = "Hello!"))
+        }
+        sessionsFlow.value = listOf(ChatSessionEntity(id = "s1", title = "Test"))
+        createViewModel()
+        viewModel.selectSession("s1")
+        advanceUntilIdle()
+
+        viewModel.sendMessage("Hi")
+        testDispatcher.scheduler.runCurrent()
+        assertTrue(viewModel.hasPendingUserTurn.value)
+
+        advanceUntilIdle()
+        assertFalse(viewModel.hasPendingUserTurn.value)
+    }
+
+    @Test
+    fun `followPersistedSession follows fallback session when user stays on original`() = runTest {
+        coEvery { chatRepository.sendMessage(any(), any(), any()) } returns Result.success(
+            ChatMessageEntity(id = "msg_1", sessionId = "s_fallback", role = "assistant", content = "Hello!"),
+        )
+        sessionsFlow.value = listOf(
+            ChatSessionEntity(id = "s1", title = "Session 1"),
+            ChatSessionEntity(id = "s_fallback", title = "Fallback"),
+        )
+        createViewModel()
+        viewModel.selectSession("s1")
+        advanceUntilIdle()
+
+        viewModel.sendMessage("Hi")
+        advanceUntilIdle()
+
+        assertEquals("s_fallback", viewModel.currentSessionId.value)
+        assertFalse(viewModel.isGenerating.value)
+    }
+
+    @Test
+    fun `followPersistedSession does not snap back when user switched sessions mid-request`() = runTest {
+        coEvery { chatRepository.sendMessage(any(), any(), any()) } coAnswers {
+            kotlinx.coroutines.delay(1000)
+            Result.success(ChatMessageEntity(id = "msg_1", sessionId = "s_fallback", role = "assistant", content = "Hello!"))
+        }
+        sessionsFlow.value = listOf(
+            ChatSessionEntity(id = "s1", title = "Session 1"),
+            ChatSessionEntity(id = "s2", title = "Session 2"),
+        )
+        createViewModel()
+        viewModel.selectSession("s1")
+        advanceUntilIdle()
+
+        viewModel.sendMessage("Hi")
+        testDispatcher.scheduler.runCurrent()
+        assertTrue(viewModel.isGenerating.value)
+
+        viewModel.selectSession("s2")
+        advanceUntilIdle()
+
+        advanceUntilIdle()
+
+        assertEquals("s2", viewModel.currentSessionId.value)
+        assertFalse(viewModel.isGenerating.value)
+    }
 }

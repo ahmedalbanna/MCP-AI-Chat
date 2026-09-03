@@ -1,15 +1,23 @@
 package com.aistudio.mcpchat
 
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import com.aistudio.mcpchat.data.local.ThemeMode
 import com.aistudio.mcpchat.data.local.ThemePreferences
+import com.aistudio.mcpchat.data.model.McpLogItem
+import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.model.ToolExecutionStatus
+import com.aistudio.mcpchat.ui.screens.EmptyChatView
+import com.aistudio.mcpchat.ui.screens.ExecutionResultCard
+import com.aistudio.mcpchat.ui.screens.LogItemCard
+import com.aistudio.mcpchat.ui.screens.ServerCardItem
 import com.aistudio.mcpchat.ui.screens.ServerStatusBadge
 import com.aistudio.mcpchat.ui.screens.SettingsScreenContent
 import com.aistudio.mcpchat.ui.screens.ToolCallCard
+import com.aistudio.mcpchat.ui.screens.TypingIndicator
 import com.aistudio.mcpchat.ui.theme.MyApplicationTheme
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
@@ -180,5 +188,174 @@ class SnapshotTests {
             }
         }
         capture("settings_system")
+    }
+
+    @Test
+    fun typingIndicator_bubble() {
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                TypingIndicator()
+            }
+        }
+        capture("typing_indicator")
+    }
+
+    @Test
+    fun emptyChatView_welcome() {
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                EmptyChatView(onPromptSelected = {})
+            }
+        }
+        capture("empty_chat_view")
+    }
+
+    @Test
+    fun serverCard_connected() {
+        val server = McpServer(
+            id = "srv_1",
+            name = "Weather MCP",
+            description = "Provides weather data",
+            endpointUrl = "https://weather.example.com/mcp",
+            isEnabled = true,
+            status = ServerStatus.CONNECTED,
+            latencyMs = 85,
+        )
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ServerCardItem(
+                    server = server,
+                    tools = emptyList(),
+                    isTesting = false,
+                    onToggleEnabled = {},
+                    onToggleTool = { _, _ -> },
+                    onPing = {},
+                    onSync = {},
+                    onEdit = {},
+                    onDelete = {},
+                    modifier = Modifier,
+                )
+            }
+        }
+        capture("server_card_connected")
+    }
+
+    @Test
+    fun serverCard_error() {
+        val server = McpServer(
+            id = "srv_2",
+            name = "Broken MCP",
+            description = "Failing server",
+            endpointUrl = "https://broken.example.com/mcp",
+            isEnabled = true,
+            status = ServerStatus.ERROR,
+            latencyMs = 5000,
+        )
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ServerCardItem(
+                    server = server,
+                    tools = emptyList(),
+                    isTesting = false,
+                    onToggleEnabled = {},
+                    onToggleTool = { _, _ -> },
+                    onPing = {},
+                    onSync = {},
+                    onEdit = {},
+                    onDelete = {},
+                    modifier = Modifier,
+                )
+            }
+        }
+        capture("server_card_error")
+    }
+
+    @Test
+    fun serverCard_insecure() {
+        val server = McpServer(
+            id = "srv_3",
+            name = "Insecure MCP",
+            description = "Plain HTTP server",
+            endpointUrl = "http://insecure.example.com/mcp",
+            isEnabled = true,
+            status = ServerStatus.CONNECTED,
+            latencyMs = 42,
+        )
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ServerCardItem(
+                    server = server,
+                    tools = emptyList(),
+                    isTesting = false,
+                    onToggleEnabled = {},
+                    onToggleTool = { _, _ -> },
+                    onPing = {},
+                    onSync = {},
+                    onEdit = {},
+                    onDelete = {},
+                    modifier = Modifier,
+                )
+            }
+        }
+        capture("server_card_insecure")
+    }
+
+    @Test
+    fun executionResult_success() {
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ExecutionResultCard(result = """{"temp": 22, "condition": "sunny"}""", latencyMs = 150, isSuccess = true)
+            }
+        }
+        capture("execution_result_success")
+    }
+
+    @Test
+    fun executionResult_error() {
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ExecutionResultCard(result = "Connection refused", latencyMs = 5000, isSuccess = false)
+            }
+        }
+        capture("execution_result_error")
+    }
+
+    @Test
+    fun logItem_success() {
+        val log = McpLogItem(
+            serverId = "srv_1",
+            serverName = "Weather MCP",
+            toolName = "get_weather",
+            requestPayload = """{"name":"get_weather","arguments":{"city":"Tokyo"}}""",
+            responsePayload = """{"temp":22,"condition":"sunny"}""",
+            isSuccess = true,
+            latencyMs = 150,
+        )
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                LogItemCard(log)
+            }
+        }
+        capture("log_item_success")
+    }
+
+    @Test
+    fun logItem_error() {
+        val log = McpLogItem(
+            serverId = "srv_2",
+            serverName = "Broken MCP",
+            toolName = "fetch_data",
+            requestPayload = """{"name":"fetch_data","arguments":{"query":"SELECT*"}}""",
+            responsePayload = """{"error":"Connection refused"}""",
+            isSuccess = false,
+            latencyMs = 5000,
+            errorMessage = "Connection refused",
+        )
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                LogItemCard(log)
+            }
+        }
+        capture("log_item_error")
     }
 }

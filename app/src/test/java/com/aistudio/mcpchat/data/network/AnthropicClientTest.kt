@@ -204,4 +204,23 @@ class AnthropicClientTest {
         val response = client.generateContent(config, "claude", history, emptyList(), "")
         assertTrue(response.error!!.contains("API key"))
     }
+
+    @Test
+    fun `maps rate limit errors`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(429).setBody("""{"error":{"message":"slow down"}}"""),
+        )
+
+        val response = client.generateContent(config, "claude", history, emptyList(), "")
+        assertTrue(response.error!!.contains("Rate limit"))
+    }
+
+    @Test
+    fun `handles malformed JSON response gracefully`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{not valid json"))
+
+        val response = client.generateContent(config, "claude", history, emptyList(), "")
+        assertTrue(response.text == null)
+        assertNotNull(response.error)
+    }
 }
