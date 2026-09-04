@@ -72,6 +72,121 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
     /** Some local runtimes (Ollama, OpenCode) work without an API key. */
     private fun requiresApiKey(config: AiProviderConfig): Boolean = config.baseUrl.contains("api.openai.com")
 
+    /**
+     * SSE streaming via `chat/completions` with `stream:true`. Text deltas are
+     * forwarded through [onTextDelta]; fragmented `tool_calls` deltas (name in
+     * the first chunk, `arguments` JSON string split across later chunks) are
+     * assembled by chunk index, mirroring the non-streaming [parseResponse]
+     * shape.
+     */
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
+    suspend fun streamContent(
+        config: AiProviderConfig,
+        modelName: String,
+        history: List<GeminiMessage>,
+        tools: List<McpTool>,
+        systemInstruction: String,
+        onTextDelta: (String) -> Unit,
+    ): GeminiResponse = withContext(Dispatchers.IO) {
+        if (config.apiKey.isBlank() && requiresApiKey(config)) {
+            return@withContext GeminiResponse(text = null, error = API_KEY_MISSING)
+        }
+
+        try {
+            val body = buildRequestJson(config, modelName, history, tools, systemInstruction)
+                .put("stream", true)
+            val request = Request.Builder()
+                .url(config.baseUrl.trimEnd('/') + "/chat/completions")
+                .post(body.toString().toRequestBody(jsonMediaType))
+                .header("Content-Type", "application/json")
+                .apply {
+                    if (config.apiKey.isNotBlank()) {
+                        header("Authorization", "Bearer ${config.apiKey}")
+                    }
+                }
+                .build()
+
+            client.newCall(request).await().use { response ->
+                if (!response.isSuccessful) {
+                    val errorBody = response.body?.string() ?: ""
+                    Log.e(TAG, "OpenAI-compatible stream failed (${response.code}): $errorBody")
+                    return@use errorResponse(response.code, errorBody)
+                }
+
+                val textBuilder = StringBuilder()
+                val toolAccumulators = LinkedHashMap<Int, ToolCallAccumulator>()
+                var streamError: String? = null
+
+                response.forEachSseData { data ->
+                    if (data == DONE_SENTINEL) return@forEachSseData
+                    try {
+                        val chunk = JSONObject(data)
+                        chunk.optJSONObject("error")?.let { err ->
+                            if (streamError == null) {
+                                streamError = err.optString("message", "stream error")
+                            }
+                            return@forEachSseData
+                        }
+                        val delta = chunk.optJSONArray("choices")?.optJSONObject(0)
+                            ?.optJSONObject("delta") ?: return@forEachSseData
+
+                        val piece = delta.optString("content")
+                        if (piece.isNotEmpty()) {
+                            textBuilder.append(piece)
+                            onTextDelta(piece)
+                        }
+
+                        delta.optJSONArray("tool_calls")?.let { toolCallDeltas ->
+                            for (i in 0 until toolCallDeltas.length()) {
+                                val tc = toolCallDeltas.getJSONObject(i)
+                                val index = tc.optInt("index", 0)
+                                val acc = toolAccumulators.getOrPut(index) { ToolCallAccumulator() }
+                                tc.optJSONObject("function")?.let { fn ->
+                                    val name = fn.optString("name")
+                                    if (name.isNotEmpty()) acc.name = name
+                                    acc.args.append(fn.optString("arguments"))
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {
+                        // Malformed chunk — skip it; the stream continues.
+                    }
+                }
+
+                streamError?.let {
+                    return@use GeminiResponse(text = null, rawJson = "", error = it)
+                }
+                val functionCalls = toolAccumulators.entries
+                    .sortedBy { it.key }
+                    .mapNotNull { it.value.build() }
+                GeminiResponse(
+                    text = textBuilder.toString().takeIf { it.isNotBlank() },
+                    functionCalls = functionCalls,
+                    rawJson = "",
+                )
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: IOException) {
+            Log.e(TAG, "Network error streaming from ${config.name}", e)
+            GeminiResponse(text = null, error = "unreachable: ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error building/parsing stream for ${config.name}", e)
+            GeminiResponse(text = null, error = e.message ?: "Unknown provider error")
+        }
+    }
+
+    /** Assembles one tool call from name + concatenated argument fragments. */
+    private class ToolCallAccumulator {
+        var name: String = ""
+        val args = StringBuilder()
+
+        fun build(): GeminiPart.FunctionCall? {
+            if (name.isBlank()) return null
+            return GeminiPart.FunctionCall(name, parseArgsMap(args.toString()))
+        }
+    }
+
     @Suppress("UnusedParameter")
     private fun buildRequestJson(
         @Suppress("UNUSED_PARAMETER") config: AiProviderConfig,
@@ -193,13 +308,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
         message.optJSONArray("tool_calls")?.let { toolCalls ->
             for (i in 0 until toolCalls.length()) {
                 val call = toolCalls.getJSONObject(i).getJSONObject("function")
-                val args = mutableMapOf<String, Any?>()
-                call.optString("arguments", "{}").let { rawArgs ->
-                    runCatching {
-                        val obj = JSONObject(rawArgs)
-                        obj.keys().forEach { key -> args[key] = obj.get(key) }
-                    }
-                }
+                val args = parseArgsMap(call.optString("arguments", "{}"))
                 functionCalls.add(GeminiPart.FunctionCall(call.getString("name"), args))
             }
         }
@@ -229,7 +338,19 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
         const val TAG = "OpenAiCompatClient"
         const val API_KEY_MISSING = "API_KEY_MISSING"
 
+        /** OpenAI-style SSE terminator: `data: [DONE]`. */
+        private const val DONE_SENTINEL = "[DONE]"
+
         /** Deterministic turn-scoped id: pairs the nth call with the nth result of the same round. */
         fun toolCallIdFor(turn: Int, index: Int): String = "call_t${turn}_c$index"
+
+        private fun parseArgsMap(raw: String): MutableMap<String, Any?> {
+            val args = mutableMapOf<String, Any?>()
+            runCatching {
+                val obj = JSONObject(raw)
+                obj.keys().forEach { key -> args[key] = obj.get(key) }
+            }
+            return args
+        }
     }
 }

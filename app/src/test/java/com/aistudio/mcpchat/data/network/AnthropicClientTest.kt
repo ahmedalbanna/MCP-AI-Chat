@@ -223,4 +223,91 @@ class AnthropicClientTest {
         assertTrue(response.text == null)
         assertNotNull(response.error)
     }
+
+    @Test
+    fun `streamContent emits text deltas and requests stream mode`() = runTest {
+        val sseBody = buildString {
+            append("""data: {"type":"message_start","message":{"content":[]}}""").append("\n\n")
+            append("""data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}""").append("\n\n")
+            append("""data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Tokyo is "}}""").append("\n\n")
+            append("""data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"22°C."}}""").append("\n\n")
+            append("""data: {"type":"content_block_stop","index":0}""").append("\n\n")
+            append("""data: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}""").append("\n\n")
+            append("""data: {"type":"message_stop"}""").append("\n\n")
+        }
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(sseBody),
+        )
+
+        val deltas = mutableListOf<String>()
+        val response = client.streamContent(config, "claude-sonnet-4-5", history, emptyList(), "") { deltas.add(it) }
+
+        assertEquals("Tokyo is 22°C.", response.text)
+        assertEquals(listOf("Tokyo is ", "22°C."), deltas)
+        assertTrue(response.functionCalls.isEmpty())
+
+        val recorded = server.takeRequest(10, TimeUnit.SECONDS)
+        assertNotNull("expected the client to send a request", recorded)
+        val sent = JSONObject(recorded!!.body.readUtf8())
+        assertEquals(true, sent.getBoolean("stream"))
+    }
+
+    @Test
+    fun `streamContent assembles tool_use blocks from json fragments`() = runTest {
+        val sseBody = buildString {
+            append("""data: {"type":"message_start","message":{"content":[]}}""").append("\n\n")
+            append("""data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}""").append("\n\n")
+            append("""data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Checking…"}}""").append("\n\n")
+            append("""data: {"type":"content_block_stop","index":0}""").append("\n\n")
+            append(
+                """data: {"type":"content_block_start","index":1,"content_block":""" +
+                    """{"type":"tool_use","id":"toolu_1","name":"get_weather","input":{}}}""",
+            ).append("\n\n")
+            append("""data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"ci"}}""").append("\n\n")
+            append(
+                """data: {"type":"content_block_delta","index":1,"delta":""" +
+                    """{"type":"input_json_delta","partial_json":"ty\":\"Paris\"}"}}""",
+            ).append("\n\n")
+            append("""data: {"type":"content_block_stop","index":1}""").append("\n\n")
+            append("""data: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}""").append("\n\n")
+            append("""data: {"type":"message_stop"}""").append("\n\n")
+        }
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(sseBody),
+        )
+
+        val deltas = mutableListOf<String>()
+        val response = client.streamContent(config, "claude-sonnet-4-5", history, emptyList(), "") { deltas.add(it) }
+
+        assertEquals(listOf("Checking…"), deltas)
+        assertEquals("Checking…", response.text)
+        assertEquals(1, response.functionCalls.size)
+        assertEquals("get_weather", response.functionCalls[0].name)
+        assertEquals("Paris", response.functionCalls[0].args["city"])
+    }
+
+    @Test
+    fun `streamContent appends truncation notice on max_tokens stop`() = runTest {
+        val sseBody = buildString {
+            append("""data: {"type":"message_start","message":{"content":[]}}""").append("\n\n")
+            append("""data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}""").append("\n\n")
+            append("""data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"partial"}}""").append("\n\n")
+            append("""data: {"type":"message_delta","delta":{"stop_reason":"max_tokens"}}""").append("\n\n")
+            append("""data: {"type":"message_stop"}""").append("\n\n")
+        }
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(sseBody),
+        )
+
+        val response = client.streamContent(config, "claude-sonnet-4-5", history, emptyList(), "") {}
+
+        assertTrue(response.text!!.startsWith("partial"))
+        assertTrue(response.text!!.contains("max_tokens"))
+    }
 }

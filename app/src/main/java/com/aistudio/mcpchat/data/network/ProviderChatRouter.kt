@@ -41,6 +41,25 @@ class ProviderChatRouter(
         }
     }
 
+    override suspend fun streamContent(
+        config: AiProviderConfig,
+        modelName: String,
+        history: List<GeminiMessage>,
+        tools: List<McpTool>,
+        systemInstruction: String,
+        onTextDelta: (String) -> Unit,
+    ): GeminiResponse {
+        val model = resolveModel(config, modelName)
+
+        return when (config.type) {
+            AiProviderType.GOOGLE -> google.streamContent(config, model, history, tools, systemInstruction, onTextDelta)
+            AiProviderType.OPENAI_COMPATIBLE ->
+                openAiCompatible.streamContent(config, model, history, tools, systemInstruction, onTextDelta)
+            AiProviderType.ANTHROPIC ->
+                anthropic.streamContent(config, model, history, tools, systemInstruction, onTextDelta)
+        }
+    }
+
     /**
      * Sessions persist their model string. When the active provider changes,
      * a model from a different family would be rejected — fall back to the

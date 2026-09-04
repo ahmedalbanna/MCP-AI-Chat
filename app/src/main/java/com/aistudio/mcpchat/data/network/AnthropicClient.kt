@@ -68,6 +68,135 @@ class AnthropicClient(private val client: OkHttpClient) {
         }
     }
 
+    /**
+     * SSE streaming via `/v1/messages` with `stream:true`. Text deltas are
+     * forwarded through [onTextDelta]; `tool_use` content blocks stream their
+     * name via `content_block_start` and arguments via incremental
+     * `input_json_delta` fragments, which are assembled per block index into
+     * the same shape [parseResponse] produces.
+     */
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
+    suspend fun streamContent(
+        config: AiProviderConfig,
+        modelName: String,
+        history: List<GeminiMessage>,
+        tools: List<McpTool>,
+        systemInstruction: String,
+        onTextDelta: (String) -> Unit,
+    ): GeminiResponse = withContext(Dispatchers.IO) {
+        if (config.apiKey.isBlank()) {
+            return@withContext GeminiResponse(text = null, error = API_KEY_MISSING)
+        }
+
+        try {
+            val body = buildRequestJson(config, modelName, history, tools, systemInstruction)
+                .put("stream", true)
+            val base = config.baseUrl.trimEnd('/')
+            val endpoint = if (base.endsWith("/v1")) "$base/messages" else "$base/v1/messages"
+            val request = Request.Builder()
+                .url(endpoint)
+                .post(body.toString().toRequestBody(jsonMediaType))
+                .header("Content-Type", "application/json")
+                .header("x-api-key", config.apiKey)
+                .header("anthropic-version", ANTHROPIC_VERSION)
+                .build()
+
+            client.newCall(request).await().use { response ->
+                if (!response.isSuccessful) {
+                    val errorBody = response.body?.string() ?: ""
+                    Log.e(TAG, "Anthropic stream failed (${response.code}): $errorBody")
+                    return@use errorResponse(response.code, errorBody)
+                }
+
+                val textBuilder = StringBuilder()
+                val toolBlocks = LinkedHashMap<Int, ToolUseAccumulator>()
+                var stopReason: String? = null
+                var streamError: String? = null
+
+                response.forEachSseData { data ->
+                    try {
+                        val event = JSONObject(data)
+                        when (event.optString("type")) {
+                            "error" -> {
+                                if (streamError == null) {
+                                    streamError = event.optJSONObject("error")
+                                        ?.optString("message") ?: "stream error"
+                                }
+                            }
+
+                            "content_block_start" -> {
+                                val block = event.optJSONObject("content_block") ?: return@forEachSseData
+                                if (block.optString("type") == "tool_use") {
+                                    toolBlocks[event.optInt("index", 0)] = ToolUseAccumulator(block.optString("name"))
+                                }
+                            }
+
+                            "content_block_delta" -> {
+                                val delta = event.optJSONObject("delta") ?: return@forEachSseData
+                                when (delta.optString("type")) {
+                                    "text_delta" -> {
+                                        val piece = delta.optString("text")
+                                        if (piece.isNotEmpty()) {
+                                            textBuilder.append(piece)
+                                            onTextDelta(piece)
+                                        }
+                                    }
+
+                                    "input_json_delta" ->
+                                        toolBlocks[event.optInt("index", 0)]
+                                            ?.args?.append(delta.optString("partial_json"))
+                                }
+                            }
+
+                            "message_delta" ->
+                                stopReason = event.optJSONObject("delta")?.optString("stop_reason")
+                        }
+                    } catch (_: Exception) {
+                        // Malformed chunk — skip it; the stream continues.
+                    }
+                }
+
+                streamError?.let {
+                    return@use GeminiResponse(text = null, rawJson = "", error = it)
+                }
+                if (stopReason == "max_tokens") {
+                    textBuilder.append("\n\n[Output truncated: max_tokens reached]")
+                }
+                val functionCalls = toolBlocks.entries
+                    .sortedBy { it.key }
+                    .mapNotNull { it.value.build() }
+                GeminiResponse(
+                    text = textBuilder.toString().takeIf { it.isNotBlank() },
+                    functionCalls = functionCalls,
+                    rawJson = "",
+                )
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: IOException) {
+            Log.e(TAG, "Network error streaming from ${config.name}", e)
+            GeminiResponse(text = null, error = "unreachable: ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error building/parsing stream for ${config.name}", e)
+            GeminiResponse(text = null, error = e.message ?: "Unknown provider error")
+        }
+    }
+
+    /** Assembles one tool_use block from name + concatenated JSON fragments. */
+    private class ToolUseAccumulator(val name: String) {
+        val args = StringBuilder()
+
+        fun build(): GeminiPart.FunctionCall? {
+            if (name.isBlank()) return null
+            val input = mutableMapOf<String, Any?>()
+            runCatching {
+                val obj = JSONObject(args.toString())
+                obj.keys().forEach { key -> input[key] = obj.get(key) }
+            }
+            return GeminiPart.FunctionCall(name, input)
+        }
+    }
+
     @Suppress("CyclomaticComplexMethod", "NestedBlockDepth", "UnusedParameter")
     private fun buildRequestJson(
         @Suppress("UNUSED_PARAMETER") config: AiProviderConfig,

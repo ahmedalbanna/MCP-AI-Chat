@@ -6,6 +6,7 @@ import com.aistudio.mcpchat.data.local.ChatSessionEntity
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.repository.ChatRepository
+import com.aistudio.mcpchat.data.repository.ChatStreamEvent
 import com.aistudio.mcpchat.data.repository.McpRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -13,6 +14,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -42,6 +44,7 @@ class ChatViewModelTest {
     private val serversFlow = MutableStateFlow<List<McpServer>>(emptyList())
     private val toolsFlow = MutableStateFlow<List<McpTool>>(emptyList())
     private val messagesFlow = MutableStateFlow<List<ChatMessageEntity>>(emptyList())
+    private val streamEventsFlow = MutableSharedFlow<ChatStreamEvent>(extraBufferCapacity = 64)
 
     @Before
     fun setUp() {
@@ -54,6 +57,7 @@ class ChatViewModelTest {
         every { mcpRepository.allToolsFlow } returns toolsFlow
         every { chatRepository.allSessionsFlow } returns sessionsFlow
         every { chatRepository.getMessagesForSession(any()) } returns messagesFlow
+        every { chatRepository.streamEvents } returns streamEventsFlow
     }
 
     private fun createViewModel() {
@@ -82,12 +86,38 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `streamingText accumulates token deltas for the current session`() = runTest {
+        createViewModel()
+        viewModel.selectSession("s1")
+        advanceUntilIdle()
+
+        streamEventsFlow.tryEmit(ChatStreamEvent.TokenDelta("s1", "Hel"))
+        streamEventsFlow.tryEmit(ChatStreamEvent.TokenDelta("s1", "lo"))
+        advanceUntilIdle()
+        assertEquals("Hello", viewModel.streamingText.value)
+
+        // Tokens from a chat the user navigated away from never bleed in.
+        streamEventsFlow.tryEmit(ChatStreamEvent.TokenDelta("other", "XXX"))
+        advanceUntilIdle()
+        assertEquals("Hello", viewModel.streamingText.value)
+
+        // A new hop resets the preview; finishing clears it entirely.
+        streamEventsFlow.tryEmit(ChatStreamEvent.StreamStarted("s1"))
+        advanceUntilIdle()
+        assertNull(viewModel.streamingText.value)
+
+        streamEventsFlow.tryEmit(ChatStreamEvent.TokenDelta("s1", "again"))
+        streamEventsFlow.tryEmit(ChatStreamEvent.StreamFinished("s1"))
+        advanceUntilIdle()
+        assertNull(viewModel.streamingText.value)
+    }
+
+    @Test
     fun `selectSession updates currentSessionId`() = runTest {
         createViewModel()
 
         viewModel.selectSession("session_123")
         advanceUntilIdle()
-
         assertEquals("session_123", viewModel.currentSessionId.value)
     }
 

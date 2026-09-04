@@ -145,6 +145,7 @@ fun ChatScreen(
     val inProgressToolCalls by viewModel.inProgressToolCalls.collectAsStateWithLifecycle()
     val hasPendingUserTurn by viewModel.hasPendingUserTurn.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val streamingText by viewModel.streamingText.collectAsStateWithLifecycle()
 
     var inputText by remember { mutableStateOf("") }
     var showServersSheet by remember { mutableStateOf(false) }
@@ -177,7 +178,7 @@ fun ChatScreen(
 
     var userHasScrolledUp by remember { mutableStateOf(false) }
 
-    LaunchedEffect(messages.size, inProgressToolCalls.size) {
+    LaunchedEffect(messages.size, inProgressToolCalls.size, streamingText?.length) {
         if (!userHasScrolledUp && messages.isNotEmpty()) {
             val count = listState.layoutInfo.totalItemsCount
             if (count > 0) listState.scrollToItem(count - 1)
@@ -375,7 +376,21 @@ fun ChatScreen(
                             }
                         }
 
-                        if (isGenerating && inProgressToolCalls.isEmpty() && hasPendingUserTurn) {
+                        if (streamingText != null) {
+                            item(key = "streaming_bubble") {
+                                StreamingMessageBubble(
+                                    text = streamingText.orEmpty(),
+                                    modifier = Modifier.padding(start = Spacing.md, end = Spacing.xxl),
+                                )
+                            }
+                        }
+
+                        // Three-dots placeholder between send and first token.
+                        val awaitingFirstToken = isGenerating &&
+                            inProgressToolCalls.isEmpty() &&
+                            hasPendingUserTurn &&
+                            streamingText == null
+                        if (awaitingFirstToken) {
                             item {
                                 TypingIndicator(
                                     modifier = Modifier.padding(start = Spacing.md, end = Spacing.xxl),
@@ -1248,17 +1263,6 @@ fun QuickActionChip(label: String, icon: ImageVector? = null, onClick: () -> Uni
 
 @Composable
 fun TypingIndicator(modifier: Modifier = Modifier) {
-    val infiniteTransition = rememberInfiniteTransition(label = "typing")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "typingAlpha",
-    )
-
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -1284,15 +1288,35 @@ fun TypingIndicator(modifier: Modifier = Modifier) {
             }
         }
         Spacer(modifier = Modifier.width(Spacing.sm))
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-            repeat(3) { index ->
-                Box(
-                    modifier = Modifier
-                        .size(Spacing.sm)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)),
-                )
-            }
+        PulsingDots()
+    }
+}
+
+/** Three pulsing dots signalling liveness; usable bare or inside a bubble. */
+@Composable
+fun PulsingDots(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "typing")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "typingAlpha",
+    )
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        modifier = modifier,
+    ) {
+        repeat(3) {
+            Box(
+                modifier = Modifier
+                    .size(Spacing.sm)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)),
+            )
         }
     }
 }
@@ -1302,4 +1326,58 @@ private fun sessionSurfaceColor(isSelected: Boolean): Color = if (isSelected) {
     IndigoPrimary.copy(alpha = 0.15f)
 } else {
     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+}
+
+/**
+ * Live preview bubble for the assistant reply while tokens stream in over
+ * SSE. Mirrors the assistant bubble styling; replaced by the persisted
+ * message (via the Room messages flow) once the stream finishes.
+ */
+@Composable
+fun StreamingMessageBubble(text: String, modifier: Modifier = Modifier) {
+    Row(
+        horizontalArrangement = Arrangement.Start,
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics {
+                liveRegion = LiveRegionMode.Polite
+            },
+    ) {
+        Surface(
+            color = IndigoPrimary.copy(alpha = 0.2f),
+            shape = CircleShape,
+            border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.4f)),
+            modifier = Modifier
+                .size(Spacing.xxl)
+                .padding(top = Spacing.xxs),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = "AI",
+                    tint = IndigoPrimaryLight,
+                    modifier = Modifier.size(Dimens.iconSizeSm),
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(Spacing.sm))
+
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = Dimens.elevationSm,
+            shape = RoundedCornerShape(
+                topStart = Dimens.cornerRadiusXl,
+                topEnd = Dimens.cornerRadiusXl,
+                bottomStart = Dimens.cornerRadiusSm,
+                bottomEnd = Dimens.cornerRadiusXl,
+            ),
+            border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+            modifier = Modifier.fillMaxWidth(Dimens.CHAT_BUBBLE_MAX_WIDTH),
+        ) {
+            Column(modifier = Modifier.padding(horizontal = Spacing.cardPadding, vertical = Spacing.sm)) {
+                MarkdownFormattedText(text = text)
+                PulsingDots(modifier = Modifier.padding(top = Spacing.xxs))
+            }
+        }
+    }
 }

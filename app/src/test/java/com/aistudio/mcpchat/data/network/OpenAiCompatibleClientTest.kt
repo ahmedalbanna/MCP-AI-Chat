@@ -175,4 +175,69 @@ class OpenAiCompatibleClientTest {
         assertTrue(response.text == null)
         assertNotNull(response.error)
     }
+
+    @Test
+    fun `streamContent emits text deltas and requests stream mode`() = runTest {
+        val sseBody = buildString {
+            append("""data: {"choices":[{"delta":{"role":"assistant"}}]}""").append("\n\n")
+            append("""data: {"choices":[{"delta":{"content":"Hello"}}]}""").append("\n\n")
+            append("""data: {"choices":[{"delta":{"content":" world"}}]}""").append("\n\n")
+            append("""data: {"choices":[{"delta":{},"finish_reason":"stop"}]}""").append("\n\n")
+            append("data: [DONE]").append("\n\n")
+        }
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(sseBody),
+        )
+
+        val deltas = mutableListOf<String>()
+        val response = client.streamContent(config, "gpt-4o-mini", history, tools, "") { deltas.add(it) }
+
+        assertEquals("Hello world", response.text)
+        assertEquals(listOf("Hello", " world"), deltas)
+        assertTrue(response.functionCalls.isEmpty())
+
+        val recorded = server.takeRequest(10, TimeUnit.SECONDS)
+        assertNotNull("expected the client to send a request", recorded)
+        val sent = JSONObject(recorded!!.body.readUtf8())
+        assertEquals(true, sent.getBoolean("stream"))
+    }
+
+    @Test
+    fun `streamContent assembles fragmented tool_calls deltas`() = runTest {
+        val sseBody = buildString {
+            append(
+                """data: {"choices":[{"delta":{"tool_calls":[""" +
+                    """{"index":0,"id":"call_1","type":"function","function":{"name":"get_weather","arguments":""}}""" +
+                    """]}}]}""",
+            ).append("\n\n")
+            append(
+                """data: {"choices":[{"delta":{"tool_calls":[""" +
+                    """{"index":0,"function":{"arguments":"{\"ci"}}""" +
+                    """]}}]}""",
+            ).append("\n\n")
+            append(
+                """data: {"choices":[{"delta":{"tool_calls":[""" +
+                    """{"index":0,"function":{"arguments":"ty\":\"Paris\"}"}}""" +
+                    """]}}]}""",
+            ).append("\n\n")
+            append("""data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}""").append("\n\n")
+            append("data: [DONE]").append("\n\n")
+        }
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(sseBody),
+        )
+
+        val deltas = mutableListOf<String>()
+        val response = client.streamContent(config, "gpt-4o-mini", history, tools, "") { deltas.add(it) }
+
+        assertTrue(deltas.isEmpty())
+        assertNull(response.text)
+        assertEquals(1, response.functionCalls.size)
+        assertEquals("get_weather", response.functionCalls[0].name)
+        assertEquals("Paris", response.functionCalls[0].args["city"])
+    }
 }

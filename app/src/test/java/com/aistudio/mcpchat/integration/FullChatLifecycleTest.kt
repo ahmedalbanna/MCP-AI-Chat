@@ -189,7 +189,7 @@ class FullChatLifecycleTest {
     fun `error recovery - network error during message send`() = runTest {
         val session = chatRepository.createNewSession("Error Chat", "gemini-3.5-flash")
 
-        coEvery { geminiApiService.generateContent(any(), any(), any(), any(), any()) } throws
+        coEvery { geminiApiService.streamContent(any(), any(), any(), any(), any(), any()) } throws
             RuntimeException("Network timeout")
 
         try {
@@ -236,7 +236,7 @@ class FullChatLifecycleTest {
     @Test
     fun `fallback mode - API key missing uses local handler`() = runTest {
         coEvery {
-            geminiApiService.generateContent(any(), any(), any(), any(), any())
+            geminiApiService.streamContent(any(), any(), any(), any(), any(), any())
         } returns com.aistudio.mcpchat.data.model.GeminiResponse(text = null, error = "API_KEY_MISSING")
 
         val session = chatRepository.createNewSession("Fallback Chat", "gemini-3.5-flash")

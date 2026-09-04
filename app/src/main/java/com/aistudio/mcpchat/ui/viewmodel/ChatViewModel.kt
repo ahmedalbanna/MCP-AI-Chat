@@ -11,6 +11,7 @@ import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.data.repository.ChatRepository
+import com.aistudio.mcpchat.data.repository.ChatStreamEvent
 import com.aistudio.mcpchat.data.repository.McpRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -73,6 +74,14 @@ class ChatViewModel @Inject constructor(
 
     private val _uiError = MutableStateFlow<UiError?>(null)
     val uiError: StateFlow<UiError?> = _uiError.asStateFlow()
+
+    /**
+     * Live SSE preview of the assistant reply being generated, or null when
+     * nothing is streaming. Accumulated from [ChatRepository.streamEvents];
+     * replaced by the persisted message when the stream finishes.
+     */
+    private val _streamingText = MutableStateFlow<String?>(null)
+    val streamingText: StateFlow<String?> = _streamingText.asStateFlow()
 
     private var generateJob: Job? = null
 
@@ -145,10 +154,26 @@ class ChatViewModel @Inject constructor(
                 }
             }
         }
+
+        // Token deltas stream in from the repository's hot SharedFlow. The
+        // sessionId filter drops tokens from a chat the user navigated away
+        // from mid-generation instead of bleeding them into the current one.
+        viewModelScope.launch {
+            chatRepository.streamEvents.collect { event ->
+                if (event.sessionId != _currentSessionId.value) return@collect
+                when (event) {
+                    is ChatStreamEvent.StreamStarted -> _streamingText.value = null
+                    is ChatStreamEvent.TokenDelta ->
+                        _streamingText.value = (_streamingText.value ?: "") + event.delta
+                    is ChatStreamEvent.StreamFinished -> _streamingText.value = null
+                }
+            }
+        }
     }
 
     fun selectSession(sessionId: String) {
         updateCurrentSessionId(sessionId)
+        _streamingText.value = null
         _inProgressToolCalls.value = emptyList()
         _errorMessage.value = null
         _uiError.value = null
@@ -161,6 +186,7 @@ class ChatViewModel @Inject constructor(
                 model = model,
             )
             updateCurrentSessionId(session.id)
+            _streamingText.value = null
             _inProgressToolCalls.value = emptyList()
             _errorMessage.value = null
             _uiError.value = null
@@ -204,6 +230,7 @@ class ChatViewModel @Inject constructor(
             _hasPendingUserTurn.value = true
             _errorMessage.value = null
             _uiError.value = null
+            _streamingText.value = null
             _inProgressToolCalls.value = emptyList()
 
             try {
@@ -241,6 +268,7 @@ class ChatViewModel @Inject constructor(
             } finally {
                 _isGenerating.value = false
                 _hasPendingUserTurn.value = false
+                _streamingText.value = null
                 _inProgressToolCalls.value = emptyList()
             }
         }
@@ -262,6 +290,7 @@ class ChatViewModel @Inject constructor(
         generateJob?.cancel()
         generateJob = null
         _isGenerating.value = false
+        _streamingText.value = null
         _inProgressToolCalls.value = emptyList()
     }
 

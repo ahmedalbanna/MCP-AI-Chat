@@ -15,6 +15,7 @@ import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -192,7 +193,7 @@ class ChatRepositoryTest {
     fun `sendMessage with API_KEY_MISSING uses fallback handler`() = runTest {
         coEvery { chatDao.getSessionById(any()) } returns ChatSessionEntity(id = "s1", title = "Test")
         coEvery { chatDao.getMessagesList(any()) } returns emptyList()
-        coEvery { geminiService.generateContent(any(), any(), any(), any(), any()) } returns
+        coEvery { geminiService.streamContent(any(), any(), any(), any(), any(), any()) } returns
             com.aistudio.mcpchat.data.model.GeminiResponse(text = null, error = "API_KEY_MISSING")
 
         createRepository()
@@ -207,7 +208,7 @@ class ChatRepositoryTest {
     fun `sendMessage with unknown sessionId persists turns under the fallback session`() = runTest {
         coEvery { chatDao.getSessionById("stale") } returns null
         coEvery { chatDao.getMessagesList(any()) } returns emptyList()
-        coEvery { geminiService.generateContent(any(), any(), any(), any(), any()) } returns
+        coEvery { geminiService.streamContent(any(), any(), any(), any(), any(), any()) } returns
             com.aistudio.mcpchat.data.model.GeminiResponse(text = null, error = "API_KEY_MISSING")
 
         createRepository()
@@ -221,6 +222,36 @@ class ChatRepositoryTest {
         // under the stale id, which would create orphaned rows.
         coVerify(exactly = 0) { chatDao.insertMessage(match { it.sessionId == "stale" }) }
         coVerify(exactly = 2) { chatDao.insertMessage(any()) }
+    }
+
+    @Test
+    fun `sendMessage streams token deltas through streamEvents`() = runTest {
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList(any()) } returns emptyList()
+        coEvery { geminiService.streamContent(any(), any(), any(), any(), any(), any()) } coAnswers {
+            @Suppress("UNCHECKED_CAST")
+            val onDelta = args[5] as (String) -> Unit
+            onDelta("Hel")
+            onDelta("lo!")
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "Hello!")
+        }
+
+        createRepository()
+        val events = mutableListOf<ChatStreamEvent>()
+        val collectJob = launch { repository.streamEvents.collect { events.add(it) } }
+        advanceUntilIdle()
+
+        val result = repository.sendMessage(sessionId = "s1", userPrompt = "Hi")
+        advanceUntilIdle()
+        collectJob.cancel()
+
+        assertTrue(result.isSuccess)
+        val sessionEvents = events.filter { it.sessionId == "s1" }
+        assertTrue(sessionEvents.isNotEmpty())
+        assertTrue(sessionEvents.first() is ChatStreamEvent.StreamStarted)
+        assertTrue(sessionEvents.any { it is ChatStreamEvent.TokenDelta && it.delta == "Hel" })
+        assertTrue(sessionEvents.any { it is ChatStreamEvent.TokenDelta && it.delta == "lo!" })
+        assertTrue(sessionEvents.last() is ChatStreamEvent.StreamFinished)
     }
 
     @Test
@@ -242,7 +273,7 @@ class ChatRepositoryTest {
             ),
         )
         val historySlot = slot<List<GeminiMessage>>()
-        coEvery { geminiService.generateContent(any(), any(), capture(historySlot), any(), any()) } returns
+        coEvery { geminiService.streamContent(any(), any(), capture(historySlot), any(), any(), any()) } returns
             com.aistudio.mcpchat.data.model.GeminiResponse(text = "done")
 
         createRepository()

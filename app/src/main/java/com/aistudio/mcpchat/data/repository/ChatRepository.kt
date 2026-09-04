@@ -19,7 +19,11 @@ import com.aistudio.mcpchat.data.network.AiChatService
 import com.aistudio.mcpchat.data.network.GeminiApiService
 import com.aistudio.mcpchat.data.tool.LocalFallbackHandler
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -48,6 +52,18 @@ class ChatRepository(
     }
 
     val allSessionsFlow: Flow<List<ChatSessionEntity>> = chatDao.getAllSessions()
+
+    /**
+     * Hot stream of SSE token deltas for the in-flight generation. Emissions
+     * are best-effort: an overflow drops the oldest buffered tokens rather
+     * than slowing the network read, and the persisted assistant message is
+     * always the authoritative full text.
+     */
+    private val _streamEvents = MutableSharedFlow<ChatStreamEvent>(
+        extraBufferCapacity = 512,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val streamEvents: SharedFlow<ChatStreamEvent> = _streamEvents.asSharedFlow()
 
     fun getMessagesForSession(sessionId: String): Flow<List<ChatMessageEntity>> {
         return chatDao.getMessagesForSession(sessionId)
@@ -86,6 +102,7 @@ class ChatRepository(
         chatDao.deleteSessionById(sessionId)
     }
 
+    @Suppress("LongMethod")
     suspend fun sendMessage(
         sessionId: String,
         userPrompt: String,
@@ -141,15 +158,24 @@ class ChatRepository(
         var currentHop = 0
         var continueLoop = true
 
+        _streamEvents.tryEmit(ChatStreamEvent.StreamStarted(effectiveSessionId))
+
         while (continueLoop && currentHop < MAX_TOOL_HOPS) {
             currentHop++
-            val geminiResponse = aiService.generateContent(
+            if (currentHop > 1) {
+                // The previous hop streamed narration that is now superseded
+                // by tool results — restart the preview from a clean bubble.
+                _streamEvents.tryEmit(ChatStreamEvent.StreamStarted(effectiveSessionId))
+            }
+            val geminiResponse = aiService.streamContent(
                 config = providerConfig,
                 modelName = session.model,
                 history = history,
                 tools = activeTools,
                 systemInstruction = systemInstruction,
-            )
+            ) { delta ->
+                _streamEvents.tryEmit(ChatStreamEvent.TokenDelta(effectiveSessionId, delta))
+            }
 
             if (geminiResponse.error != null) {
                 val outcome = handleGeminiError(geminiResponse.error, userPrompt)
@@ -187,7 +213,7 @@ class ChatRepository(
         }
 
         val totalLatency = System.currentTimeMillis() - startTime
-        return@withContext persistAssistantTurn(
+        val persisted = persistAssistantTurn(
             effectiveSessionId,
             session,
             finalResponseText,
@@ -196,6 +222,10 @@ class ChatRepository(
             failureException,
             totalLatency,
         )
+        // The Room flow emits the persisted message asynchronously; this
+        // tells collectors the preview bubble can be swapped for the real one.
+        _streamEvents.tryEmit(ChatStreamEvent.StreamFinished(effectiveSessionId))
+        return@withContext persisted
     }
 
     private suspend fun persistUserTurn(sessionId: String, session: ChatSessionEntity, userPrompt: String) {

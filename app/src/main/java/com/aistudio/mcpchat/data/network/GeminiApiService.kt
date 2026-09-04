@@ -88,6 +88,98 @@ class GeminiApiService(
         return GeminiResponse(text = null, rawJson = responseBody, error = errorMsg)
     }
 
+    /**
+     * SSE streaming via `streamGenerateContent?alt=sse`. Each `data:` event is
+     * a GenerateContentResponse chunk; text parts are forwarded through
+     * [onTextDelta] as they arrive, function-call parts (which always arrive
+     * complete) are accumulated for the tool loop.
+     */
+    @Suppress("CyclomaticComplexMethod")
+    override suspend fun streamContent(
+        config: AiProviderConfig,
+        modelName: String,
+        history: List<GeminiMessage>,
+        tools: List<McpTool>,
+        systemInstruction: String,
+        onTextDelta: (String) -> Unit,
+    ): GeminiResponse = withContext(Dispatchers.IO) {
+        val apiKey = config.apiKey.trim()
+        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
+            Log.w(TAG, "Gemini API key is not configured or is placeholder.")
+            return@withContext GeminiResponse(text = null, error = "API_KEY_MISSING")
+        }
+
+        try {
+            val requestJson = buildRequestBody(history, tools, systemInstruction)
+            val targetModel = if (modelName.contains("/")) modelName else "models/$modelName"
+            val baseUrl = config.baseUrl.trimEnd('/')
+                .ifBlank { "https://generativelanguage.googleapis.com/v1beta" }
+            val url = "$baseUrl/$targetModel:streamGenerateContent?alt=sse"
+
+            val request = Request.Builder()
+                .url(url)
+                .post(requestJson.toString().toRequestBody(jsonMediaType))
+                .header("Content-Type", "application/json")
+                .header("x-goog-api-key", apiKey)
+                .build()
+
+            client.newCall(request).await().use { response ->
+                if (!response.isSuccessful) {
+                    val errorBody = response.body?.string() ?: ""
+                    return@use errorResponse(modelName, response.code, errorBody)
+                }
+
+                val textBuilder = StringBuilder()
+                val functionCalls = mutableListOf<GeminiPart.FunctionCall>()
+                var streamError: String? = null
+
+                response.forEachSseData { data ->
+                    try {
+                        val json = JSONObject(data)
+                        json.optJSONObject("error")?.let { err ->
+                            if (streamError == null) streamError = err.optString("message", "stream error")
+                            return@forEachSseData
+                        }
+                        val parts = json.optJSONArray("candidates")?.optJSONObject(0)
+                            ?.optJSONObject("content")?.optJSONArray("parts") ?: return@forEachSseData
+                        for (i in 0 until parts.length()) {
+                            val partObj = parts.getJSONObject(i)
+                            if (partObj.has("text")) {
+                                val delta = partObj.getString("text")
+                                if (delta.isNotEmpty()) {
+                                    textBuilder.append(delta)
+                                    onTextDelta(delta)
+                                }
+                            }
+                            if (partObj.has("functionCall")) {
+                                functionCalls.add(parseFunctionCall(partObj))
+                            }
+                        }
+                    } catch (_: Exception) {
+                        // Malformed chunk — skip it; the stream continues.
+                    }
+                }
+
+                streamError?.let {
+                    return@use GeminiResponse(text = null, rawJson = "", error = it)
+                }
+                GeminiResponse(
+                    text = textBuilder.toString().takeIf { it.isNotEmpty() },
+                    functionCalls = functionCalls,
+                    rawJson = "",
+                )
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception during Gemini streamContent", e)
+            GeminiResponse(
+                text = null,
+                error = e.message ?: "Unknown error calling Gemini API",
+            )
+        }
+    }
+
     private fun buildRequestBody(history: List<GeminiMessage>, tools: List<McpTool>, systemInstruction: String): JSONObject {
         val requestJson = JSONObject()
         requestJson.put("contents", buildContents(history))

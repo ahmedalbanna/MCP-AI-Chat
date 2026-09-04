@@ -7,6 +7,7 @@ import com.aistudio.mcpchat.data.model.ChatException
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.repository.ChatRepository
+import com.aistudio.mcpchat.data.repository.ChatStreamEvent
 import com.aistudio.mcpchat.data.repository.McpRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -14,6 +15,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -42,6 +44,7 @@ class ChatViewModelLifecycleTest {
     private val serversFlow = MutableStateFlow<List<McpServer>>(emptyList())
     private val toolsFlow = MutableStateFlow<List<McpTool>>(emptyList())
     private val messagesFlow = MutableStateFlow<List<ChatMessageEntity>>(emptyList())
+    private val streamEventsFlow = MutableSharedFlow<ChatStreamEvent>(extraBufferCapacity = 64)
 
     @Before
     fun setUp() {
@@ -53,6 +56,7 @@ class ChatViewModelLifecycleTest {
         every { mcpRepository.allToolsFlow } returns toolsFlow
         every { chatRepository.allSessionsFlow } returns sessionsFlow
         every { chatRepository.getMessagesForSession(any()) } returns messagesFlow
+        every { chatRepository.streamEvents } returns streamEventsFlow
     }
 
     @After
