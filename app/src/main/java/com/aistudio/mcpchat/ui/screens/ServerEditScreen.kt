@@ -38,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -113,9 +115,11 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
         }
     }
 
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     Scaffold(
         topBar = {
             TopAppBar(
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
@@ -137,7 +141,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        modifier = modifier.fillMaxSize().testTag("server_edit_screen"),
+        modifier = modifier.fillMaxSize().testTag("server_edit_screen").nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { padding ->
         // Edit target vanished (e.g. deleted on another screen) — nothing to edit.
         if (isEdit && initial == null && servers.isNotEmpty()) {

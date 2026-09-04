@@ -15,10 +15,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,12 +31,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -70,9 +72,11 @@ fun ProvidersScreen(
         viewModel.clearFeedback()
     }
 
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     Scaffold(
         topBar = {
             TopAppBar(
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
@@ -91,7 +95,7 @@ fun ProvidersScreen(
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        modifier = modifier.fillMaxSize().testTag("providers_screen"),
+        modifier = modifier.fillMaxSize().testTag("providers_screen").nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { padding ->
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(Spacing.xs),
@@ -125,20 +129,17 @@ fun ProvidersScreen(
             item {
                 Spacer(Modifier.height(Spacing.md))
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    FilterChip(
-                        selected = false,
+                    AssistChip(
                         onClick = { onAddProvider(AiProviderType.OPENAI_COMPATIBLE) },
                         label = { Text("Add custom") },
                         leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
                         modifier = Modifier.testTag("add_custom_provider_chip"),
                     )
-                    FilterChip(
-                        selected = false,
+                    AssistChip(
                         onClick = { onAddProvider(AiProviderType.GOOGLE) },
                         label = { Text("Add Google") },
                     )
-                    FilterChip(
-                        selected = false,
+                    AssistChip(
                         onClick = { onAddProvider(AiProviderType.ANTHROPIC) },
                         label = { Text("Add Anthropic") },
                     )

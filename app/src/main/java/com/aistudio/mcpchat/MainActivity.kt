@@ -13,7 +13,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Settings
@@ -61,7 +61,7 @@ import com.aistudio.mcpchat.ui.viewmodel.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    object Chat : Screen("chat", "Chat", Icons.Default.Chat)
+    object Chat : Screen("chat", "Chat", Icons.AutoMirrored.Default.Chat)
     object Servers : Screen("servers", "MCP Servers", Icons.Default.Hub)
     object Inspector : Screen("inspector", "Inspector", Icons.Default.Science)
     object Settings : Screen("settings", "Settings", Icons.Default.Settings)

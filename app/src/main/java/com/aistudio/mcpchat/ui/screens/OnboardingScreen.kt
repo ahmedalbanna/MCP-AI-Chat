@@ -26,8 +26,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Science
@@ -163,7 +163,7 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                 Spacer(modifier = Modifier.height(40.dp))
 
                 OnboardingFeatureRow(
-                    icon = Icons.Default.Chat,
+                    icon = Icons.AutoMirrored.Default.Chat,
                     title = "Chat with AI",
                     description = "Ask questions and get answers powered by Gemini with MCP tools",
                 )

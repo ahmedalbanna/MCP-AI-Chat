@@ -19,3 +19,6 @@ debug.keystore
 
 # Release signing key
 my-upload-key.jks
+
+# Shared module build artifacts
+shared/build

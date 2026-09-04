@@ -10,6 +10,9 @@ pluginManagement {
     mavenCentral()
     gradlePluginPortal()
   }
+  plugins {
+    id("com.android.library").version("9.1.1").apply(false)
+  }
 }
 
 plugins { id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0" }
@@ -25,3 +28,4 @@ dependencyResolutionManagement {
 rootProject.name = "MCP AI Chat"
 
 include(":app")
+include(":shared")
