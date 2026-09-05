@@ -1,13 +1,15 @@
 package com.aistudio.mcpchat.data.network
 
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Response
 import java.io.IOException
-import kotlin.coroutines.coroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -37,34 +39,6 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
     continuation.invokeOnCancellation { cancel() }
 }
 
-/**
- * Executes the call and consumes the response body inside [action] with the
- * blocking read tied to the calling job: [await] covers the headers phase,
- * and a completion handler cancels the call if the job dies mid-body — the
- * socket close interrupts the blocking read instead of letting it drain to
- * EOF on a dispatcher thread. A read interrupted that way resurfaces as
- * [CancellationException].
- *
- * [action] is suspending so callers can issue a follow-up request (e.g. the
- * non-streaming fallback) within the same job's cancellation scope.
- */
-suspend fun <T> Call.executeStreaming(action: suspend (Response) -> T): T {
-    val job = requireNotNull(coroutineContext[Job]) { "executeStreaming requires a coroutine Job" }
-    return await().use { response ->
-        val handle = job.invokeOnCompletion { cause -> if (cause != null) cancel() }
-        try {
-            action(response)
-        } catch (e: IOException) {
-            if (isCanceled()) {
-                throw CancellationException("request cancelled during body read", e)
-            }
-            throw e
-        } finally {
-            handle.dispose()
-        }
-    }
-}
-
 /** True when the response body is actually delivered as an SSE stream. */
 fun Response.deliversSse(): Boolean = header("Content-Type")?.trim()?.startsWith("text/event-stream", ignoreCase = true) == true
 
@@ -81,19 +55,73 @@ fun looksLikeStreamUnsupported(code: Int, errorBody: String): Boolean {
 }
 
 /**
- * Parses a Server-Sent Events (`text/event-stream`) body and invokes [onData]
- * with each complete `data:` field value.
- *
- * Blocks the calling thread while reading — call from `Dispatchers.IO` via
- * [executeStreaming], which interrupts the blocking read on coroutine
- * cancellation.
- *
- * Handles the SSE spec essentials: multi-line `data:` fields are joined with
- * `\n`, events are dispatched on blank lines, and `event:`/`id:`/`retry:`
- * fields and `:` comments are ignored — the AI providers encode everything
- * in `data:` payloads.
+ * Terminal or in-flight outcomes of a streaming call, normalizing the
+ * transport concerns (SSE framing, fallback detection) away from the
+ * provider-specific payload parsing.
  */
-fun Response.forEachSseData(onData: (String) -> Unit) {
+sealed interface SseStreamEvent {
+    /** One complete `data:` field payload from the SSE body. */
+    data class Data(val payload: String) : SseStreamEvent
+
+    /** 200 whose body is plain JSON — the gateway ignored the stream flag. */
+    data class PlainBody(val body: String) : SseStreamEvent
+
+    /** Endpoint rejected streaming outright — retry once without it. */
+    data class StreamRejected(val code: Int, val errorBody: String) : SseStreamEvent
+
+    /** Any other non-2xx response. */
+    data class HttpError(val code: Int, val errorBody: String) : SseStreamEvent
+}
+
+/**
+ * Executes the call and exposes its outcome as a cold [Flow]: SSE `data:`
+ * events stream as [SseStreamEvent.Data], while non-SSE responses surface as
+ * one terminal event each.
+ *
+ * Structured concurrency replaces the manual job-completion wiring of the
+ * old `executeStreaming`: the reader coroutine runs on [Dispatchers.IO],
+ * `send` backpressures when the collector falls behind, and [awaitClose]
+ * cancels the underlying call the moment the collector goes away — the
+ * socket close interrupts the blocking read instead of draining it to EOF
+ * on a dispatcher thread.
+ */
+fun Call.sseStreamFlow(): Flow<SseStreamEvent> = channelFlow {
+    launch(Dispatchers.IO) {
+        try {
+            val response = await()
+            response.use {
+                if (!it.isSuccessful) {
+                    val errorBody = it.body?.string() ?: ""
+                    val event = if (looksLikeStreamUnsupported(it.code, errorBody)) {
+                        SseStreamEvent.StreamRejected(it.code, errorBody)
+                    } else {
+                        SseStreamEvent.HttpError(it.code, errorBody)
+                    }
+                    send(event)
+                } else if (!it.deliversSse()) {
+                    send(SseStreamEvent.PlainBody(it.body?.string() ?: ""))
+                } else {
+                    it.readSseData { data -> send(SseStreamEvent.Data(data)) }
+                }
+            }
+            close()
+        } catch (e: IOException) {
+            close(e)
+        }
+    }
+    // Runs on collector cancellation AND on normal completion (no-op for a
+    // finished call) — either way the call never outlives the flow.
+    awaitClose { this@sseStreamFlow.cancel() }
+}
+
+/**
+ * Parses an SSE body and hands each complete `data:` field value to [onData]
+ * as it arrives. Handles the spec essentials: multi-line `data:` fields are
+ * joined with `\n`, events dispatch on blank lines, and `event:`/`id:`/
+ * `retry:` fields and `:` comments are ignored — the AI providers encode
+ * everything in `data:` payloads.
+ */
+private suspend fun Response.readSseData(onData: suspend (String) -> Unit) {
     val source = body?.source() ?: return
     val buffer = StringBuilder()
     while (true) {

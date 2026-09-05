@@ -145,6 +145,126 @@ class ChatRepositoryTest {
     }
 
     @Test
+    fun `tool calls run concurrently and responses keep request order`() = runTest {
+        val server = com.aistudio.mcpchat.data.model.McpServer(
+            id = "srv",
+            name = "Test Server",
+            description = "",
+            endpointUrl = "http://mcp.test",
+        )
+        val toolA = com.aistudio.mcpchat.data.model.McpTool(
+            id = "srv_tool_a",
+            serverId = "srv",
+            serverName = "Test Server",
+            name = "tool_a",
+            description = "",
+        )
+        val toolB = toolA.copy(id = "srv_tool_b", name = "tool_b")
+        val mcpRepository = mockk<com.aistudio.mcpchat.data.repository.McpRepository>(relaxed = true)
+        coEvery { mcpRepository.getEnabledServers() } returns listOf(server)
+        coEvery { mcpRepository.getEnabledTools() } returns listOf(toolA, toolB)
+        fun log(toolName: String, latencyMs: Long) = com.aistudio.mcpchat.data.model.McpLogItem(
+            serverId = "srv",
+            serverName = "Test Server",
+            toolName = toolName,
+            requestPayload = "",
+            responsePayload = "",
+            isSuccess = true,
+            latencyMs = latencyMs,
+        )
+        // B finishes first (A is slower) — completion order differs from
+        // request order, exercising the order-preserving aggregation.
+        coEvery { mcpRepository.executeTool(server, "tool_a", any()) } coAnswers {
+            kotlinx.coroutines.delay(100)
+            Pair("a done", log("tool_a", 100))
+        }
+        coEvery { mcpRepository.executeTool(server, "tool_b", any()) } returns Pair("b done", log("tool_b", 5))
+
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList(any()) } returns emptyList()
+        val historySlot = slot<List<GeminiMessage>>()
+        coEvery { geminiService.streamContent(any(), any(), capture(historySlot), any(), any(), any()) } returnsMany listOf(
+            com.aistudio.mcpchat.data.model.GeminiResponse(
+                text = null,
+                functionCalls = listOf(
+                    GeminiPart.FunctionCall("tool_a", emptyMap()),
+                    GeminiPart.FunctionCall("tool_b", emptyMap()),
+                ),
+            ),
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "all done"),
+        )
+
+        repository = ChatRepository(database, mcpRepository, geminiService)
+        val result = repository.sendMessage(sessionId = "s1", userPrompt = "run tools")
+        advanceUntilIdle()
+
+        assertTrue(result.isSuccess)
+        val toolMessage = historySlot.captured.last { it.role == "tool" }
+        val responses = toolMessage.parts.filterIsInstance<GeminiPart.FunctionResponse>()
+        assertEquals(listOf("tool_a", "tool_b"), responses.map { it.name })
+        assertEquals(listOf("a done", "b done"), responses.map { it.response["result"] })
+    }
+
+    @Test
+    fun `one tool failing does not cancel sibling tool calls`() = runTest {
+        val server = com.aistudio.mcpchat.data.model.McpServer(
+            id = "srv",
+            name = "Test Server",
+            description = "",
+            endpointUrl = "http://mcp.test",
+        )
+        val toolA = com.aistudio.mcpchat.data.model.McpTool(
+            id = "srv_tool_a",
+            serverId = "srv",
+            serverName = "Test Server",
+            name = "tool_a",
+            description = "",
+        )
+        val toolB = toolA.copy(id = "srv_tool_b", name = "tool_b")
+        val mcpRepository = mockk<com.aistudio.mcpchat.data.repository.McpRepository>(relaxed = true)
+        coEvery { mcpRepository.getEnabledServers() } returns listOf(server)
+        coEvery { mcpRepository.getEnabledTools() } returns listOf(toolA, toolB)
+        coEvery { mcpRepository.executeTool(server, "tool_a", any()) } throws RuntimeException("boom")
+        coEvery { mcpRepository.executeTool(server, "tool_b", any()) } returns Pair(
+            "b done",
+            com.aistudio.mcpchat.data.model.McpLogItem(
+                serverId = "srv",
+                serverName = "Test Server",
+                toolName = "tool_b",
+                requestPayload = "",
+                responsePayload = "",
+                isSuccess = true,
+                latencyMs = 5,
+            ),
+        )
+
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList(any()) } returns emptyList()
+        val historySlot = slot<List<GeminiMessage>>()
+        coEvery { geminiService.streamContent(any(), any(), capture(historySlot), any(), any(), any()) } returnsMany listOf(
+            com.aistudio.mcpchat.data.model.GeminiResponse(
+                text = null,
+                functionCalls = listOf(
+                    GeminiPart.FunctionCall("tool_a", emptyMap()),
+                    GeminiPart.FunctionCall("tool_b", emptyMap()),
+                ),
+            ),
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "all done"),
+        )
+
+        repository = ChatRepository(database, mcpRepository, geminiService)
+        val result = repository.sendMessage(sessionId = "s1", userPrompt = "run tools")
+        advanceUntilIdle()
+
+        assertTrue(result.isSuccess)
+        val toolMessage = historySlot.captured.last { it.role == "tool" }
+        val responses = toolMessage.parts.filterIsInstance<GeminiPart.FunctionResponse>()
+        assertEquals(listOf("tool_a", "tool_b"), responses.map { it.name })
+        assertEquals("Tool execution failed: boom", responses[0].response["error"])
+        assertEquals("b done", responses[1].response["result"])
+    }
+
+    @Test
     fun `allSessionsFlow delegates to chatDao`() = runTest {
         val sessions = listOf(
             ChatSessionEntity(id = "s1", title = "Session 1"),

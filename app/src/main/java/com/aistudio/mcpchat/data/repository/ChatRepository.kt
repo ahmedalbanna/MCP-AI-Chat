@@ -10,7 +10,6 @@ import com.aistudio.mcpchat.data.model.DEFAULT_MODEL
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
 import com.aistudio.mcpchat.data.model.ImageAttachment
-import com.aistudio.mcpchat.data.model.McpLogItem
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.McpToolCall
@@ -24,11 +23,13 @@ import com.aistudio.mcpchat.data.tool.LocalFallbackHandler
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -472,6 +473,16 @@ class ChatRepository(
         }
     }
 
+    /**
+     * Runs the model's tool calls. Calls issued together in one hop are
+     * independent by definition, so they execute CONCURRENTLY under
+     * [supervisorScope]: a failure in one call is isolated into that call's
+     * error result instead of cancelling its in-flight siblings, and
+     * [CancellationException] (Stop button) still tears down everything.
+     *
+     * Responses are returned in the request order regardless of completion
+     * order — strict providers pair nth tool_use with nth tool_result.
+     */
     private suspend fun executeFunctionCalls(
         functionCalls: List<GeminiPart.FunctionCall>,
         toolNameToToolMap: Map<String, McpTool>,
@@ -479,80 +490,139 @@ class ChatRepository(
         serverMap: Map<String, McpServer>,
         accumulatedToolCalls: MutableList<McpToolCall>,
         onToolCallUpdate: ((List<McpToolCall>) -> Unit)?,
-    ): List<GeminiPart> {
-        val functionResponsesParts = mutableListOf<GeminiPart>()
+    ): List<GeminiPart> = supervisorScope {
+        val progressLock = Any()
 
-        for (fc in functionCalls) {
-            // Gemini receives sanitized names; resolve the original MCP tool.
-            val originalToolName = toolNameToToolMap[fc.name]?.name
-                ?: sanitizedToOriginalName[fc.name]
-            val toolDef = originalToolName?.let { toolNameToToolMap[it] }
-            val server = toolDef?.let { def -> serverMap[def.serverId] }
+        val preparedCalls = functionCalls.map { fc ->
+            prepareToolCall(fc, toolNameToToolMap, sanitizedToOriginalName, serverMap)
+        }
+        synchronized(progressLock) {
+            accumulatedToolCalls.addAll(preparedCalls.map { it.toolCall })
+            onToolCallUpdate?.invoke(accumulatedToolCalls.toList())
+        }
 
-            val toolCallId = UUID.randomUUID().toString()
-            val toolCall = McpToolCall(
-                callId = toolCallId,
+        val jobs = preparedCalls.map { prepared ->
+            async {
+                val outcome = runPreparedToolCall(prepared)
+                synchronized(progressLock) {
+                    replaceToolCall(accumulatedToolCalls, prepared.toolCall.callId, outcome.completed)
+                    onToolCallUpdate?.invoke(accumulatedToolCalls.toList())
+                }
+                outcome.response
+            }
+        }
+        // Join before awaiting so sibling jobs always run to completion even
+        // if one fails unexpectedly; only cancellation interrupts the wait.
+        jobs.forEach { it.join() }
+        jobs.map { it.await() }
+    }
+
+    private data class PreparedToolCall(
+        val fc: GeminiPart.FunctionCall,
+        val resolvedToolName: String,
+        val server: McpServer?,
+        val toolCall: McpToolCall,
+    )
+
+    private fun prepareToolCall(
+        fc: GeminiPart.FunctionCall,
+        toolNameToToolMap: Map<String, McpTool>,
+        sanitizedToOriginalName: Map<String, String>,
+        serverMap: Map<String, McpServer>,
+    ): PreparedToolCall {
+        // Gemini receives sanitized names; map them back so tool execution
+        // uses the original MCP tool name.
+        val originalToolName = toolNameToToolMap[fc.name]?.name
+            ?: sanitizedToOriginalName[fc.name]
+        val toolDef = originalToolName?.let { toolNameToToolMap[it] }
+        val server = toolDef?.let { def -> serverMap[def.serverId] }
+
+        return PreparedToolCall(
+            fc = fc,
+            resolvedToolName = originalToolName ?: fc.name,
+            server = server,
+            toolCall = McpToolCall(
+                callId = UUID.randomUUID().toString(),
                 serverId = server?.id ?: "unknown",
                 serverName = server?.name ?: "Remote MCP Server",
                 toolName = originalToolName ?: fc.name,
                 inputArguments = fc.args,
                 status = ToolExecutionStatus.EXECUTING,
                 thoughtSignature = fc.thoughtSignature,
-            )
+            ),
+        )
+    }
 
-            accumulatedToolCalls.add(toolCall)
-            onToolCallUpdate?.invoke(accumulatedToolCalls)
+    private data class ToolExecution(
+        val execResult: String,
+        val isSuccess: Boolean,
+        val latencyMs: Long,
+        val errorMessage: String?,
+    )
 
-            // Guard unknown tool (provider hallucinated a name or server was disabled
-            // after tool discovery) — fail fast without calling MCP over an empty endpoint.
-            val resolvedToolName = originalToolName ?: fc.name
-            val (execResult, logItem) = if (server == null) {
-                val errorJson = JSONObject().put("error", "Unknown tool '$resolvedToolName' — no enabled MCP server provides this tool").toString()
-                val syntheticLog = McpLogItem(
-                    serverId = "unknown",
-                    serverName = "Unknown",
-                    toolName = resolvedToolName,
-                    requestPayload = JSONObject().apply {
-                        put("name", resolvedToolName)
-                        put("arguments", JSONObject(fc.args))
-                    }.toString(2),
-                    responsePayload = errorJson,
-                    isSuccess = false,
-                    latencyMs = 0,
-                    errorMessage = "Unknown tool",
-                )
-                errorJson to syntheticLog
-            } else {
-                mcpRepository.executeTool(
-                    server,
-                    resolvedToolName,
-                    fc.args,
-                )
-            }
+    private data class ToolCallOutcome(
+        val completed: McpToolCall,
+        val response: GeminiPart.FunctionResponse,
+    )
 
-            replaceToolCall(
-                accumulatedToolCalls,
-                toolCallId,
-                toolCall.copy(
-                    outputResult = execResult,
-                    isSuccess = logItem.isSuccess,
-                    status = if (logItem.isSuccess) ToolExecutionStatus.SUCCESS else ToolExecutionStatus.ERROR,
-                    executionTimeMs = logItem.latencyMs,
-                    errorMessage = logItem.errorMessage,
-                ),
-            )
-            onToolCallUpdate?.invoke(accumulatedToolCalls)
-
-            // Build function response payload for next turn
-            functionResponsesParts.add(
-                GeminiPart.FunctionResponse(
-                    name = fc.name,
-                    response = parseResultToMap(execResult),
-                    thoughtSignature = fc.thoughtSignature,
-                ),
+    private suspend fun runPreparedToolCall(prepared: PreparedToolCall): ToolCallOutcome {
+        val execution = try {
+            performToolExecution(prepared)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Isolation: an unexpected failure becomes this call's error
+            // result; sibling calls keep running.
+            ToolExecution(
+                execResult = JSONObject().put("error", "Tool execution failed: ${e.message}").toString(),
+                isSuccess = false,
+                latencyMs = 0,
+                errorMessage = e.message ?: e.javaClass.simpleName,
             )
         }
-        return functionResponsesParts
+
+        val completed = prepared.toolCall.copy(
+            outputResult = execution.execResult,
+            isSuccess = execution.isSuccess,
+            status = if (execution.isSuccess) ToolExecutionStatus.SUCCESS else ToolExecutionStatus.ERROR,
+            executionTimeMs = execution.latencyMs,
+            errorMessage = execution.errorMessage,
+        )
+        return ToolCallOutcome(
+            completed = completed,
+            response = GeminiPart.FunctionResponse(
+                name = prepared.fc.name,
+                response = parseResultToMap(execution.execResult),
+                thoughtSignature = prepared.fc.thoughtSignature,
+            ),
+        )
+    }
+
+    private suspend fun performToolExecution(prepared: PreparedToolCall): ToolExecution {
+        if (prepared.server == null) {
+            // Guard unknown tool (provider hallucinated a name or server was
+            // disabled after tool discovery) — fail fast without calling MCP
+            // over an empty endpoint.
+            return ToolExecution(
+                execResult = JSONObject()
+                    .put("error", "Unknown tool '${prepared.resolvedToolName}' — no enabled MCP server provides this tool")
+                    .toString(),
+                isSuccess = false,
+                latencyMs = 0,
+                errorMessage = "Unknown tool",
+            )
+        }
+        val (result, logItem) = mcpRepository.executeTool(
+            prepared.server,
+            prepared.resolvedToolName,
+            prepared.fc.args,
+        )
+        return ToolExecution(
+            execResult = result,
+            isSuccess = logItem.isSuccess,
+            latencyMs = logItem.latencyMs,
+            errorMessage = logItem.errorMessage,
+        )
     }
 
     private fun replaceToolCall(accumulatedToolCalls: MutableList<McpToolCall>, callId: String, updated: McpToolCall) {

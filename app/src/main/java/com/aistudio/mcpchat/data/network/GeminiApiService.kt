@@ -123,60 +123,66 @@ class GeminiApiService(
                 .header("x-goog-api-key", apiKey)
                 .build()
 
-            client.newCall(request).executeStreaming { response ->
-                if (!response.isSuccessful) {
-                    val errorBody = response.body?.string() ?: ""
-                    if (looksLikeStreamUnsupported(response.code, errorBody)) {
-                        // Endpoint rejects alt=sse — retry once without it.
-                        return@executeStreaming generateContent(config, modelName, history, tools, systemInstruction)
-                            .also { fallback -> fallback.text?.let(onTextDelta) }
-                    }
-                    return@executeStreaming errorResponse(modelName, response.code, errorBody)
-                }
-                if (!response.deliversSse()) {
-                    // Gateway ignored alt=sse and returned a single
-                    // GenerateContentResponse JSON body — consume it whole.
-                    val body = response.body?.string() ?: ""
-                    val parsed = parseGeminiResponse(body)
-                    parsed.text?.let(onTextDelta)
-                    return@executeStreaming parsed
-                }
+            val textBuilder = StringBuilder()
+            val functionCalls = mutableListOf<GeminiPart.FunctionCall>()
+            var streamError: String? = null
+            var streamRejected = false
+            var terminalResponse: GeminiResponse? = null
 
-                val textBuilder = StringBuilder()
-                val functionCalls = mutableListOf<GeminiPart.FunctionCall>()
-                var streamError: String? = null
-
-                response.forEachSseData { data ->
-                    try {
-                        val json = JSONObject(data)
-                        json.optJSONObject("error")?.let { err ->
-                            if (streamError == null) streamError = err.optString("message", "stream error")
-                            return@forEachSseData
-                        }
-                        val parts = json.optJSONArray("candidates")?.optJSONObject(0)
-                            ?.optJSONObject("content")?.optJSONArray("parts") ?: return@forEachSseData
-                        for (i in 0 until parts.length()) {
-                            val partObj = parts.getJSONObject(i)
-                            if (partObj.has("text")) {
-                                val delta = partObj.getString("text")
-                                if (delta.isNotEmpty()) {
-                                    textBuilder.append(delta)
-                                    onTextDelta(delta)
+            client.newCall(request).sseStreamFlow().collect { event ->
+                when (event) {
+                    is SseStreamEvent.Data -> {
+                        try {
+                            val json = JSONObject(event.payload)
+                            json.optJSONObject("error")?.let { err ->
+                                if (streamError == null) streamError = err.optString("message", "stream error")
+                                return@collect
+                            }
+                            val parts = json.optJSONArray("candidates")?.optJSONObject(0)
+                                ?.optJSONObject("content")?.optJSONArray("parts") ?: return@collect
+                            for (i in 0 until parts.length()) {
+                                val partObj = parts.getJSONObject(i)
+                                if (partObj.has("text")) {
+                                    val delta = partObj.getString("text")
+                                    if (delta.isNotEmpty()) {
+                                        textBuilder.append(delta)
+                                        onTextDelta(delta)
+                                    }
+                                }
+                                if (partObj.has("functionCall")) {
+                                    functionCalls.add(parseFunctionCall(partObj))
                                 }
                             }
-                            if (partObj.has("functionCall")) {
-                                functionCalls.add(parseFunctionCall(partObj))
-                            }
+                        } catch (_: Exception) {
+                            // Malformed chunk — skip it; the stream continues.
                         }
-                    } catch (_: Exception) {
-                        // Malformed chunk — skip it; the stream continues.
                     }
-                }
 
-                streamError?.let {
-                    return@executeStreaming GeminiResponse(text = null, rawJson = "", error = it)
+                    is SseStreamEvent.PlainBody ->
+                        terminalResponse =
+                            parseGeminiResponse(event.body).also { parsed -> parsed.text?.let(onTextDelta) }
+
+                    is SseStreamEvent.StreamRejected ->
+                        // Endpoint rejects alt=sse — retry once without it.
+                        streamRejected = true
+
+                    is SseStreamEvent.HttpError ->
+                        terminalResponse = errorResponse(modelName, event.code, event.errorBody)
                 }
-                GeminiResponse(
+            }
+
+            val error = streamError
+            val terminal = terminalResponse
+            when {
+                streamRejected ->
+                    generateContent(config, modelName, history, tools, systemInstruction)
+                        .also { fallback -> fallback.text?.let(onTextDelta) }
+
+                error != null -> GeminiResponse(text = null, rawJson = "", error = error)
+
+                terminal != null -> terminal
+
+                else -> GeminiResponse(
                     text = textBuilder.toString().takeIf { it.isNotEmpty() },
                     functionCalls = functionCalls,
                     rawJson = "",

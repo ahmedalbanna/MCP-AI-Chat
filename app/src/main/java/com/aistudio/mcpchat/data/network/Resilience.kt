@@ -1,6 +1,7 @@
 package com.aistudio.mcpchat.data.network
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.min
@@ -20,6 +21,10 @@ class RetryManager(
         repeat(maxRetries) { attempt ->
             try {
                 return action()
+            } catch (e: CancellationException) {
+                // Cancellation is not a retryable failure — the caller's job
+                // is going away and further attempts only delay teardown.
+                throw e
             } catch (e: Exception) {
                 lastException = e
                 val delayMs = calculateBackoff(attempt)

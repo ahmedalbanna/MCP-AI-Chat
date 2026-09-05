@@ -106,11 +106,12 @@ class McpHttpClient(
     }
 
     private suspend fun postWithSession(server: McpServer, payload: JSONObject): Pair<Int, String> = withContext(Dispatchers.IO) {
-        client.newCall(buildSessionPostRequest(server, payload)).execute().use { response ->
+        client.newCall(buildSessionPostRequest(server, payload)).await().use { response ->
             Pair(response.code, response.body?.string() ?: "")
         }
     }
 
+    @Suppress("CyclomaticComplexMethod")
     private suspend fun performHandshake(server: McpServer): Boolean = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         try {
@@ -135,7 +136,7 @@ class McpHttpClient(
             )
 
             val response = retryManager.executeWithRetry("initialize ${server.name}") {
-                client.newCall(buildPostRequest(server, initPayload)).execute()
+                client.newCall(buildPostRequest(server, initPayload)).await()
             }
             val body = response.body?.string() ?: ""
             val statusCode = response.code
@@ -161,8 +162,14 @@ class McpHttpClient(
             }
 
             val notification = buildJsonRpcNotification("notifications/initialized")
-            runCatching {
-                client.newCall(buildPostRequest(server, notification)).execute().use { it.close() }
+            try {
+                // await() is cancellable — rethrow CE so Stop propagates
+                // instead of being swallowed as a best-effort failure.
+                client.newCall(buildPostRequest(server, notification)).await().close()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Best-effort notification — failures don't block the handshake.
             }
 
             Log.d(TAG, "Handshake completed for ${server.name} in ${System.currentTimeMillis() - startTime}ms")

@@ -1,5 +1,6 @@
 package com.aistudio.mcpchat.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -177,26 +178,39 @@ class ChatViewModel @Inject constructor(
         // from mid-generation instead of bleeding them into the current one.
         viewModelScope.launch {
             chatRepository.streamEvents.collect { event ->
-                if (event.sessionId != _currentSessionId.value) return@collect
-                when (event) {
-                    is ChatStreamEvent.StreamStarted -> {
-                        _streamingText.value = null
-                        _streamProgress.value = null
-                        streamProgressTracker.onStreamStarted(System.nanoTime())
-                    }
-
-                    is ChatStreamEvent.TokenDelta -> {
-                        _streamingText.value = (_streamingText.value ?: "") + event.delta
-                        // Throttled updates return null — keep the last bar.
-                        streamProgressTracker.onTokenDelta(event.delta.length, System.nanoTime())
-                            ?.let { _streamProgress.value = it }
-                    }
-
-                    is ChatStreamEvent.StreamFinished -> {
-                        _streamingText.value = null
-                        _streamProgress.value = null
-                    }
+                // The collector must outlive any single handler failure —
+                // a dead collector would silently kill live streaming for
+                // the ViewModel's whole lifetime.
+                try {
+                    handleStreamEvent(event)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to handle stream event: $event", e)
                 }
+            }
+        }
+    }
+
+    private fun handleStreamEvent(event: ChatStreamEvent) {
+        if (event.sessionId != _currentSessionId.value) return
+        when (event) {
+            is ChatStreamEvent.StreamStarted -> {
+                _streamingText.value = null
+                _streamProgress.value = null
+                streamProgressTracker.onStreamStarted(System.nanoTime())
+            }
+
+            is ChatStreamEvent.TokenDelta -> {
+                _streamingText.value = (_streamingText.value ?: "") + event.delta
+                // Throttled updates return null — keep the last bar.
+                streamProgressTracker.onTokenDelta(event.delta.length, System.nanoTime())
+                    ?.let { _streamProgress.value = it }
+            }
+
+            is ChatStreamEvent.StreamFinished -> {
+                _streamingText.value = null
+                _streamProgress.value = null
             }
         }
     }
@@ -383,6 +397,7 @@ class ChatViewModel @Inject constructor(
     }
 
     companion object {
+        private const val TAG = "ChatViewModel"
         private const val KEY_SESSION_ID = "current_session_id"
     }
 }

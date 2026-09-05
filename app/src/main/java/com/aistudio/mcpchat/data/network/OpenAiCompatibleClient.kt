@@ -106,77 +106,87 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
                 }
                 .build()
 
-            client.newCall(request).executeStreaming { response ->
-                if (!response.isSuccessful) {
-                    val errorBody = response.body?.string() ?: ""
-                    if (looksLikeStreamUnsupported(response.code, errorBody)) {
-                        Log.w(TAG, "Provider rejected stream mode; retrying without it")
-                        return@executeStreaming generateContent(config, modelName, history, tools, systemInstruction)
-                            .also { fallback -> fallback.text?.let(onTextDelta) }
-                    }
-                    Log.e(TAG, "OpenAI-compatible stream failed (${response.code}): $errorBody")
-                    return@executeStreaming errorResponse(response.code, errorBody)
-                }
-                if (!response.deliversSse()) {
-                    // Server ignored stream:true — parse the plain
-                    // chat/completions JSON and hand it out in one delta.
-                    val body = response.body?.string() ?: ""
-                    val parsed = parseResponse(body)
-                    parsed.text?.let(onTextDelta)
-                    return@executeStreaming parsed
-                }
+            val textBuilder = StringBuilder()
+            val toolAccumulators = LinkedHashMap<Int, ToolCallAccumulator>()
+            var streamError: String? = null
+            var streamRejected = false
+            var terminalResponse: GeminiResponse? = null
 
-                val textBuilder = StringBuilder()
-                val toolAccumulators = LinkedHashMap<Int, ToolCallAccumulator>()
-                var streamError: String? = null
-
-                response.forEachSseData { data ->
-                    if (data == DONE_SENTINEL) return@forEachSseData
-                    try {
-                        val chunk = JSONObject(data)
-                        chunk.optJSONObject("error")?.let { err ->
-                            if (streamError == null) {
-                                streamError = err.optString("message", "stream error")
+            client.newCall(request).sseStreamFlow().collect { event ->
+                when (event) {
+                    is SseStreamEvent.Data -> {
+                        if (event.payload == DONE_SENTINEL) return@collect
+                        try {
+                            val chunk = JSONObject(event.payload)
+                            chunk.optJSONObject("error")?.let { err ->
+                                if (streamError == null) {
+                                    streamError = err.optString("message", "stream error")
+                                }
+                                return@collect
                             }
-                            return@forEachSseData
-                        }
-                        val delta = chunk.optJSONArray("choices")?.optJSONObject(0)
-                            ?.optJSONObject("delta") ?: return@forEachSseData
+                            val delta = chunk.optJSONArray("choices")?.optJSONObject(0)
+                                ?.optJSONObject("delta") ?: return@collect
 
-                        val piece = delta.optString("content")
-                        if (piece.isNotEmpty()) {
-                            textBuilder.append(piece)
-                            onTextDelta(piece)
-                        }
+                            val piece = delta.optString("content")
+                            if (piece.isNotEmpty()) {
+                                textBuilder.append(piece)
+                                onTextDelta(piece)
+                            }
 
-                        delta.optJSONArray("tool_calls")?.let { toolCallDeltas ->
-                            for (i in 0 until toolCallDeltas.length()) {
-                                val tc = toolCallDeltas.getJSONObject(i)
-                                val index = tc.optInt("index", 0)
-                                val acc = toolAccumulators.getOrPut(index) { ToolCallAccumulator() }
-                                tc.optJSONObject("function")?.let { fn ->
-                                    val name = fn.optString("name")
-                                    if (name.isNotEmpty()) acc.name = name
-                                    acc.args.append(fn.optString("arguments"))
+                            delta.optJSONArray("tool_calls")?.let { toolCallDeltas ->
+                                for (i in 0 until toolCallDeltas.length()) {
+                                    val tc = toolCallDeltas.getJSONObject(i)
+                                    val index = tc.optInt("index", 0)
+                                    val acc = toolAccumulators.getOrPut(index) { ToolCallAccumulator() }
+                                    tc.optJSONObject("function")?.let { fn ->
+                                        val name = fn.optString("name")
+                                        if (name.isNotEmpty()) acc.name = name
+                                        acc.args.append(fn.optString("arguments"))
+                                    }
                                 }
                             }
+                        } catch (_: Exception) {
+                            // Malformed chunk — skip it; the stream continues.
                         }
-                    } catch (_: Exception) {
-                        // Malformed chunk — skip it; the stream continues.
+                    }
+
+                    is SseStreamEvent.PlainBody ->
+                        terminalResponse =
+                            parseResponse(event.body).also { parsed -> parsed.text?.let(onTextDelta) }
+
+                    is SseStreamEvent.StreamRejected -> {
+                        Log.w(TAG, "Provider rejected stream mode; retrying without it")
+                        streamRejected = true
+                    }
+
+                    is SseStreamEvent.HttpError -> {
+                        Log.e(TAG, "OpenAI-compatible stream failed (${event.code}): ${event.errorBody}")
+                        terminalResponse = errorResponse(event.code, event.errorBody)
                     }
                 }
+            }
 
-                streamError?.let {
-                    return@executeStreaming GeminiResponse(text = null, rawJson = "", error = it)
+            val error = streamError
+            val terminal = terminalResponse
+            when {
+                streamRejected ->
+                    generateContent(config, modelName, history, tools, systemInstruction)
+                        .also { fallback -> fallback.text?.let(onTextDelta) }
+
+                error != null -> GeminiResponse(text = null, rawJson = "", error = error)
+
+                terminal != null -> terminal
+
+                else -> {
+                    val functionCalls = toolAccumulators.entries
+                        .sortedBy { it.key }
+                        .mapNotNull { it.value.build() }
+                    GeminiResponse(
+                        text = textBuilder.toString().takeIf { it.isNotBlank() },
+                        functionCalls = functionCalls,
+                        rawJson = "",
+                    )
                 }
-                val functionCalls = toolAccumulators.entries
-                    .sortedBy { it.key }
-                    .mapNotNull { it.value.build() }
-                GeminiResponse(
-                    text = textBuilder.toString().takeIf { it.isNotBlank() },
-                    functionCalls = functionCalls,
-                    rawJson = "",
-                )
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e

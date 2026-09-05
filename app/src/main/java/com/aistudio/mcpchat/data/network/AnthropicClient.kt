@@ -101,88 +101,98 @@ class AnthropicClient(private val client: OkHttpClient) {
                 .header("anthropic-version", ANTHROPIC_VERSION)
                 .build()
 
-            client.newCall(request).executeStreaming { response ->
-                if (!response.isSuccessful) {
-                    val errorBody = response.body?.string() ?: ""
-                    if (looksLikeStreamUnsupported(response.code, errorBody)) {
-                        Log.w(TAG, "Anthropic endpoint rejected stream mode; retrying without it")
-                        return@executeStreaming generateContent(config, modelName, history, tools, systemInstruction)
-                            .also { fallback -> fallback.text?.let(onTextDelta) }
-                    }
-                    Log.e(TAG, "Anthropic stream failed (${response.code}): $errorBody")
-                    return@executeStreaming errorResponse(response.code, errorBody)
-                }
-                if (!response.deliversSse()) {
-                    // Server ignored stream:true — parse the plain
-                    // messages JSON and hand it out in one delta.
-                    val body = response.body?.string() ?: ""
-                    val parsed = parseResponse(body)
-                    parsed.text?.let(onTextDelta)
-                    return@executeStreaming parsed
-                }
+            val textBuilder = StringBuilder()
+            val toolBlocks = LinkedHashMap<Int, ToolUseAccumulator>()
+            var stopReason: String? = null
+            var streamError: String? = null
+            var streamRejected = false
+            var terminalResponse: GeminiResponse? = null
 
-                val textBuilder = StringBuilder()
-                val toolBlocks = LinkedHashMap<Int, ToolUseAccumulator>()
-                var stopReason: String? = null
-                var streamError: String? = null
-
-                response.forEachSseData { data ->
-                    try {
-                        val event = JSONObject(data)
-                        when (event.optString("type")) {
-                            "error" -> {
-                                if (streamError == null) {
-                                    streamError = event.optJSONObject("error")
-                                        ?.optString("message") ?: "stream error"
-                                }
-                            }
-
-                            "content_block_start" -> {
-                                val block = event.optJSONObject("content_block") ?: return@forEachSseData
-                                if (block.optString("type") == "tool_use") {
-                                    toolBlocks[event.optInt("index", 0)] = ToolUseAccumulator(block.optString("name"))
-                                }
-                            }
-
-                            "content_block_delta" -> {
-                                val delta = event.optJSONObject("delta") ?: return@forEachSseData
-                                when (delta.optString("type")) {
-                                    "text_delta" -> {
-                                        val piece = delta.optString("text")
-                                        if (piece.isNotEmpty()) {
-                                            textBuilder.append(piece)
-                                            onTextDelta(piece)
-                                        }
+            client.newCall(request).sseStreamFlow().collect { event ->
+                when (event) {
+                    is SseStreamEvent.Data -> {
+                        try {
+                            val json = JSONObject(event.payload)
+                            when (json.optString("type")) {
+                                "error" -> {
+                                    if (streamError == null) {
+                                        streamError = json.optJSONObject("error")
+                                            ?.optString("message") ?: "stream error"
                                     }
-
-                                    "input_json_delta" ->
-                                        toolBlocks[event.optInt("index", 0)]
-                                            ?.args?.append(delta.optString("partial_json"))
                                 }
-                            }
 
-                            "message_delta" ->
-                                stopReason = event.optJSONObject("delta")?.optString("stop_reason")
+                                "content_block_start" -> {
+                                    val block = json.optJSONObject("content_block") ?: return@collect
+                                    if (block.optString("type") == "tool_use") {
+                                        toolBlocks[json.optInt("index", 0)] = ToolUseAccumulator(block.optString("name"))
+                                    }
+                                }
+
+                                "content_block_delta" -> {
+                                    val delta = json.optJSONObject("delta") ?: return@collect
+                                    when (delta.optString("type")) {
+                                        "text_delta" -> {
+                                            val piece = delta.optString("text")
+                                            if (piece.isNotEmpty()) {
+                                                textBuilder.append(piece)
+                                                onTextDelta(piece)
+                                            }
+                                        }
+
+                                        "input_json_delta" ->
+                                            toolBlocks[json.optInt("index", 0)]
+                                                ?.args?.append(delta.optString("partial_json"))
+                                    }
+                                }
+
+                                "message_delta" ->
+                                    stopReason = json.optJSONObject("delta")?.optString("stop_reason")
+                            }
+                        } catch (_: Exception) {
+                            // Malformed chunk — skip it; the stream continues.
                         }
-                    } catch (_: Exception) {
-                        // Malformed chunk — skip it; the stream continues.
+                    }
+
+                    is SseStreamEvent.PlainBody ->
+                        terminalResponse =
+                            parseResponse(event.body).also { parsed -> parsed.text?.let(onTextDelta) }
+
+                    is SseStreamEvent.StreamRejected -> {
+                        Log.w(TAG, "Anthropic endpoint rejected stream mode; retrying without it")
+                        streamRejected = true
+                    }
+
+                    is SseStreamEvent.HttpError -> {
+                        Log.e(TAG, "Anthropic stream failed (${event.code}): ${event.errorBody}")
+                        terminalResponse = errorResponse(event.code, event.errorBody)
                     }
                 }
+            }
 
-                streamError?.let {
-                    return@executeStreaming GeminiResponse(text = null, rawJson = "", error = it)
+            val error = streamError
+            val terminal = terminalResponse
+            when {
+                streamRejected ->
+                    generateContent(config, modelName, history, tools, systemInstruction)
+                        .also { fallback -> fallback.text?.let(onTextDelta) }
+
+                error != null -> GeminiResponse(text = null, rawJson = "", error = error)
+
+                terminal != null -> terminal
+
+                else -> {
+                    if (stopReason == "max_tokens") {
+                        textBuilder.append("\n\n[Output truncated: max_tokens reached]")
+                    }
+                    val functionCalls = toolBlocks.entries
+                        .sortedBy { it.key }
+                        .mapNotNull { it.value.build() }
+                    GeminiResponse(
+                        text = textBuilder.toString().takeIf { it.isNotBlank() },
+                        functionCalls = functionCalls,
+                        rawJson = "",
+                    )
                 }
-                if (stopReason == "max_tokens") {
-                    textBuilder.append("\n\n[Output truncated: max_tokens reached]")
-                }
-                val functionCalls = toolBlocks.entries
-                    .sortedBy { it.key }
-                    .mapNotNull { it.value.build() }
-                GeminiResponse(
-                    text = textBuilder.toString().takeIf { it.isNotBlank() },
-                    functionCalls = functionCalls,
-                    rawJson = "",
-                )
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
