@@ -283,4 +283,46 @@ class OpenAiCompatibleClientTest {
         assertEquals(true, sentFirst.getBoolean("stream"))
         assertFalse(sentSecond.has("stream"))
     }
+
+    @Test
+    fun `streamContent sends image turns as typed content array`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody("data: {\"choices\":[{\"delta\":{\"content\":\"A cat.\"}}]}\n\n"),
+        )
+        val visionHistory = listOf(
+            GeminiMessage(
+                "user",
+                listOf(
+                    GeminiPart.Text("What is in this picture?"),
+                    GeminiPart.InlineData("image/png", "aGVsbG8="),
+                ),
+            ),
+        )
+
+        client.streamContent(config, "gpt-4o", visionHistory, emptyList(), "") {}
+
+        val sent = JSONObject(server.takeRequest(10, TimeUnit.SECONDS)!!.body.readUtf8())
+        val content = sent.getJSONArray("messages").getJSONObject(0).getJSONArray("content")
+        assertEquals("text", content.getJSONObject(0).getString("type"))
+        assertEquals("What is in this picture?", content.getJSONObject(0).getString("text"))
+        val imageUrl = content.getJSONObject(1).getJSONObject("image_url").getString("url")
+        assertEquals("data:image/png;base64,aGVsbG8=", imageUrl)
+    }
+
+    @Test
+    fun `streamContent keeps plain text turns as simple string content`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody("data: {\"choices\":[{\"delta\":{\"content\":\"Ok.\"}}]}\n\n"),
+        )
+
+        client.streamContent(config, "gpt-4o-mini", history, emptyList(), "") {}
+
+        val sent = JSONObject(server.takeRequest(10, TimeUnit.SECONDS)!!.body.readUtf8())
+        val content = sent.getJSONArray("messages").getJSONObject(0).get("content")
+        assertTrue(content is String)
+    }
 }

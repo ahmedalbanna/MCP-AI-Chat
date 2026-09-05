@@ -41,7 +41,7 @@ class AppDatabaseLifecycleTest {
 
     @Test
     fun `database is created with correct version`() {
-        assertEquals(3, database.openHelper.writableDatabase.version)
+        assertEquals(4, database.openHelper.writableDatabase.version)
     }
 
     @Test

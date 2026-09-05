@@ -155,4 +155,31 @@ class GeminiApiServiceTest {
         assertTrue(first!!.path!!.contains(":streamGenerateContent"))
         assertTrue(second!!.path!!.contains(":generateContent"))
     }
+
+    @Test
+    fun `streamContent sends image turns as inlineData parts`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody("""data: {"candidates":[{"content":{"parts":[{"text":"A cat."}]}}]}""" + "\n\n"),
+        )
+        val visionHistory = listOf(
+            GeminiMessage(
+                "user",
+                listOf(
+                    GeminiPart.Text("What is in this picture?"),
+                    GeminiPart.InlineData("image/png", "aGVsbG8="),
+                ),
+            ),
+        )
+
+        client.streamContent(config, "gemini-2.0-flash", visionHistory, emptyList(), "") {}
+
+        val sent = JSONObject(server.takeRequest(10, TimeUnit.SECONDS)!!.body.readUtf8())
+        val parts = sent.getJSONArray("contents").getJSONObject(0).getJSONArray("parts")
+        assertEquals("What is in this picture?", parts.getJSONObject(0).getString("text"))
+        val inline = parts.getJSONObject(1).getJSONObject("inlineData")
+        assertEquals("image/png", inline.getString("mimeType"))
+        assertEquals("aGVsbG8=", inline.getString("data"))
+    }
 }

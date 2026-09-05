@@ -1,12 +1,17 @@
 package com.aistudio.mcpchat.di
 
 import android.content.Context
+import android.net.Uri
+import android.util.Base64
 import com.aistudio.mcpchat.data.local.AppDatabase
 import com.aistudio.mcpchat.data.local.ThemeSettings
+import com.aistudio.mcpchat.data.model.ImageAttachment
 import com.aistudio.mcpchat.data.network.AiChatService
 import com.aistudio.mcpchat.data.network.McpHttpClient
 import com.aistudio.mcpchat.data.network.ProviderChatRouter
+import com.aistudio.mcpchat.data.repository.AttachmentContentSource
 import com.aistudio.mcpchat.data.repository.ChatRepository
+import com.aistudio.mcpchat.data.repository.LoadedAttachment
 import com.aistudio.mcpchat.data.repository.McpRepository
 import com.aistudio.mcpchat.data.security.AiProviderSettings
 import com.aistudio.mcpchat.data.security.CryptoManager
@@ -99,7 +104,17 @@ object AppModule {
         mcpRepository: McpRepository,
         aiService: AiChatService,
         settings: AiProviderSettings,
+        @ApplicationContext context: Context,
     ): ChatRepository {
-        return ChatRepository(database, mcpRepository, aiService, settings)
+        val attachmentSource = AttachmentContentSource { attachment: ImageAttachment ->
+            runCatching {
+                val uri = Uri.parse(attachment.uri)
+                val mimeType = context.contentResolver.getType(uri) ?: attachment.mimeType
+                val bytes = context.contentResolver.openInputStream(uri)?.use { stream -> stream.readBytes() }
+                    ?: return@runCatching null
+                LoadedAttachment(mimeType, Base64.encodeToString(bytes, Base64.NO_WRAP))
+            }.getOrNull()
+        }
+        return ChatRepository(database, mcpRepository, aiService, settings, attachmentSource)
     }
 }

@@ -221,15 +221,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
         var turnIndex = 0
         history.forEach { message ->
             when (message.role) {
-                "user" -> messages.put(
-                    JSONObject()
-                        .put("role", "user")
-                        .put(
-                            "content",
-                            message.parts.filterIsInstance<GeminiPart.Text>()
-                                .joinToString("\n") { it.text },
-                        ),
-                )
+                "user" -> messages.put(buildUserMessage(message))
 
                 "model" -> messages.put(buildAssistantMessage(message, turnIndex))
 
@@ -277,6 +269,40 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
             requestJson.put("tool_choice", "auto")
         }
         return requestJson
+    }
+
+    /**
+     * Plain text turns stay a simple string; turns with inline images use the
+     * vision content form — an array of typed blocks where each image becomes
+     * a data: URI the provider decodes server-side.
+     */
+    private fun buildUserMessage(message: GeminiMessage): JSONObject {
+        val inlineParts = message.parts.filterIsInstance<GeminiPart.InlineData>()
+        if (inlineParts.isEmpty()) {
+            return JSONObject()
+                .put("role", "user")
+                .put(
+                    "content",
+                    message.parts.filterIsInstance<GeminiPart.Text>()
+                        .joinToString("\n") { it.text },
+                )
+        }
+
+        val contentArray = JSONArray()
+        message.parts.filterIsInstance<GeminiPart.Text>()
+            .filter { it.text.isNotBlank() }
+            .forEach { part ->
+                contentArray.put(JSONObject().put("type", "text").put("text", part.text))
+            }
+        inlineParts.forEach { part ->
+            contentArray.put(
+                JSONObject().put(
+                    "image_url",
+                    JSONObject().put("url", "data:${part.mimeType};base64,${part.base64Data}"),
+                ),
+            )
+        }
+        return JSONObject().put("role", "user").put("content", contentArray)
     }
 
     private fun buildAssistantMessage(message: GeminiMessage, turnIndex: Int): JSONObject {

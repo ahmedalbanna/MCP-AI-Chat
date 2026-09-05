@@ -393,4 +393,37 @@ class AnthropicClientTest {
         assertEquals(true, sentFirst.getBoolean("stream"))
         org.junit.Assert.assertFalse(sentSecond.has("stream"))
     }
+
+    @Test
+    fun `streamContent sends image turns as base64 image blocks`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(
+                    "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"A dog.\"}}\n\n",
+                ),
+        )
+        val visionHistory = listOf(
+            GeminiMessage(
+                "user",
+                listOf(
+                    GeminiPart.Text("What is in this picture?"),
+                    GeminiPart.InlineData("image/jpeg", "aGVsbG8="),
+                ),
+            ),
+        )
+
+        client.streamContent(config, "claude-sonnet-4-5", visionHistory, emptyList(), "") {}
+
+        val sent = JSONObject(server.takeRequest(10, TimeUnit.SECONDS)!!.body.readUtf8())
+        val content = sent.getJSONArray("messages").getJSONObject(0).getJSONArray("content")
+        assertEquals("text", content.getJSONObject(0).getString("type"))
+        assertEquals("What is in this picture?", content.getJSONObject(0).getString("text"))
+        val imageBlock = content.getJSONObject(1)
+        assertEquals("image", imageBlock.getString("type"))
+        val source = imageBlock.getJSONObject("source")
+        assertEquals("base64", source.getString("type"))
+        assertEquals("image/jpeg", source.getString("media_type"))
+        assertEquals("aGVsbG8=", source.getString("data"))
+    }
 }

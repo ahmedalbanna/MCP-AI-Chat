@@ -241,6 +241,12 @@ class GeminiApiService(
                 partsArray.put(
                     when (part) {
                         is GeminiPart.Text -> JSONObject().put("text", part.text)
+                        is GeminiPart.InlineData -> JSONObject().put(
+                            "inlineData",
+                            JSONObject()
+                                .put("mimeType", part.mimeType)
+                                .put("data", part.base64Data),
+                        )
                         is GeminiPart.FunctionCall -> functionCallPart(part)
                         is GeminiPart.FunctionResponse -> functionResponsePart(part)
                     },

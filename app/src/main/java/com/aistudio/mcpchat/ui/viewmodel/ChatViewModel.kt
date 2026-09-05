@@ -7,6 +7,7 @@ import com.aistudio.mcpchat.data.local.ChatMessageEntity
 import com.aistudio.mcpchat.data.local.ChatSessionEntity
 import com.aistudio.mcpchat.data.model.ChatException
 import com.aistudio.mcpchat.data.model.DEFAULT_MODEL
+import com.aistudio.mcpchat.data.model.ImageAttachment
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.McpToolCall
@@ -89,6 +90,13 @@ class ChatViewModel @Inject constructor(
      */
     private val _streamProgress = MutableStateFlow<StreamProgress?>(null)
     val streamProgress: StateFlow<StreamProgress?> = _streamProgress.asStateFlow()
+
+    /**
+     * Images staged in the input bar, sent with the next message. URIs come
+     * from the photo picker; bytes are read at request time.
+     */
+    private val _pendingAttachments = MutableStateFlow<List<ImageAttachment>>(emptyList())
+    val pendingAttachments: StateFlow<List<ImageAttachment>> = _pendingAttachments.asStateFlow()
 
     private val streamProgressTracker = StreamProgressTracker()
 
@@ -244,9 +252,18 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun addPendingAttachment(uri: String, mimeType: String) {
+        _pendingAttachments.value = _pendingAttachments.value + ImageAttachment(uri, mimeType)
+    }
+
+    fun removePendingAttachment(attachment: ImageAttachment) {
+        _pendingAttachments.value = _pendingAttachments.value - attachment
+    }
+
     fun sendMessage(prompt: String) {
         val sessionId = _currentSessionId.value ?: return
-        if (prompt.isBlank() || _isGenerating.value) return
+        val attachments = _pendingAttachments.value
+        if ((prompt.isBlank() && attachments.isEmpty()) || _isGenerating.value) return
 
         generateJob?.cancel()
         generateJob = viewModelScope.launch {
@@ -257,6 +274,7 @@ class ChatViewModel @Inject constructor(
             _streamingText.value = null
             _streamProgress.value = null
             _inProgressToolCalls.value = emptyList()
+            _pendingAttachments.value = emptyList()
 
             try {
                 val result = chatRepository.sendMessage(
@@ -265,6 +283,7 @@ class ChatViewModel @Inject constructor(
                     onToolCallUpdate = { toolCalls ->
                         _inProgressToolCalls.value = toolCalls
                     },
+                    attachments = attachments,
                 )
                 followPersistedSession(sessionId, result)
             } catch (e: CancellationException) {

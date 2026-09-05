@@ -10,6 +10,7 @@ data class GeminiMessage(
 
 sealed class GeminiPart {
     data class Text(val text: String) : GeminiPart()
+    data class InlineData(val mimeType: String, val base64Data: String) : GeminiPart()
     data class FunctionCall(val name: String, val args: Map<String, Any?>, val thoughtSignature: String? = null) : GeminiPart()
     data class FunctionResponse(val name: String, val response: Map<String, Any?>, val thoughtSignature: String? = null) : GeminiPart()
 }

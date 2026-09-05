@@ -54,6 +54,9 @@ data class ChatMessageEntity(
 
     // JSON-serialized List<McpToolCall>
     val toolCallsJson: String? = null,
+
+    // JSON-serialized List<ImageAttachment>; bytes stay on disk, only URIs persist
+    val attachmentsJson: String? = null,
     val latencyMs: Long = 0,
     val timestamp: Long = System.currentTimeMillis(),
     val isError: Boolean = false,

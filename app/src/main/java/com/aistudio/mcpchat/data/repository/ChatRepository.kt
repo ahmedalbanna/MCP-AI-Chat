@@ -9,11 +9,14 @@ import com.aistudio.mcpchat.data.model.ChatException
 import com.aistudio.mcpchat.data.model.DEFAULT_MODEL
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
+import com.aistudio.mcpchat.data.model.ImageAttachment
 import com.aistudio.mcpchat.data.model.McpLogItem
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.data.model.ToolExecutionStatus
+import com.aistudio.mcpchat.data.model.parseImageAttachments
+import com.aistudio.mcpchat.data.model.toJsonString
 import com.aistudio.mcpchat.data.network.ActiveAiProviderSource
 import com.aistudio.mcpchat.data.network.AiChatService
 import com.aistudio.mcpchat.data.network.GeminiApiService
@@ -39,6 +42,8 @@ class ChatRepository(
     private val aiService: AiChatService = GeminiApiService(),
     private val activeProvider: ActiveAiProviderSource =
         ActiveAiProviderSource { AiProviderConfig.google() },
+    // Reads image bytes for attached images; faked in JVM tests.
+    private val attachmentSource: AttachmentContentSource = AttachmentContentSource { null },
 ) {
     private val chatDao = database.chatDao()
     private val systemPromptBuilder = SystemPromptBuilder()
@@ -109,6 +114,7 @@ class ChatRepository(
         sessionId: String,
         userPrompt: String,
         onToolCallUpdate: ((List<McpToolCall>) -> Unit)? = null,
+        attachments: List<ImageAttachment> = emptyList(),
     ): Result<ChatMessageEntity> = withContext(Dispatchers.IO) {
         val session = chatDao.getSessionById(sessionId) ?: createNewSession(
             title = userPrompt.take(28) + if (userPrompt.length > 28) "..." else "",
@@ -118,7 +124,7 @@ class ChatRepository(
         // must target the session that actually exists — persisting under the
         // stale id would create orphaned rows no Flow ever reads.
         val effectiveSessionId = session.id
-        persistUserTurn(effectiveSessionId, session, userPrompt)
+        persistUserTurn(effectiveSessionId, session, userPrompt, attachments)
 
         generateAndPersist(session, userPrompt, onToolCallUpdate)
     }
@@ -183,7 +189,7 @@ class ChatRepository(
         val systemInstruction = withContext(Dispatchers.Default) {
             systemPromptBuilder.buildSystemPrompt(session.systemPrompt, activeTools)
         }
-        val history = withContext(Dispatchers.Default) { buildHistory(allMsgs) }
+        val history = withContext(Dispatchers.IO) { buildHistory(allMsgs) }
 
         val accumulatedToolCalls = mutableListOf<McpToolCall>()
         val streamedText = StringBuilder()
@@ -317,12 +323,18 @@ class ChatRepository(
         }
     }
 
-    private suspend fun persistUserTurn(sessionId: String, session: ChatSessionEntity, userPrompt: String) {
+    private suspend fun persistUserTurn(
+        sessionId: String,
+        session: ChatSessionEntity,
+        userPrompt: String,
+        attachments: List<ImageAttachment> = emptyList(),
+    ) {
         // If first user message, use it as the session title
         if (chatDao.getMessagesList(sessionId).isEmpty()) {
+            val titleBase = userPrompt.ifBlank { "Image" }
             chatDao.updateSession(
                 session.copy(
-                    title = userPrompt.take(30) + if (userPrompt.length > 30) "..." else "",
+                    title = titleBase.take(30) + if (titleBase.length > 30) "..." else "",
                     updatedAt = System.currentTimeMillis(),
                 ),
             )
@@ -333,6 +345,7 @@ class ChatRepository(
             sessionId = sessionId,
             role = "user",
             content = userPrompt,
+            attachmentsJson = attachments.toJsonString(),
             timestamp = System.currentTimeMillis(),
         )
         chatDao.insertMessage(userMessage)
@@ -406,7 +419,17 @@ class ChatRepository(
         val history = mutableListOf<GeminiMessage>()
         for (m in messages) {
             if (m.role == "user") {
-                history.add(GeminiMessage(role = "user", parts = listOf(GeminiPart.Text(m.content))))
+                val parts = buildList {
+                    if (m.content.isNotBlank()) add(GeminiPart.Text(m.content))
+                    for (attachment in parseImageAttachments(m.attachmentsJson)) {
+                        // Unreadable URIs (revoked grants, deleted files) are
+                        // dropped rather than failing the whole send.
+                        attachmentSource.read(attachment)?.let { loaded ->
+                            add(GeminiPart.InlineData(loaded.mimeType, loaded.base64Data))
+                        }
+                    }
+                }
+                if (parts.isNotEmpty()) history.add(GeminiMessage(role = "user", parts = parts))
             } else if (m.role == "assistant") {
                 appendAssistantTurn(history, m)
             }

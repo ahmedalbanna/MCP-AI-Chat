@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         McpLogEntity::class,
         MemoryNoteEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -53,6 +53,12 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val migration3To4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE chat_messages ADD COLUMN attachmentsJson TEXT")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return instance ?: synchronized(this) {
                 val current = instance
@@ -61,7 +67,7 @@ abstract class AppDatabase : RoomDatabase() {
                         AppDatabase::class.java,
                         "mcp_chat_database",
                     )
-                        .addMigrations(migration1To2, migration2To3)
+                        .addMigrations(migration1To2, migration2To3, migration3To4)
                         .build()
                         .also { created -> instance = created }
                 current

@@ -69,6 +69,13 @@ class DatabaseMigrationTest {
                 VALUES ('s1', 'Legacy Session', 'gemini-3.5-flash', '', '[]', 1000, 2000)
                 """.trimIndent(),
             )
+            db.execSQL(
+                """
+                INSERT INTO chat_messages
+                    (id, sessionId, role, content, toolCallsJson, latencyMs, timestamp, isError)
+                VALUES ('m1', 's1', 'user', 'hello from v1', NULL, 0, 1000, 0)
+                """.trimIndent(),
+            )
         }
     }
 
@@ -80,7 +87,7 @@ class DatabaseMigrationTest {
     @Test
     fun migrate1To2_addsIsPinnedAndMemoryNotes_preservingData() = runBlocking {
         val db = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-            .addMigrations(AppDatabase.migration1To2, AppDatabase.migration2To3)
+            .addMigrations(AppDatabase.migration1To2, AppDatabase.migration2To3, AppDatabase.migration3To4)
             .allowMainThreadQueries()
             .build()
 
@@ -92,12 +99,18 @@ class DatabaseMigrationTest {
             assertEquals("Legacy Session", migrated?.title)
             assertFalse(migrated?.isPinned == true)
 
+            val legacyMessage = dao.getMessagesList("s1").singleOrNull()
+            assertNotNull(legacyMessage)
+            assertEquals("hello from v1", legacyMessage?.content)
+            // v4 added the column with NULL for pre-existing rows.
+            assertEquals(null, legacyMessage?.attachmentsJson)
+
             val noteId = db.memoryNoteDao().insertNote(
                 MemoryNoteEntity(content = "post-migration note"),
             )
             assertTrue(noteId > 0)
 
-            assertEquals(3, db.openHelper.writableDatabase.version)
+            assertEquals(4, db.openHelper.writableDatabase.version)
         } finally {
             db.close()
         }

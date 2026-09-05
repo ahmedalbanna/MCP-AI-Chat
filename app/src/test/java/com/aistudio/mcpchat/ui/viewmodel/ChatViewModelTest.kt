@@ -3,6 +3,7 @@ package com.aistudio.mcpchat.ui.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import com.aistudio.mcpchat.data.local.ChatMessageEntity
 import com.aistudio.mcpchat.data.local.ChatSessionEntity
+import com.aistudio.mcpchat.data.model.ImageAttachment
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.repository.ChatRepository
@@ -12,6 +13,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -289,6 +291,43 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 0) { chatRepository.sendMessage(any(), any(), any()) }
+    }
+
+    @Test
+    fun `pending attachments build up and clear on send`() = runTest {
+        val attachment = ImageAttachment("content://media/1", "image/png")
+        val attachmentSlot = slot<List<ImageAttachment>>()
+        coEvery { chatRepository.sendMessage(any(), any(), any(), capture(attachmentSlot)) } returns Result.success(
+            ChatMessageEntity(id = "msg_1", sessionId = "s1", role = "assistant", content = "Nice picture!"),
+        )
+
+        sessionsFlow.value = listOf(ChatSessionEntity(id = "s1", title = "Test"))
+        createViewModel()
+        viewModel.selectSession("s1")
+        advanceUntilIdle()
+
+        viewModel.addPendingAttachment("content://media/1", "image/png")
+        assertEquals(listOf(attachment), viewModel.pendingAttachments.value)
+
+        // A blank prompt with an attachment still sends.
+        viewModel.sendMessage("")
+        advanceUntilIdle()
+
+        assertEquals(emptyList<ImageAttachment>(), viewModel.pendingAttachments.value)
+        assertEquals(listOf(attachment), attachmentSlot.captured)
+    }
+
+    @Test
+    fun `removePendingAttachment drops the staged image`() = runTest {
+        createViewModel()
+        val first = ImageAttachment("content://media/1", "image/png")
+        val second = ImageAttachment("content://media/2", "image/jpeg")
+
+        viewModel.addPendingAttachment(first.uri, first.mimeType)
+        viewModel.addPendingAttachment(second.uri, second.mimeType)
+        viewModel.removePendingAttachment(first)
+
+        assertEquals(listOf(second), viewModel.pendingAttachments.value)
     }
 
     @Test

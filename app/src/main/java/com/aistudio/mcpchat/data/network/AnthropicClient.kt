@@ -210,7 +210,7 @@ class AnthropicClient(private val client: OkHttpClient) {
         }
     }
 
-    @Suppress("CyclomaticComplexMethod", "NestedBlockDepth", "UnusedParameter")
+    @Suppress("CyclomaticComplexMethod", "NestedBlockDepth", "UnusedParameter", "LongMethod")
     private fun buildRequestJson(
         @Suppress("UNUSED_PARAMETER") config: AiProviderConfig,
         modelName: String,
@@ -244,8 +244,29 @@ class AnthropicClient(private val client: OkHttpClient) {
             when (message.role) {
                 "user" -> {
                     val blocks = JSONArray()
-                    message.parts.filterIsInstance<GeminiPart.Text>().forEach { part ->
-                        blocks.put(JSONObject().put("type", "text").put("text", part.text))
+                    message.parts.forEach { part ->
+                        when (part) {
+                            is GeminiPart.Text ->
+                                if (part.text.isNotBlank()) {
+                                    blocks.put(JSONObject().put("type", "text").put("text", part.text))
+                                }
+
+                            is GeminiPart.InlineData ->
+                                blocks.put(
+                                    JSONObject().put(
+                                        "type",
+                                        "image",
+                                    ).put(
+                                        "source",
+                                        JSONObject()
+                                            .put("type", "base64")
+                                            .put("media_type", part.mimeType)
+                                            .put("data", part.base64Data),
+                                    ),
+                                )
+
+                            else -> Unit
+                        }
                     }
                     appendContent("user", blocks)
                 }
@@ -268,6 +289,7 @@ class AnthropicClient(private val client: OkHttpClient) {
                                 )
 
                             is GeminiPart.FunctionResponse -> Unit // handled below as tool_result
+                            is GeminiPart.InlineData -> Unit // models never emit images back
                         }
                     }
                     appendContent("assistant", blocks)

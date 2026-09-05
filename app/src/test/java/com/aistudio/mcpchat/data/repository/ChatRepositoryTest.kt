@@ -57,6 +57,94 @@ class ChatRepositoryTest {
     }
 
     @Test
+    fun `sendMessage persists image attachments on the user turn`() = runTest {
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList(any()) } returns emptyList()
+        coEvery { geminiService.streamContent(any(), any(), any(), any(), any(), any()) } returns
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "ok")
+
+        createRepository()
+        repository.sendMessage(
+            sessionId = "s1",
+            userPrompt = "look",
+            attachments = listOf(com.aistudio.mcpchat.data.model.ImageAttachment("content://media/9", "image/jpeg")),
+        )
+        advanceUntilIdle()
+
+        coVerify {
+            chatDao.insertMessage(
+                match {
+                    it.role == "user" &&
+                        it.attachmentsJson!!.contains("content://media/9") &&
+                        it.attachmentsJson.contains("image/jpeg")
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `history rebuild includes inline image parts for persisted attachments`() = runTest {
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList("s1") } returns listOf(
+            ChatMessageEntity(
+                id = "m1",
+                sessionId = "s1",
+                role = "user",
+                content = "what is this?",
+                attachmentsJson = """[{"uri":"content://media/1","mimeType":"image/png"}]""",
+            ),
+        )
+        val historySlot = slot<List<GeminiMessage>>()
+        coEvery { geminiService.streamContent(any(), any(), capture(historySlot), any(), any(), any()) } returns
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "a cat")
+
+        repository = ChatRepository(
+            database,
+            mockk(relaxed = true),
+            geminiService,
+            attachmentSource = AttachmentContentSource { LoadedAttachment("image/png", "aGVsbG8=") },
+        )
+        repository.sendMessage(sessionId = "s1", userPrompt = "describe")
+        advanceUntilIdle()
+
+        val userMsg = historySlot.captured.first { it.role == "user" && it.parts.any { it is GeminiPart.InlineData } }
+        val inline = userMsg.parts.filterIsInstance<GeminiPart.InlineData>().single()
+        assertEquals("image/png", inline.mimeType)
+        assertEquals("aGVsbG8=", inline.base64Data)
+        assertTrue(userMsg.parts.any { it is GeminiPart.Text && it.text == "what is this?" })
+    }
+
+    @Test
+    fun `history rebuild drops attachments whose URI is unreadable`() = runTest {
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList("s1") } returns listOf(
+            ChatMessageEntity(
+                id = "m1",
+                sessionId = "s1",
+                role = "user",
+                content = "what is this?",
+                attachmentsJson = """[{"uri":"content://revoked","mimeType":"image/png"}]""",
+            ),
+        )
+        val historySlot = slot<List<GeminiMessage>>()
+        coEvery { geminiService.streamContent(any(), any(), capture(historySlot), any(), any(), any()) } returns
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "no image")
+
+        repository = ChatRepository(
+            database,
+            mockk(relaxed = true),
+            geminiService,
+            attachmentSource = AttachmentContentSource { null },
+        )
+        repository.sendMessage(sessionId = "s1", userPrompt = "describe")
+        advanceUntilIdle()
+
+        val userMsg = historySlot.captured.first { it.role == "user" }
+        assertTrue(userMsg.parts.none { it is GeminiPart.InlineData })
+        assertTrue(userMsg.parts.any { it is GeminiPart.Text && it.text == "what is this?" })
+    }
+
+    @Test
     fun `allSessionsFlow delegates to chatDao`() = runTest {
         val sessions = listOf(
             ChatSessionEntity(id = "s1", title = "Session 1"),

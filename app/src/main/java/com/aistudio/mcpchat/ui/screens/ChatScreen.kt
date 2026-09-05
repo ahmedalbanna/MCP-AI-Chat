@@ -3,7 +3,11 @@ package com.aistudio.mcpchat.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -29,12 +33,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -54,6 +60,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
@@ -96,6 +103,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -113,7 +121,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.aistudio.mcpchat.data.local.ChatMessageEntity
+import com.aistudio.mcpchat.data.model.ImageAttachment
+import com.aistudio.mcpchat.data.model.parseImageAttachments
 import com.aistudio.mcpchat.ui.theme.AmberWarning
 import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.Dimens
@@ -151,6 +162,7 @@ fun ChatScreen(
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val streamingText by viewModel.streamingText.collectAsStateWithLifecycle()
     val streamProgress by viewModel.streamProgress.collectAsStateWithLifecycle()
+    val pendingAttachments by viewModel.pendingAttachments.collectAsStateWithLifecycle()
 
     var inputText by remember { mutableStateOf("") }
     var showServersSheet by remember { mutableStateOf(false) }
@@ -158,6 +170,27 @@ fun ChatScreen(
     val providerUiState by providerViewModel.uiState.collectAsStateWithLifecycle()
     val activeProviderConfig = providerUiState.configs.find { it.id == providerUiState.activeId }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
+
+    // Photo picker (backported on older devices by the contract itself).
+    // The persistable grant keeps the URI readable after a reboot; some
+    // fallback intents do not offer it, hence the runCatching.
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val mimeType = context.contentResolver.getType(uri) ?: "image/*"
+            viewModel.addPendingAttachment(uri.toString(), mimeType)
+        }
+    }
+    val launchPhotoPicker = {
+        photoPickerLauncher.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+        )
+    }
 
     val currentSession = sessions.find { it.id == currentSessionId }
     val enabledServersCount = servers.count { it.isEnabled }
@@ -562,10 +595,48 @@ fun ChatScreen(
                         }
                     }
 
+                    val canSend = !isGenerating && (inputText.isNotBlank() || pendingAttachments.isNotEmpty())
+                    val submitPrompt = {
+                        if (canSend) {
+                            val prompt = inputText.trim()
+                            inputText = ""
+                            keyboardController?.hide()
+                            viewModel.sendMessage(prompt)
+                        }
+                    }
+
+                    if (pendingAttachments.isNotEmpty()) {
+                        PendingAttachmentsBar(
+                            attachments = pendingAttachments,
+                            onRemove = viewModel::removePendingAttachment,
+                            onAddMore = launchPhotoPicker,
+                            modifier = Modifier.padding(bottom = Spacing.sm),
+                        )
+                    }
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
+                        IconButton(
+                            onClick = launchPhotoPicker,
+                            enabled = !isGenerating,
+                            modifier = Modifier
+                                .size(Dimens.touchTargetMin)
+                                .testTag("attach_image_button"),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Image,
+                                contentDescription = "Attach image",
+                                tint = if (isGenerating) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                modifier = Modifier.size(Dimens.iconSizeLg),
+                            )
+                        }
+
                         OutlinedTextField(
                             value = inputText,
                             onValueChange = { inputText = it },
@@ -579,14 +650,7 @@ fun ChatScreen(
                             maxLines = 4,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                             keyboardActions = KeyboardActions(
-                                onSend = {
-                                    if (!isGenerating && inputText.isNotBlank()) {
-                                        val prompt = inputText.trim()
-                                        inputText = ""
-                                        keyboardController?.hide()
-                                        viewModel.sendMessage(prompt)
-                                    }
-                                },
+                                onSend = { submitPrompt() },
                             ),
                             shape = RoundedCornerShape(Dimens.cornerRadiusXl),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -606,21 +670,18 @@ fun ChatScreen(
                             onClick = {
                                 if (isGenerating) {
                                     viewModel.cancelGeneration()
-                                } else if (inputText.isNotBlank()) {
-                                    val prompt = inputText.trim()
-                                    inputText = ""
-                                    keyboardController?.hide()
-                                    viewModel.sendMessage(prompt)
+                                } else {
+                                    submitPrompt()
                                 }
                             },
-                            enabled = isGenerating || inputText.isNotBlank(),
+                            enabled = isGenerating || inputText.isNotBlank() || pendingAttachments.isNotEmpty(),
                             modifier = Modifier
                                 .size(Dimens.touchTargetMin)
                                 .clip(CircleShape)
                                 .background(
                                     when {
                                         isGenerating -> RoseError
-                                        inputText.isNotBlank() -> IndigoPrimary
+                                        canSend -> IndigoPrimary
                                         else -> MaterialTheme.colorScheme.surfaceVariant
                                     },
                                 )
@@ -640,7 +701,7 @@ fun ChatScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Default.Send,
                                     contentDescription = "Send",
-                                    tint = if (inputText.isNotBlank()) {
+                                    tint = if (canSend) {
                                         MaterialTheme.colorScheme.onPrimary
                                     } else {
                                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -975,12 +1036,30 @@ fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifi
             ) {
                 Column(modifier = Modifier.padding(horizontal = Spacing.cardPadding, vertical = Spacing.sm)) {
                     if (isUser) {
-                        Text(
-                            text = message.content,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp,
-                        )
+                        val attachments = remember(message.attachmentsJson) {
+                            parseImageAttachments(message.attachmentsJson)
+                        }
+                        for (attachment in attachments) {
+                            AsyncImage(
+                                model = attachment.uri,
+                                contentDescription = "Attached image",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 220.dp)
+                                    .clip(RoundedCornerShape(Dimens.cornerRadiusMd))
+                                    .padding(bottom = Spacing.xs)
+                                    .testTag("message_attachment_image"),
+                            )
+                        }
+                        if (message.content.isNotBlank()) {
+                            Text(
+                                text = message.content,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp,
+                            )
+                        }
                     } else {
                         val displayText = if (shouldTruncate && !isExpanded) {
                             message.content.take(500) + "..."
@@ -1470,6 +1549,70 @@ fun RegenerateAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
                 fontWeight = FontWeight.SemiBold,
                 color = CyanSecondary,
             )
+        }
+    }
+}
+
+/**
+ * Thumbnails of images staged in the input bar, plus a trailing tile that
+ * reopens the photo picker.
+ */
+@Composable
+fun PendingAttachmentsBar(
+    attachments: List<ImageAttachment>,
+    onRemove: (ImageAttachment) -> Unit,
+    onAddMore: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        modifier = modifier.testTag("pending_attachments_bar"),
+    ) {
+        items(attachments, key = { it.uri }) { attachment ->
+            Box {
+                AsyncImage(
+                    model = attachment.uri,
+                    contentDescription = "Attached image",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(Dimens.cornerRadiusSm)),
+                )
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(Spacing.xxs),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove attachment",
+                        tint = RoseError,
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clickable { onRemove(attachment) }
+                            .testTag("remove_attachment_button"),
+                    )
+                }
+            }
+        }
+        item(key = "add_attachment_tile") {
+            IconButton(
+                onClick = onAddMore,
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(Dimens.cornerRadiusSm))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .testTag("add_attachment_tile"),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add another image",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(Dimens.iconSizeSm),
+                )
+            }
         }
     }
 }
