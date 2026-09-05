@@ -18,7 +18,9 @@ import com.aistudio.mcpchat.data.network.ActiveAiProviderSource
 import com.aistudio.mcpchat.data.network.AiChatService
 import com.aistudio.mcpchat.data.network.GeminiApiService
 import com.aistudio.mcpchat.data.tool.LocalFallbackHandler
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -118,6 +120,46 @@ class ChatRepository(
         val effectiveSessionId = session.id
         persistUserTurn(effectiveSessionId, session, userPrompt)
 
+        generateAndPersist(session, userPrompt, onToolCallUpdate)
+    }
+
+    /**
+     * Re-runs generation for the last user turn. The trailing assistant
+     * message (including a stopped-partial or error one) is dropped so the
+     * rebuilt history ends at the last user message; when the conversation
+     * already ends with a user turn (Stop before any output), it is simply
+     * retried as-is.
+     */
+    suspend fun regenerateLastMessage(sessionId: String, onToolCallUpdate: ((List<McpToolCall>) -> Unit)? = null): Result<ChatMessageEntity> =
+        withContext(Dispatchers.IO) {
+            val session = chatDao.getSessionById(sessionId)
+                ?: return@withContext Result.failure(ChatException.GeminiApi("Session no longer exists"))
+
+            val messages = chatDao.getMessagesList(session.id)
+            messages.lastOrNull()?.takeIf { it.role == "assistant" }?.let { last ->
+                chatDao.deleteMessageById(last.id)
+            }
+            val fallbackPrompt = messages.lastOrNull { it.role == "user" }?.content ?: ""
+
+            generateAndPersist(session, fallbackPrompt, onToolCallUpdate)
+        }
+
+    /**
+     * Shared generation core for send and regenerate: builds history from the
+     * persisted messages, runs the tool-execution loop, and persists the
+     * assistant turn. On coroutine cancellation (Stop button) any partial
+     * stream text is persisted first — inside [NonCancellable] because a
+     * cancelled coroutine cannot suspend normally — then the cancellation
+     * propagates for structured concurrency.
+     */
+    @Suppress("LongMethod")
+    private suspend fun generateAndPersist(
+        session: ChatSessionEntity,
+        userPromptForFallback: String,
+        onToolCallUpdate: ((List<McpToolCall>) -> Unit)?,
+    ): Result<ChatMessageEntity> = withContext(Dispatchers.IO) {
+        val effectiveSessionId = session.id
+
         // 2. Fetch all enabled tools from active MCP servers
         val enabledServers = mcpRepository.getEnabledServers()
         val allEnabledTools = mcpRepository.getEnabledTools()
@@ -144,6 +186,7 @@ class ChatRepository(
         val history = withContext(Dispatchers.Default) { buildHistory(allMsgs) }
 
         val accumulatedToolCalls = mutableListOf<McpToolCall>()
+        val streamedText = StringBuilder()
         var finalResponseText = ""
         var isError = false
         var failureException: ChatException? = null
@@ -160,56 +203,69 @@ class ChatRepository(
 
         _streamEvents.tryEmit(ChatStreamEvent.StreamStarted(effectiveSessionId))
 
-        while (continueLoop && currentHop < MAX_TOOL_HOPS) {
-            currentHop++
-            if (currentHop > 1) {
-                // The previous hop streamed narration that is now superseded
-                // by tool results — restart the preview from a clean bubble.
-                _streamEvents.tryEmit(ChatStreamEvent.StreamStarted(effectiveSessionId))
+        try {
+            while (continueLoop && currentHop < MAX_TOOL_HOPS) {
+                currentHop++
+                streamedText.setLength(0)
+                if (currentHop > 1) {
+                    // The previous hop streamed narration that is now superseded
+                    // by tool results — restart the preview from a clean bubble.
+                    _streamEvents.tryEmit(ChatStreamEvent.StreamStarted(effectiveSessionId))
+                }
+                val geminiResponse = aiService.streamContent(
+                    config = providerConfig,
+                    modelName = session.model,
+                    history = history,
+                    tools = activeTools,
+                    systemInstruction = systemInstruction,
+                ) { delta ->
+                    streamedText.append(delta)
+                    _streamEvents.tryEmit(ChatStreamEvent.TokenDelta(effectiveSessionId, delta))
+                }
+
+                if (geminiResponse.error != null) {
+                    val outcome = handleGeminiError(geminiResponse.error, userPromptForFallback)
+                    isError = outcome.isError
+                    failureException = outcome.exception
+                    finalResponseText = outcome.message
+                    continueLoop = false
+                    break
+                }
+
+                // Check if Gemini requested function calls
+                if (geminiResponse.functionCalls.isNotEmpty()) {
+                    val functionResponsesParts = executeFunctionCalls(
+                        geminiResponse.functionCalls,
+                        toolNameToToolMap,
+                        sanitizedToOriginalName,
+                        serverMap,
+                        accumulatedToolCalls,
+                        onToolCallUpdate,
+                    )
+
+                    // Append assistant's function call message to history
+                    history.add(GeminiMessage(role = "model", parts = geminiResponse.functionCalls))
+
+                    // Append function response message to history
+                    history.add(GeminiMessage(role = "tool", parts = functionResponsesParts))
+
+                    // Continue to next hop to get Gemini's natural language response!
+                    continueLoop = true
+                } else {
+                    // Final text received from model
+                    finalResponseText = geminiResponse.text ?: "No response text generated."
+                    continueLoop = false
+                }
             }
-            val geminiResponse = aiService.streamContent(
-                config = providerConfig,
-                modelName = session.model,
-                history = history,
-                tools = activeTools,
-                systemInstruction = systemInstruction,
-            ) { delta ->
-                _streamEvents.tryEmit(ChatStreamEvent.TokenDelta(effectiveSessionId, delta))
-            }
-
-            if (geminiResponse.error != null) {
-                val outcome = handleGeminiError(geminiResponse.error, userPrompt)
-                isError = outcome.isError
-                failureException = outcome.exception
-                finalResponseText = outcome.message
-                continueLoop = false
-                break
-            }
-
-            // Check if Gemini requested function calls
-            if (geminiResponse.functionCalls.isNotEmpty()) {
-                val functionResponsesParts = executeFunctionCalls(
-                    geminiResponse.functionCalls,
-                    toolNameToToolMap,
-                    sanitizedToOriginalName,
-                    serverMap,
-                    accumulatedToolCalls,
-                    onToolCallUpdate,
-                )
-
-                // Append assistant's function call message to history
-                history.add(GeminiMessage(role = "model", parts = geminiResponse.functionCalls))
-
-                // Append function response message to history
-                history.add(GeminiMessage(role = "tool", parts = functionResponsesParts))
-
-                // Continue to next hop to get Gemini's natural language response!
-                continueLoop = true
-            } else {
-                // Final text received from model
-                finalResponseText = geminiResponse.text ?: "No response text generated."
-                continueLoop = false
-            }
+        } catch (e: CancellationException) {
+            persistStoppedPartial(
+                effectiveSessionId,
+                session,
+                streamedText.toString().trim(),
+                accumulatedToolCalls,
+                System.currentTimeMillis() - startTime,
+            )
+            throw e
         }
 
         val totalLatency = System.currentTimeMillis() - startTime
@@ -225,7 +281,40 @@ class ChatRepository(
         // The Room flow emits the persisted message asynchronously; this
         // tells collectors the preview bubble can be swapped for the real one.
         _streamEvents.tryEmit(ChatStreamEvent.StreamFinished(effectiveSessionId))
-        return@withContext persisted
+        persisted
+    }
+
+    /**
+     * Persists whatever the user saw when they hit Stop. Runs under
+     * [NonCancellable]: the coroutine is already cancelled, so ordinary
+     * suspension would throw before the partial reply could be saved.
+     */
+    private suspend fun persistStoppedPartial(
+        sessionId: String,
+        session: ChatSessionEntity,
+        partialText: String,
+        accumulatedToolCalls: List<McpToolCall>,
+        totalLatency: Long,
+    ) {
+        if (partialText.isBlank() && accumulatedToolCalls.isEmpty()) return
+
+        withContext(NonCancellable) {
+            val stoppedText = if (partialText.isBlank()) {
+                "[Generation stopped by user]"
+            } else {
+                partialText + "\n\n[Generation stopped by user]"
+            }
+            persistAssistantTurn(
+                sessionId,
+                session,
+                stoppedText,
+                accumulatedToolCalls,
+                isError = false,
+                failureException = null,
+                totalLatency = totalLatency,
+            )
+            _streamEvents.tryEmit(ChatStreamEvent.StreamFinished(sessionId))
+        }
     }
 
     private suspend fun persistUserTurn(sessionId: String, session: ChatSessionEntity, userPrompt: String) {

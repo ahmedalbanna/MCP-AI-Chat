@@ -113,6 +113,44 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `regenerate delegates to repository for current session`() = runTest {
+        createViewModel()
+        viewModel.selectSession("s1")
+        // messages is a WhileSubscribed stateIn flow: collect it so the
+        // guard sees the seeded message.
+        val collector = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.messages.collect {}
+        }
+        messagesFlow.value = listOf(
+            ChatMessageEntity(id = "m1", sessionId = "s1", role = "user", content = "hi"),
+            ChatMessageEntity(id = "m2", sessionId = "s1", role = "assistant", content = "old"),
+        )
+        advanceUntilIdle()
+        coEvery { chatRepository.regenerateLastMessage("s1", any()) } returns Result.success(
+            ChatMessageEntity(id = "m3", sessionId = "s1", role = "assistant", content = "new"),
+        )
+
+        viewModel.regenerate()
+        advanceUntilIdle()
+
+        coVerify { chatRepository.regenerateLastMessage("s1", any()) }
+        assertFalse(viewModel.isGenerating.value)
+        collector.cancel()
+    }
+
+    @Test
+    fun `regenerate is skipped without messages`() = runTest {
+        createViewModel()
+        viewModel.selectSession("s1")
+        advanceUntilIdle()
+
+        viewModel.regenerate()
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { chatRepository.regenerateLastMessage(any(), any()) }
+    }
+
+    @Test
     fun `selectSession updates currentSessionId`() = runTest {
         createViewModel()
 

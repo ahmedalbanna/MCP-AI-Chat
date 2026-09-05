@@ -12,6 +12,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -252,6 +253,105 @@ class ChatRepositoryTest {
         assertTrue(sessionEvents.any { it is ChatStreamEvent.TokenDelta && it.delta == "Hel" })
         assertTrue(sessionEvents.any { it is ChatStreamEvent.TokenDelta && it.delta == "lo!" })
         assertTrue(sessionEvents.last() is ChatStreamEvent.StreamFinished)
+    }
+
+    @Test
+    fun `sendMessage cancelled mid-stream persists partial text with stop marker`() = runTest {
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList(any()) } returns emptyList()
+        coEvery { geminiService.streamContent(any(), any(), any(), any(), any(), any()) } coAnswers {
+            @Suppress("UNCHECKED_CAST")
+            val onDelta = args[5] as (String) -> Unit
+            onDelta("partial answer")
+            throw CancellationException("stopped by user")
+        }
+
+        createRepository()
+        val outcome = runCatching { repository.sendMessage(sessionId = "s1", userPrompt = "Hello") }
+        advanceUntilIdle()
+
+        assertTrue(outcome.isFailure)
+        // The partial reply survives in history instead of vanishing.
+        coVerify {
+            chatDao.insertMessage(
+                match {
+                    it.role == "assistant" &&
+                        it.content.contains("partial answer") &&
+                        it.content.contains("[Generation stopped by user]")
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `sendMessage cancelled before any token persists nothing`() = runTest {
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList(any()) } returns emptyList()
+        coEvery { geminiService.streamContent(any(), any(), any(), any(), any(), any()) } throws
+            CancellationException("stopped by user")
+
+        createRepository()
+        val outcome = runCatching { repository.sendMessage(sessionId = "s1", userPrompt = "Hello") }
+        advanceUntilIdle()
+
+        assertTrue(outcome.isFailure)
+        // Only the user turn is stored; no empty assistant placeholder.
+        coVerify(exactly = 1) { chatDao.insertMessage(match { it.role == "user" }) }
+    }
+
+    @Test
+    fun `regenerateLastMessage drops trailing assistant and regenerates`() = runTest {
+        val initial = listOf(
+            ChatMessageEntity(id = "m1", sessionId = "s1", role = "user", content = "Hello"),
+            ChatMessageEntity(id = "m2", sessionId = "s1", role = "assistant", content = "Old answer"),
+        )
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        // First call (trailing-message detection) sees the assistant message;
+        // the second (history build) runs after its deletion.
+        coEvery { chatDao.getMessagesList("s1") } returnsMany listOf(initial, initial.filter { it.id != "m2" })
+        val historySlot = slot<List<GeminiMessage>>()
+        coEvery {
+            geminiService.streamContent(any(), any(), capture(historySlot), any(), any(), any())
+        } returns com.aistudio.mcpchat.data.model.GeminiResponse(text = "New answer")
+
+        createRepository()
+        val result = repository.regenerateLastMessage("s1")
+        advanceUntilIdle()
+
+        assertTrue(result.isSuccess)
+        coVerify { chatDao.deleteMessageById("m2") }
+        assertEquals(listOf("user"), historySlot.captured.map { it.role })
+        coVerify { chatDao.insertMessage(match { it.role == "assistant" && it.content == "New answer" }) }
+    }
+
+    @Test
+    fun `regenerateLastMessage retries as-is when last message is a user turn`() = runTest {
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList("s1") } returns listOf(
+            ChatMessageEntity(id = "m1", sessionId = "s1", role = "user", content = "Hello"),
+        )
+        coEvery { geminiService.streamContent(any(), any(), any(), any(), any(), any()) } returns
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "Fresh answer")
+
+        createRepository()
+        val result = repository.regenerateLastMessage("s1")
+        advanceUntilIdle()
+
+        assertTrue(result.isSuccess)
+        coVerify(exactly = 0) { chatDao.deleteMessageById(any()) }
+        coVerify { chatDao.insertMessage(match { it.role == "assistant" && it.content == "Fresh answer" }) }
+    }
+
+    @Test
+    fun `regenerateLastMessage fails without persisting when session is gone`() = runTest {
+        coEvery { chatDao.getSessionById("gone") } returns null
+
+        createRepository()
+        val result = repository.regenerateLastMessage("gone")
+        advanceUntilIdle()
+
+        assertTrue(result.isFailure)
+        coVerify(exactly = 0) { chatDao.insertMessage(any()) }
     }
 
     @Test

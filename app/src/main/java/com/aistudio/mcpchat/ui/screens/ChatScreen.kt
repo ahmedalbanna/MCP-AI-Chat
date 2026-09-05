@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stop
@@ -156,6 +157,7 @@ fun ChatScreen(
 
     val currentSession = sessions.find { it.id == currentSessionId }
     val enabledServersCount = servers.count { it.isEnabled }
+    val lastMessageId = messages.lastOrNull()?.id
 
     // Keep the session's model compatible whenever the active provider changes
     // (Google providers need gemini-* models, the others non-gemini ones).
@@ -341,6 +343,12 @@ fun ChatScreen(
                                 message = msg,
                                 viewModel = viewModel,
                             )
+                            if (msg.id == lastMessageId && !isGenerating) {
+                                RegenerateAction(
+                                    onClick = { viewModel.regenerate() },
+                                    modifier = Modifier.padding(start = Spacing.xxl),
+                                )
+                            }
                         }
 
                         if (inProgressToolCalls.isNotEmpty()) {
@@ -1378,6 +1386,42 @@ fun StreamingMessageBubble(text: String, modifier: Modifier = Modifier) {
                 MarkdownFormattedText(text = text)
                 PulsingDots(modifier = Modifier.padding(top = Spacing.xxs))
             }
+        }
+    }
+}
+
+/**
+ * Re-runs generation for the last user turn: replaces the previous assistant
+ * reply, a stopped partial, or an error message.
+ */
+@Composable
+fun RegenerateAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(Dimens.cornerRadiusMd),
+        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+        onClick = onClick,
+        modifier = modifier
+            .testTag("regenerate_action")
+            .semantics { role = Role.Button },
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xxs),
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = null,
+                tint = CyanSecondary,
+                modifier = Modifier.size(Dimens.iconSizeSm),
+            )
+            Text(
+                text = "Regenerate",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = CyanSecondary,
+            )
         }
     }
 }

@@ -244,25 +244,8 @@ class ChatViewModel @Inject constructor(
                 followPersistedSession(sessionId, result)
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: ChatException) {
-                val error = when (e) {
-                    is ChatException.ApiKeyMissing ->
-                        UiError.Api("AI provider API key is missing. Add one in the Providers screen.")
-                    is ChatException.RateLimit ->
-                        UiError.Api("Rate limit exceeded. Please wait a moment and try again.")
-                    is ChatException.Network ->
-                        UiError.Network("Server unreachable. Check your network connection.")
-                    is ChatException.GeminiApi ->
-                        UiError.Api(e.message ?: "AI request failed.")
-                }
-                _errorMessage.value = error.message
-                _uiError.value = error
-            } catch (_: IOException) {
-                val error = UiError.Network("Network error. Check your internet connection.")
-                _errorMessage.value = error.message
-                _uiError.value = error
             } catch (e: Exception) {
-                val error = UiError.Unknown(e.message ?: "An error occurred during generation.")
+                val error = mapGenerationError(e)
                 _errorMessage.value = error.message
                 _uiError.value = error
             } finally {
@@ -272,6 +255,58 @@ class ChatViewModel @Inject constructor(
                 _inProgressToolCalls.value = emptyList()
             }
         }
+    }
+
+    /**
+     * Re-runs generation for the conversation's last user turn, replacing the
+     * previous assistant reply (or a stopped partial, or an error message).
+     */
+    fun regenerate() {
+        val sessionId = _currentSessionId.value ?: return
+        if (_isGenerating.value || messages.value.isEmpty()) return
+
+        generateJob?.cancel()
+        generateJob = viewModelScope.launch {
+            _isGenerating.value = true
+            _hasPendingUserTurn.value = true
+            _errorMessage.value = null
+            _uiError.value = null
+            _streamingText.value = null
+            _inProgressToolCalls.value = emptyList()
+
+            try {
+                val result = chatRepository.regenerateLastMessage(sessionId) { toolCalls ->
+                    _inProgressToolCalls.value = toolCalls
+                }
+                followPersistedSession(sessionId, result)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val error = mapGenerationError(e)
+                _errorMessage.value = error.message
+                _uiError.value = error
+            } finally {
+                _isGenerating.value = false
+                _hasPendingUserTurn.value = false
+                _streamingText.value = null
+                _inProgressToolCalls.value = emptyList()
+            }
+        }
+    }
+
+    private fun mapGenerationError(e: Exception): UiError = when (e) {
+        is ChatException.ApiKeyMissing ->
+            UiError.Api("AI provider API key is missing. Add one in the Providers screen.")
+        is ChatException.RateLimit ->
+            UiError.Api("Rate limit exceeded. Please wait a moment and try again.")
+        is ChatException.Network ->
+            UiError.Network("Server unreachable. Check your network connection.")
+        is ChatException.GeminiApi ->
+            UiError.Api(e.message ?: "AI request failed.")
+        is IOException ->
+            UiError.Network("Network error. Check your internet connection.")
+        else ->
+            UiError.Unknown(e.message ?: "An error occurred during generation.")
     }
 
     /**

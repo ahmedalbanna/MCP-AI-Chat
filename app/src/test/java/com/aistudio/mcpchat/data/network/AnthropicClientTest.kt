@@ -3,6 +3,7 @@ package com.aistudio.mcpchat.data.network
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -309,5 +310,45 @@ class AnthropicClientTest {
 
         assertTrue(response.text!!.startsWith("partial"))
         assertTrue(response.text!!.contains("max_tokens"))
+    }
+
+    @Test
+    fun `cancelling mid-stream interrupts the throttled SSE body read`() {
+        val sseBody = buildString {
+            repeat(10) { i ->
+                append("""data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"c$i "}}""")
+                    .append("\n\n")
+            }
+            append("""data: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}""").append("\n\n")
+            append("""data: {"type":"message_stop"}""").append("\n\n")
+        }
+        // ~4 bytes per 150ms: a full drain takes ~30s, so only the socket
+        // close from call.cancel() can end the read promptly.
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(sseBody)
+                .throttleBody(4, 150, TimeUnit.MILLISECONDS),
+        )
+
+        val start = System.currentTimeMillis()
+        runBlocking {
+            var cancellation: CancellationException? = null
+            val job = launch {
+                try {
+                    client.streamContent(config, "claude-x", emptyList(), emptyList(), "") {}
+                } catch (e: CancellationException) {
+                    cancellation = e
+                    throw e
+                }
+            }
+            delay(1500)
+            job.cancelAndJoin()
+            assertNotNull("expected CancellationException from the interrupted read", cancellation)
+        }
+        val elapsed = System.currentTimeMillis() - start
+
+        // Without the job-tied call.cancel() the read would drain ~30s.
+        assertTrue("cancel should interrupt the throttled read promptly (took ${elapsed}ms)", elapsed < 5000)
     }
 }

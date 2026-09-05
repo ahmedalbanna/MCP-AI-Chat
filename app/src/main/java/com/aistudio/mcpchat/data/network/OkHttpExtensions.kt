@@ -1,10 +1,13 @@
 package com.aistudio.mcpchat.data.network
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Response
 import java.io.IOException
+import kotlin.coroutines.coroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -35,12 +38,37 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
 }
 
 /**
+ * Executes the call and consumes the response body inside [action] with the
+ * blocking read tied to the calling job: [await] covers the headers phase,
+ * and a completion handler cancels the call if the job dies mid-body — the
+ * socket close interrupts the blocking read instead of letting it drain to
+ * EOF on a dispatcher thread. A read interrupted that way resurfaces as
+ * [CancellationException].
+ */
+suspend fun <T> Call.executeStreaming(action: (Response) -> T): T {
+    val job = requireNotNull(coroutineContext[Job]) { "executeStreaming requires a coroutine Job" }
+    return await().use { response ->
+        val handle = job.invokeOnCompletion { cause -> if (cause != null) cancel() }
+        try {
+            action(response)
+        } catch (e: IOException) {
+            if (isCanceled()) {
+                throw CancellationException("request cancelled during body read", e)
+            }
+            throw e
+        } finally {
+            handle.dispose()
+        }
+    }
+}
+
+/**
  * Parses a Server-Sent Events (`text/event-stream`) body and invokes [onData]
  * with each complete `data:` field value.
  *
- * Blocks the calling thread while reading — call from `Dispatchers.IO`.
- * Coroutine cancellation closes the response via `Call.cancel()` (registered
- * by [await]), which makes the blocking read throw promptly.
+ * Blocks the calling thread while reading — call from `Dispatchers.IO` via
+ * [executeStreaming], which interrupts the blocking read on coroutine
+ * cancellation.
  *
  * Handles the SSE spec essentials: multi-line `data:` fields are joined with
  * `\n`, events are dispatched on blank lines, and `event:`/`id:`/`retry:`

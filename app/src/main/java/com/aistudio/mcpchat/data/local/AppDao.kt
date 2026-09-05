@@ -78,6 +78,9 @@ interface ChatDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: ChatMessageEntity)
 
+    @Query("DELETE FROM chat_messages WHERE id = :id")
+    suspend fun deleteMessageById(id: String)
+
     @Query("DELETE FROM chat_messages WHERE sessionId = :sessionId")
     suspend fun deleteMessagesForSession(sessionId: String)
 }

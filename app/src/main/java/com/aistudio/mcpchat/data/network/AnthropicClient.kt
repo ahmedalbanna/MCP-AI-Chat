@@ -101,11 +101,11 @@ class AnthropicClient(private val client: OkHttpClient) {
                 .header("anthropic-version", ANTHROPIC_VERSION)
                 .build()
 
-            client.newCall(request).await().use { response ->
+            client.newCall(request).executeStreaming { response ->
                 if (!response.isSuccessful) {
                     val errorBody = response.body?.string() ?: ""
                     Log.e(TAG, "Anthropic stream failed (${response.code}): $errorBody")
-                    return@use errorResponse(response.code, errorBody)
+                    return@executeStreaming errorResponse(response.code, errorBody)
                 }
 
                 val textBuilder = StringBuilder()
@@ -157,7 +157,7 @@ class AnthropicClient(private val client: OkHttpClient) {
                 }
 
                 streamError?.let {
-                    return@use GeminiResponse(text = null, rawJson = "", error = it)
+                    return@executeStreaming GeminiResponse(text = null, rawJson = "", error = it)
                 }
                 if (stopReason == "max_tokens") {
                     textBuilder.append("\n\n[Output truncated: max_tokens reached]")

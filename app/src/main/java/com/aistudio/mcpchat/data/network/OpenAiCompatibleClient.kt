@@ -106,11 +106,11 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
                 }
                 .build()
 
-            client.newCall(request).await().use { response ->
+            client.newCall(request).executeStreaming { response ->
                 if (!response.isSuccessful) {
                     val errorBody = response.body?.string() ?: ""
                     Log.e(TAG, "OpenAI-compatible stream failed (${response.code}): $errorBody")
-                    return@use errorResponse(response.code, errorBody)
+                    return@executeStreaming errorResponse(response.code, errorBody)
                 }
 
                 val textBuilder = StringBuilder()
@@ -154,7 +154,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
                 }
 
                 streamError?.let {
-                    return@use GeminiResponse(text = null, rawJson = "", error = it)
+                    return@executeStreaming GeminiResponse(text = null, rawJson = "", error = it)
                 }
                 val functionCalls = toolAccumulators.entries
                     .sortedBy { it.key }

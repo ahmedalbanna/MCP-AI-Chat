@@ -123,10 +123,10 @@ class GeminiApiService(
                 .header("x-goog-api-key", apiKey)
                 .build()
 
-            client.newCall(request).await().use { response ->
+            client.newCall(request).executeStreaming { response ->
                 if (!response.isSuccessful) {
                     val errorBody = response.body?.string() ?: ""
-                    return@use errorResponse(modelName, response.code, errorBody)
+                    return@executeStreaming errorResponse(modelName, response.code, errorBody)
                 }
 
                 val textBuilder = StringBuilder()
@@ -161,7 +161,7 @@ class GeminiApiService(
                 }
 
                 streamError?.let {
-                    return@use GeminiResponse(text = null, rawJson = "", error = it)
+                    return@executeStreaming GeminiResponse(text = null, rawJson = "", error = it)
                 }
                 GeminiResponse(
                     text = textBuilder.toString().takeIf { it.isNotEmpty() },
