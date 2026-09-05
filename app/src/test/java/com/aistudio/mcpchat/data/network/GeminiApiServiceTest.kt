@@ -115,4 +115,44 @@ class GeminiApiServiceTest {
         assertNull(response.text)
         assertEquals("boom", response.error)
     }
+
+    @Test
+    fun `streamContent falls back when body arrives as JSON not SSE`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"candidates":[{"content":{"parts":[{"text":"Full reply."}]}}]}"""),
+        )
+
+        val deltas = mutableListOf<String>()
+        val response = client.streamContent(config, "gemini-2.0-flash", history, emptyList(), "") { deltas.add(it) }
+
+        assertEquals("Full reply.", response.text)
+        assertEquals(listOf("Full reply."), deltas)
+    }
+
+    @Test
+    fun `streamContent retries without stream when endpoint rejects it`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(400)
+                .setBody("""{"error":{"message":"streaming is not supported on this model"}}"""),
+        )
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setBody("""{"candidates":[{"content":{"parts":[{"text":"Plain reply."}]}}]}"""),
+        )
+
+        val deltas = mutableListOf<String>()
+        val response = client.streamContent(config, "gemini-2.0-flash", history, emptyList(), "") { deltas.add(it) }
+
+        assertEquals("Plain reply.", response.text)
+        assertEquals(listOf("Plain reply."), deltas)
+
+        val first = server.takeRequest(10, TimeUnit.SECONDS)
+        val second = server.takeRequest(10, TimeUnit.SECONDS)
+        assertNotNull(first)
+        assertNotNull(second)
+        assertTrue(first!!.path!!.contains(":streamGenerateContent"))
+        assertTrue(second!!.path!!.contains(":generateContent"))
+    }
 }

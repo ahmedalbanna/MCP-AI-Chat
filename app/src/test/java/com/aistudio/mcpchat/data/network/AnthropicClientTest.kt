@@ -351,4 +351,46 @@ class AnthropicClientTest {
         // Without the job-tied call.cancel() the read would drain ~30s.
         assertTrue("cancel should interrupt the throttled read promptly (took ${elapsed}ms)", elapsed < 5000)
     }
+
+    @Test
+    fun `streamContent falls back when body arrives as JSON not SSE`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"content":[{"type":"text","text":"Full reply."}],"stop_reason":"end_turn"}"""),
+        )
+
+        val deltas = mutableListOf<String>()
+        val response = client.streamContent(config, "claude-sonnet-4-5", history, emptyList(), "") { deltas.add(it) }
+
+        assertEquals("Full reply.", response.text)
+        assertEquals(listOf("Full reply."), deltas)
+    }
+
+    @Test
+    fun `streamContent retries without stream when endpoint rejects it`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(400)
+                .setBody("""{"error":{"message":"streaming is not supported on this endpoint"}}"""),
+        )
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setBody("""{"content":[{"type":"text","text":"Plain reply."}],"stop_reason":"end_turn"}"""),
+        )
+
+        val deltas = mutableListOf<String>()
+        val response = client.streamContent(config, "claude-sonnet-4-5", history, emptyList(), "") { deltas.add(it) }
+
+        assertEquals("Plain reply.", response.text)
+        assertEquals(listOf("Plain reply."), deltas)
+
+        val first = server.takeRequest(10, TimeUnit.SECONDS)
+        val second = server.takeRequest(10, TimeUnit.SECONDS)
+        assertNotNull(first)
+        assertNotNull(second)
+        val sentFirst = JSONObject(first!!.body.readUtf8())
+        val sentSecond = JSONObject(second!!.body.readUtf8())
+        assertEquals(true, sentFirst.getBoolean("stream"))
+        org.junit.Assert.assertFalse(sentSecond.has("stream"))
+    }
 }

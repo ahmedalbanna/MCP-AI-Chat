@@ -26,6 +26,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -148,6 +149,23 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 0) { chatRepository.regenerateLastMessage(any(), any()) }
+    }
+
+    @Test
+    fun `streamProgress tracks deltas and clears on finish`() = runTest {
+        createViewModel()
+        viewModel.selectSession("s1")
+        advanceUntilIdle()
+
+        streamEventsFlow.tryEmit(ChatStreamEvent.TokenDelta("s1", "Hello"))
+        advanceUntilIdle()
+        val progress = viewModel.streamProgress.value
+        assertNotNull(progress)
+        assertEquals(5, progress!!.charsStreamed)
+
+        streamEventsFlow.tryEmit(ChatStreamEvent.StreamFinished("s1"))
+        advanceUntilIdle()
+        assertNull(viewModel.streamProgress.value)
     }
 
     @Test

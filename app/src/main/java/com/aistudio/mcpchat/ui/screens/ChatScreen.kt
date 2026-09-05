@@ -65,6 +65,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -122,6 +123,8 @@ import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
 import com.aistudio.mcpchat.ui.theme.RoseError
 import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.ChatViewModel
+import com.aistudio.mcpchat.ui.viewmodel.StreamProgress
+import com.aistudio.mcpchat.ui.viewmodel.formatRemainingMs
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
@@ -147,6 +150,7 @@ fun ChatScreen(
     val hasPendingUserTurn by viewModel.hasPendingUserTurn.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val streamingText by viewModel.streamingText.collectAsStateWithLifecycle()
+    val streamProgress by viewModel.streamProgress.collectAsStateWithLifecycle()
 
     var inputText by remember { mutableStateOf("") }
     var showServersSheet by remember { mutableStateOf(false) }
@@ -388,19 +392,21 @@ fun ChatScreen(
                             item(key = "streaming_bubble") {
                                 StreamingMessageBubble(
                                     text = streamingText.orEmpty(),
+                                    progress = streamProgress,
                                     modifier = Modifier.padding(start = Spacing.md, end = Spacing.xxl),
                                 )
                             }
                         }
 
-                        // Three-dots placeholder between send and first token.
+                        // Progress bar placeholder between send and first token.
                         val awaitingFirstToken = isGenerating &&
                             inProgressToolCalls.isEmpty() &&
                             hasPendingUserTurn &&
                             streamingText == null
                         if (awaitingFirstToken) {
-                            item {
-                                TypingIndicator(
+                            item(key = "stream_progress") {
+                                StreamProgressIndicator(
+                                    progress = null,
                                     modifier = Modifier.padding(start = Spacing.md, end = Spacing.xxl),
                                 )
                             }
@@ -1342,7 +1348,7 @@ private fun sessionSurfaceColor(isSelected: Boolean): Color = if (isSelected) {
  * message (via the Room messages flow) once the stream finishes.
  */
 @Composable
-fun StreamingMessageBubble(text: String, modifier: Modifier = Modifier) {
+fun StreamingMessageBubble(text: String, progress: StreamProgress? = null, modifier: Modifier = Modifier) {
     Row(
         horizontalArrangement = Arrangement.Start,
         modifier = modifier
@@ -1384,9 +1390,51 @@ fun StreamingMessageBubble(text: String, modifier: Modifier = Modifier) {
         ) {
             Column(modifier = Modifier.padding(horizontal = Spacing.cardPadding, vertical = Spacing.sm)) {
                 MarkdownFormattedText(text = text)
-                PulsingDots(modifier = Modifier.padding(top = Spacing.xxs))
+                StreamProgressIndicator(
+                    progress = progress,
+                    modifier = Modifier.padding(top = Spacing.xxs),
+                )
             }
         }
+    }
+}
+
+/**
+ * Determinate stream progress bar with throughput and remaining-time
+ * estimates; indeterminate (with a waiting label) until the first token
+ * arrives. [progress] snapshots come from the ViewModel's tracker.
+ */
+@Composable
+fun StreamProgressIndicator(progress: StreamProgress?, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        if (progress == null) {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth(0.6f)
+                    .height(Dimens.borderWidthThick),
+            )
+        } else {
+            LinearProgressIndicator(
+                progress = { progress.fraction },
+                modifier = Modifier
+                    .fillMaxWidth(0.6f)
+                    .height(Dimens.borderWidthThick),
+            )
+        }
+        Spacer(modifier = Modifier.height(Spacing.xxs))
+        Text(
+            text = if (progress == null) {
+                "Waiting for first token…"
+            } else {
+                "${progress.tokensPerSecond} tok/s · ${progress.charsStreamed} chars · ~${formatRemainingMs(progress.estimatedRemainingMs)} left"
+            },
+            fontSize = 10.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.semantics {
+                liveRegion = LiveRegionMode.Polite
+            },
+        )
     }
 }
 

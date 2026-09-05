@@ -10,6 +10,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -239,5 +240,47 @@ class OpenAiCompatibleClientTest {
         assertEquals(1, response.functionCalls.size)
         assertEquals("get_weather", response.functionCalls[0].name)
         assertEquals("Paris", response.functionCalls[0].args["city"])
+    }
+
+    @Test
+    fun `streamContent falls back when body arrives as JSON not SSE`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"choices":[{"message":{"content":"Full reply."}}]}"""),
+        )
+
+        val deltas = mutableListOf<String>()
+        val response = client.streamContent(config, "gpt-4o-mini", history, emptyList(), "") { deltas.add(it) }
+
+        assertEquals("Full reply.", response.text)
+        assertEquals(listOf("Full reply."), deltas)
+    }
+
+    @Test
+    fun `streamContent retries without stream when provider rejects it`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(400)
+                .setBody("""{"error":{"message":"streaming is disabled for this key"}}"""),
+        )
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setBody("""{"choices":[{"message":{"content":"Plain reply."}}]}"""),
+        )
+
+        val deltas = mutableListOf<String>()
+        val response = client.streamContent(config, "gpt-4o-mini", history, emptyList(), "") { deltas.add(it) }
+
+        assertEquals("Plain reply.", response.text)
+        assertEquals(listOf("Plain reply."), deltas)
+
+        val first = server.takeRequest(10, TimeUnit.SECONDS)
+        val second = server.takeRequest(10, TimeUnit.SECONDS)
+        assertNotNull(first)
+        assertNotNull(second)
+        val sentFirst = JSONObject(first!!.body.readUtf8())
+        val sentSecond = JSONObject(second!!.body.readUtf8())
+        assertEquals(true, sentFirst.getBoolean("stream"))
+        assertFalse(sentSecond.has("stream"))
     }
 }

@@ -109,8 +109,21 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
             client.newCall(request).executeStreaming { response ->
                 if (!response.isSuccessful) {
                     val errorBody = response.body?.string() ?: ""
+                    if (looksLikeStreamUnsupported(response.code, errorBody)) {
+                        Log.w(TAG, "Provider rejected stream mode; retrying without it")
+                        return@executeStreaming generateContent(config, modelName, history, tools, systemInstruction)
+                            .also { fallback -> fallback.text?.let(onTextDelta) }
+                    }
                     Log.e(TAG, "OpenAI-compatible stream failed (${response.code}): $errorBody")
                     return@executeStreaming errorResponse(response.code, errorBody)
+                }
+                if (!response.deliversSse()) {
+                    // Server ignored stream:true — parse the plain
+                    // chat/completions JSON and hand it out in one delta.
+                    val body = response.body?.string() ?: ""
+                    val parsed = parseResponse(body)
+                    parsed.text?.let(onTextDelta)
+                    return@executeStreaming parsed
                 }
 
                 val textBuilder = StringBuilder()

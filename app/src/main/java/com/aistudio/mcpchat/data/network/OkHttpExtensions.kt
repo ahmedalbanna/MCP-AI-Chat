@@ -44,8 +44,11 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
  * socket close interrupts the blocking read instead of letting it drain to
  * EOF on a dispatcher thread. A read interrupted that way resurfaces as
  * [CancellationException].
+ *
+ * [action] is suspending so callers can issue a follow-up request (e.g. the
+ * non-streaming fallback) within the same job's cancellation scope.
  */
-suspend fun <T> Call.executeStreaming(action: (Response) -> T): T {
+suspend fun <T> Call.executeStreaming(action: suspend (Response) -> T): T {
     val job = requireNotNull(coroutineContext[Job]) { "executeStreaming requires a coroutine Job" }
     return await().use { response ->
         val handle = job.invokeOnCompletion { cause -> if (cause != null) cancel() }
@@ -60,6 +63,21 @@ suspend fun <T> Call.executeStreaming(action: (Response) -> T): T {
             handle.dispose()
         }
     }
+}
+
+/** True when the response body is actually delivered as an SSE stream. */
+fun Response.deliversSse(): Boolean = header("Content-Type")?.trim()?.startsWith("text/event-stream", ignoreCase = true) == true
+
+/**
+ * Heuristic for endpoints that reject streaming outright: 501 Not
+ * Implemented, or a 4xx whose body names streaming ("streaming is not
+ * supported", "stream mode is disabled", …). Callers retry the request
+ * without `stream:true` / `alt=sse` in that case.
+ */
+fun looksLikeStreamUnsupported(code: Int, errorBody: String): Boolean {
+    if (code == 501) return true
+    if (code != 400 && code != 404 && code != 405) return false
+    return errorBody.contains("stream", ignoreCase = true)
 }
 
 /**

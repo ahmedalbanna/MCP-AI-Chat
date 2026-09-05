@@ -83,6 +83,15 @@ class ChatViewModel @Inject constructor(
     private val _streamingText = MutableStateFlow<String?>(null)
     val streamingText: StateFlow<String?> = _streamingText.asStateFlow()
 
+    /**
+     * Throughput/ETA snapshot for the stream progress bar, updated (throttled)
+     * alongside [streamingText]. Null while no tokens have arrived.
+     */
+    private val _streamProgress = MutableStateFlow<StreamProgress?>(null)
+    val streamProgress: StateFlow<StreamProgress?> = _streamProgress.asStateFlow()
+
+    private val streamProgressTracker = StreamProgressTracker()
+
     private var generateJob: Job? = null
 
     val sessions: StateFlow<List<ChatSessionEntity>> = chatRepository.allSessionsFlow
@@ -162,10 +171,23 @@ class ChatViewModel @Inject constructor(
             chatRepository.streamEvents.collect { event ->
                 if (event.sessionId != _currentSessionId.value) return@collect
                 when (event) {
-                    is ChatStreamEvent.StreamStarted -> _streamingText.value = null
-                    is ChatStreamEvent.TokenDelta ->
+                    is ChatStreamEvent.StreamStarted -> {
+                        _streamingText.value = null
+                        _streamProgress.value = null
+                        streamProgressTracker.onStreamStarted(System.nanoTime())
+                    }
+
+                    is ChatStreamEvent.TokenDelta -> {
                         _streamingText.value = (_streamingText.value ?: "") + event.delta
-                    is ChatStreamEvent.StreamFinished -> _streamingText.value = null
+                        // Throttled updates return null — keep the last bar.
+                        streamProgressTracker.onTokenDelta(event.delta.length, System.nanoTime())
+                            ?.let { _streamProgress.value = it }
+                    }
+
+                    is ChatStreamEvent.StreamFinished -> {
+                        _streamingText.value = null
+                        _streamProgress.value = null
+                    }
                 }
             }
         }
@@ -174,6 +196,7 @@ class ChatViewModel @Inject constructor(
     fun selectSession(sessionId: String) {
         updateCurrentSessionId(sessionId)
         _streamingText.value = null
+        _streamProgress.value = null
         _inProgressToolCalls.value = emptyList()
         _errorMessage.value = null
         _uiError.value = null
@@ -187,6 +210,7 @@ class ChatViewModel @Inject constructor(
             )
             updateCurrentSessionId(session.id)
             _streamingText.value = null
+            _streamProgress.value = null
             _inProgressToolCalls.value = emptyList()
             _errorMessage.value = null
             _uiError.value = null
@@ -231,6 +255,7 @@ class ChatViewModel @Inject constructor(
             _errorMessage.value = null
             _uiError.value = null
             _streamingText.value = null
+            _streamProgress.value = null
             _inProgressToolCalls.value = emptyList()
 
             try {
@@ -252,6 +277,7 @@ class ChatViewModel @Inject constructor(
                 _isGenerating.value = false
                 _hasPendingUserTurn.value = false
                 _streamingText.value = null
+                _streamProgress.value = null
                 _inProgressToolCalls.value = emptyList()
             }
         }
@@ -272,6 +298,7 @@ class ChatViewModel @Inject constructor(
             _errorMessage.value = null
             _uiError.value = null
             _streamingText.value = null
+            _streamProgress.value = null
             _inProgressToolCalls.value = emptyList()
 
             try {
@@ -289,6 +316,7 @@ class ChatViewModel @Inject constructor(
                 _isGenerating.value = false
                 _hasPendingUserTurn.value = false
                 _streamingText.value = null
+                _streamProgress.value = null
                 _inProgressToolCalls.value = emptyList()
             }
         }
@@ -326,6 +354,7 @@ class ChatViewModel @Inject constructor(
         generateJob = null
         _isGenerating.value = false
         _streamingText.value = null
+        _streamProgress.value = null
         _inProgressToolCalls.value = emptyList()
     }
 

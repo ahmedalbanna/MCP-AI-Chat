@@ -94,7 +94,7 @@ class GeminiApiService(
      * [onTextDelta] as they arrive, function-call parts (which always arrive
      * complete) are accumulated for the tool loop.
      */
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
     override suspend fun streamContent(
         config: AiProviderConfig,
         modelName: String,
@@ -126,7 +126,20 @@ class GeminiApiService(
             client.newCall(request).executeStreaming { response ->
                 if (!response.isSuccessful) {
                     val errorBody = response.body?.string() ?: ""
+                    if (looksLikeStreamUnsupported(response.code, errorBody)) {
+                        // Endpoint rejects alt=sse — retry once without it.
+                        return@executeStreaming generateContent(config, modelName, history, tools, systemInstruction)
+                            .also { fallback -> fallback.text?.let(onTextDelta) }
+                    }
                     return@executeStreaming errorResponse(modelName, response.code, errorBody)
+                }
+                if (!response.deliversSse()) {
+                    // Gateway ignored alt=sse and returned a single
+                    // GenerateContentResponse JSON body — consume it whole.
+                    val body = response.body?.string() ?: ""
+                    val parsed = parseGeminiResponse(body)
+                    parsed.text?.let(onTextDelta)
+                    return@executeStreaming parsed
                 }
 
                 val textBuilder = StringBuilder()
