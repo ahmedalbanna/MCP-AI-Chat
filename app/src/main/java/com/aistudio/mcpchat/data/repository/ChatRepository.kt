@@ -19,6 +19,7 @@ import com.aistudio.mcpchat.data.model.toJsonString
 import com.aistudio.mcpchat.data.network.ActiveAiProviderSource
 import com.aistudio.mcpchat.data.network.AiChatService
 import com.aistudio.mcpchat.data.network.GeminiApiService
+import com.aistudio.mcpchat.data.tool.BuiltinResourceTools
 import com.aistudio.mcpchat.data.tool.LocalFallbackHandler
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -217,10 +218,20 @@ class ChatRepository(
             serverMap[tool.serverId]?.isEnabled == true
         }
 
-        val toolNameToToolMap = activeTools.associateBy { it.name }
+        // Locally-executed resource tools ride the same function-calling
+        // loop as remote tools, so resource content shows up in chat like
+        // any tool result.
+        val builtinResourceTools = if (enabledServers.isNotEmpty()) {
+            BuiltinResourceTools.definitions()
+        } else {
+            emptyList()
+        }
+        val toolsForProvider = activeTools + builtinResourceTools
+
+        val toolNameToToolMap = toolsForProvider.associateBy { it.name }
         // Gemini receives sanitized function names; map them back so tool
         // execution uses the original MCP tool name.
-        val sanitizedToOriginalName = activeTools.associate { tool ->
+        val sanitizedToOriginalName = toolsForProvider.associate { tool ->
             GeminiApiService.sanitizeFunctionNameStatic(tool.name) to tool.name
         }
 
@@ -232,7 +243,7 @@ class ChatRepository(
         val allMsgs = chatDao.getRecentMessages(effectiveSessionId, MAX_HISTORY_MESSAGES)
             .dropWhile { it.role != "user" }
         val systemInstruction = withContext(Dispatchers.Default) {
-            systemPromptBuilder.buildSystemPrompt(session.systemPrompt, activeTools)
+            systemPromptBuilder.buildSystemPrompt(session.systemPrompt, toolsForProvider)
         }
         val history = withContext(Dispatchers.IO) { buildHistory(allMsgs) }
 
@@ -267,7 +278,7 @@ class ChatRepository(
                     config = providerConfig,
                     modelName = session.model,
                     history = history,
-                    tools = activeTools,
+                    tools = toolsForProvider,
                     systemInstruction = systemInstruction,
                 ) { delta ->
                     streamedText.append(delta)
@@ -565,6 +576,7 @@ class ChatRepository(
         val fc: GeminiPart.FunctionCall,
         val resolvedToolName: String,
         val server: McpServer?,
+        val isBuiltin: Boolean,
         val toolCall: McpToolCall,
     )
 
@@ -580,15 +592,17 @@ class ChatRepository(
             ?: sanitizedToOriginalName[fc.name]
         val toolDef = originalToolName?.let { toolNameToToolMap[it] }
         val server = toolDef?.let { def -> serverMap[def.serverId] }
+        val isBuiltin = toolDef?.serverId == BuiltinResourceTools.SERVER_ID
 
         return PreparedToolCall(
             fc = fc,
             resolvedToolName = originalToolName ?: fc.name,
             server = server,
+            isBuiltin = isBuiltin,
             toolCall = McpToolCall(
                 callId = UUID.randomUUID().toString(),
-                serverId = server?.id ?: "unknown",
-                serverName = server?.name ?: "Remote MCP Server",
+                serverId = server?.id ?: BuiltinResourceTools.SERVER_ID,
+                serverName = server?.name ?: BuiltinResourceTools.SERVER_NAME,
                 toolName = originalToolName ?: fc.name,
                 inputArguments = fc.args,
                 status = ToolExecutionStatus.EXECUTING,
@@ -643,6 +657,25 @@ class ChatRepository(
     }
 
     private suspend fun performToolExecution(prepared: PreparedToolCall): ToolExecution {
+        if (prepared.isBuiltin) {
+            val start = System.currentTimeMillis()
+            val result = BuiltinResourceTools.execute(
+                prepared.resolvedToolName,
+                prepared.fc.args,
+                mcpRepository,
+            )
+            val failed = try {
+                JSONObject(result).has("error")
+            } catch (_: Exception) {
+                false
+            }
+            return ToolExecution(
+                execResult = result,
+                isSuccess = !failed,
+                latencyMs = System.currentTimeMillis() - start,
+                errorMessage = if (failed) result else null,
+            )
+        }
         if (prepared.server == null) {
             // Guard unknown tool (provider hallucinated a name or server was
             // disabled after tool discovery) — fail fast without calling MCP

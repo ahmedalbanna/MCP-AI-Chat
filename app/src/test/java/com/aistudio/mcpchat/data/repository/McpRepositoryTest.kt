@@ -7,6 +7,9 @@ import com.aistudio.mcpchat.data.local.McpServerEntity
 import com.aistudio.mcpchat.data.local.McpToolDao
 import com.aistudio.mcpchat.data.local.McpToolEntity
 import com.aistudio.mcpchat.data.model.McpLogItem
+import com.aistudio.mcpchat.data.model.McpResource
+import com.aistudio.mcpchat.data.model.McpResourceContent
+import com.aistudio.mcpchat.data.model.McpResourceNotification
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.ServerStatus
@@ -16,10 +19,15 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -200,6 +208,146 @@ class McpRepositoryTest {
 
         coVerify { toolDao.setToolEnabled("t1", false) }
     }
+
+    @Test
+    fun `subscribeToResource registers the uri and starts the push listener`() = runTest {
+        val server = testServer()
+        val updates = kotlinx.coroutines.flow.MutableSharedFlow<McpResourceNotification>(extraBufferCapacity = 4)
+        coEvery { httpClient.subscribeResource(server, "file://notes.txt") } returns true
+        every { httpClient.resourceChannelFlow(server) } returns updates
+
+        val repository = McpRepository(database, httpClient, testCrypto, CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob()))
+        assertTrue(repository.subscribeToResource(server, "file://notes.txt"))
+        advanceUntilIdle()
+
+        assertTrue(repository.isSubscribed("s1", "file://notes.txt"))
+        assertEquals(mapOf("s1" to setOf("file://notes.txt")), repository.subscribedResources.value)
+    }
+
+    @Test
+    fun `failed subscription does not register the uri`() = runTest {
+        val server = testServer()
+        coEvery { httpClient.subscribeResource(server, "file://notes.txt") } returns false
+
+        val repository = McpRepository(database, httpClient, testCrypto, CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob()))
+        assertFalse(repository.subscribeToResource(server, "file://notes.txt"))
+        advanceUntilIdle()
+
+        assertFalse(repository.isSubscribed("s1", "file://notes.txt"))
+        verify(exactly = 0) { httpClient.resourceChannelFlow(any()) }
+    }
+
+    @Test
+    fun `push update re-reads subscribed resource and emits fresh content`() = runTest {
+        val server = testServer()
+        val updates = kotlinx.coroutines.flow.MutableSharedFlow<McpResourceNotification>(extraBufferCapacity = 4)
+        coEvery { httpClient.subscribeResource(server, "file://notes.txt") } returns true
+        every { httpClient.resourceChannelFlow(any()) } returns updates
+        coEvery { httpClient.readResource(server, "file://notes.txt") } returns
+            McpResourceContent("file://notes.txt", "text/plain", "v2")
+
+        val repository = McpRepository(database, httpClient, testCrypto, CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob()))
+        val events = mutableListOf<ResourceEvent>()
+        val collectJob = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+            repository.resourceEvents.collect { events.add(it) }
+        }
+
+        assertTrue(repository.subscribeToResource(server, "file://notes.txt"))
+        advanceUntilIdle()
+        updates.tryEmit(McpResourceNotification.Updated("file://notes.txt"))
+        advanceUntilIdle()
+
+        assertEquals(1, events.size)
+        val updated = events.filterIsInstance<ResourceEvent.Updated>().single()
+        assertEquals("s1", updated.serverId)
+        assertEquals("file://notes.txt", updated.uri)
+        assertEquals("v2", updated.content?.text)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `push update for an unsubscribed uri emits nothing`() = runTest {
+        val server = testServer()
+        val updates = kotlinx.coroutines.flow.MutableSharedFlow<McpResourceNotification>(extraBufferCapacity = 4)
+        coEvery { httpClient.subscribeResource(server, "file://notes.txt") } returns true
+        every { httpClient.resourceChannelFlow(server) } returns updates
+
+        val repository = McpRepository(database, httpClient, testCrypto, CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob()))
+        val events = mutableListOf<ResourceEvent>()
+        val collectJob = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+            repository.resourceEvents.collect { events.add(it) }
+        }
+
+        assertTrue(repository.subscribeToResource(server, "file://notes.txt"))
+        advanceUntilIdle()
+        repository.unsubscribeFromResource(server, "file://notes.txt")
+        advanceUntilIdle()
+        updates.tryEmit(McpResourceNotification.Updated("file://notes.txt"))
+        advanceUntilIdle()
+
+        assertTrue(events.isEmpty())
+        coVerify(exactly = 0) { httpClient.readResource(any(), any()) }
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `listChanged notification invalidates the cached list and emits`() = runTest {
+        val server = testServer()
+        val updates = kotlinx.coroutines.flow.MutableSharedFlow<McpResourceNotification>(extraBufferCapacity = 4)
+        coEvery { httpClient.subscribeResource(server, "file://notes.txt") } returns true
+        every { httpClient.resourceChannelFlow(server) } returns updates
+        coEvery { httpClient.listResources(server) } returns listOf(
+            McpResource("file://a.txt", "a"),
+        )
+
+        val repository = McpRepository(database, httpClient, testCrypto, CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob()))
+        val events = mutableListOf<ResourceEvent>()
+        val collectJob = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+            repository.resourceEvents.collect { events.add(it) }
+        }
+
+        assertEquals(1, repository.listResources(server).size)
+        assertTrue(repository.subscribeToResource(server, "file://notes.txt"))
+        advanceUntilIdle()
+        updates.tryEmit(McpResourceNotification.ListChanged)
+        advanceUntilIdle()
+
+        assertEquals(1, events.size)
+        assertTrue(events[0] is ResourceEvent.ListChanged)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `readResourceForChat prefers the named server`() = runTest {
+        val serverA = testServer(id = "sa", name = "Alpha")
+        val serverB = testServer(id = "sb", name = "Beta")
+        coEvery { httpClient.readResource(serverA, "file://x") } returns McpResourceContent("file://x", null, "from A")
+        coEvery { httpClient.readResource(serverB, "file://x") } returns McpResourceContent("file://x", null, "from B")
+        coEvery { serverDao.getEnabledServersList() } returns listOf(serverA, serverB).map { it.toTestEntity() }
+
+        val repository = McpRepository(database, httpClient, testCrypto, CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob()))
+
+        val named = repository.readResourceForChat("Beta", "file://x")
+        assertEquals("from B", named?.text)
+    }
+
+    private fun testServer(id: String = "s1", name: String = "Server") = McpServer(
+        id = id,
+        name = name,
+        description = "desc",
+        endpointUrl = "http://test.com/mcp",
+        isEnabled = true,
+    )
+
+    private fun McpServer.toTestEntity(): McpServerEntity = McpServerEntity(
+        id = id,
+        name = name,
+        description = description,
+        endpointUrl = endpointUrl,
+    )
 
     @Test
     fun `pingServer tests connection and updates server`() = runTest {

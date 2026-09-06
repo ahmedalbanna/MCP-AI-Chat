@@ -12,6 +12,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -48,6 +49,8 @@ class McpInspectorViewModelLifecycleTest {
         every { repository.serversFlow } returns serversFlow
         every { repository.allToolsFlow } returns toolsFlow
         every { repository.logsFlow } returns logsFlow
+        every { repository.resourceEvents } returns MutableSharedFlow()
+        every { repository.subscribedResources } returns MutableStateFlow(emptyMap())
     }
 
     @After

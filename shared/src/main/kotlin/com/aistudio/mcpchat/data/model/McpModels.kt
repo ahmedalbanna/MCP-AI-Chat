@@ -62,6 +62,22 @@ data class McpResource(
     val mimeType: String? = null,
 )
 
+/** Content of one resource as returned by resources/read. */
+data class McpResourceContent(
+    val uri: String,
+    val mimeType: String? = null,
+    val text: String,
+)
+
+/** A notification pushed by an MCP server about one resource. */
+sealed interface McpResourceNotification {
+    /** notifications/resources/updated — the resource at [uri] changed. */
+    data class Updated(val uri: String) : McpResourceNotification
+
+    /** notifications/resources/list_changed — the resource catalog changed. */
+    data object ListChanged : McpResourceNotification
+}
+
 data class McpPrompt(
     val name: String,
     val description: String? = null,

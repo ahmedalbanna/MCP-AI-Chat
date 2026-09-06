@@ -1,10 +1,16 @@
 package com.aistudio.mcpchat.data.network
 
+import com.aistudio.mcpchat.data.model.McpResourceNotification
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.ServerStatus
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -12,6 +18,7 @@ import org.junit.Before
 import org.junit.Test
 import java.util.concurrent.TimeUnit
 
+@Suppress("LargeClass")
 class McpHttpClientTest {
 
     private lateinit var client: McpHttpClient
@@ -236,6 +243,255 @@ class McpHttpClientTest {
         assertNotNull(json)
         assertEquals("2.0", json!!.getString("jsonrpc"))
         assertTrue(json.has("result"))
+    }
+
+    // ---- MCP resources ----
+
+    private fun initializeResult() = okhttp3.mockwebserver.MockResponse()
+        .setResponseCode(200)
+        .setHeader("Mcp-Session-Id", "sess-1")
+        .setBody(
+            """{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05",
+               "capabilities":{},"serverInfo":{"name":"t","version":"1"}}}""",
+        )
+
+    @Test
+    fun `listResources parses resources and carries the session header`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(initializeResult())
+            mockServer.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody("{}"))
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody(
+                    """{"jsonrpc":"2.0","id":2,"result":{"resources":[
+                       {"uri":"file://notes.txt","name":"notes","description":"daily notes","mimeType":"text/plain"},
+                       {"uri":"db://users","name":"users"}
+                    ]}}""",
+                ),
+            )
+
+            val server = createServer(endpointUrl = mockServer.url("/mcp").toString())
+            val resources = client.listResources(server)
+
+            assertEquals(2, resources.size)
+            assertEquals("file://notes.txt", resources[0].uri)
+            assertEquals("notes", resources[0].name)
+            assertEquals("daily notes", resources[0].description)
+            assertEquals("text/plain", resources[0].mimeType)
+            assertNull(resources[1].description)
+
+            mockServer.takeRequest(10, TimeUnit.SECONDS) // initialize
+            mockServer.takeRequest(10, TimeUnit.SECONDS) // initialized notification
+            val listRequest = mockServer.takeRequest(10, TimeUnit.SECONDS)
+            assertNotNull(listRequest)
+            assertEquals("sess-1", listRequest!!.getHeader("Mcp-Session-Id"))
+            val body = JSONObject(listRequest.body.readUtf8())
+            assertEquals("resources/list", body.getString("method"))
+        } finally {
+            mockServer.shutdown()
+        }
+    }
+
+    @Test
+    fun `readResource returns text content`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(initializeResult())
+            mockServer.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody("{}"))
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody(
+                    """{"jsonrpc":"2.0","id":2,"result":{"contents":[
+                       {"uri":"file://notes.txt","mimeType":"text/plain","text":"hello world"}
+                    ]}}""",
+                ),
+            )
+
+            val server = createServer(endpointUrl = mockServer.url("/mcp").toString())
+            val content = client.readResource(server, "file://notes.txt")
+
+            assertNotNull(content)
+            assertEquals("file://notes.txt", content!!.uri)
+            assertEquals("text/plain", content.mimeType)
+            assertEquals("hello world", content.text)
+        } finally {
+            mockServer.shutdown()
+        }
+    }
+
+    @Test
+    fun `readResource reports binary resources without decoding`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(initializeResult())
+            mockServer.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody("{}"))
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody(
+                    """{"jsonrpc":"2.0","id":2,"result":{"contents":[
+                       {"uri":"file://logo.png","mimeType":"image/png","blob":"QUJD"}
+                    ]}}""",
+                ),
+            )
+
+            val server = createServer(endpointUrl = mockServer.url("/mcp").toString())
+            val content = client.readResource(server, "file://logo.png")
+
+            assertNotNull(content)
+            assertEquals("image/png", content!!.mimeType)
+            assertTrue(content.text.contains("binary resource"))
+        } finally {
+            mockServer.shutdown()
+        }
+    }
+
+    @Test
+    fun `subscribeResource returns false when server rejects the method`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(initializeResult())
+            mockServer.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody("{}"))
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody(
+                    """{"jsonrpc":"2.0","id":2,"error":{"code":-32601,"message":"Method not found"}}""",
+                ),
+            )
+
+            val server = createServer(endpointUrl = mockServer.url("/mcp").toString())
+            assertFalse(client.subscribeResource(server, "file://notes.txt"))
+        } finally {
+            mockServer.shutdown()
+        }
+    }
+
+    @Test
+    fun `subscribeResource sends uri and succeeds on empty result`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(initializeResult())
+            mockServer.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody("{}"))
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(200).setBody(
+                    """{"jsonrpc":"2.0","id":2,"result":{}}""",
+                ),
+            )
+
+            val server = createServer(endpointUrl = mockServer.url("/mcp").toString())
+            assertTrue(client.subscribeResource(server, "file://notes.txt"))
+
+            mockServer.takeRequest(10, TimeUnit.SECONDS)
+            mockServer.takeRequest(10, TimeUnit.SECONDS)
+            val subscribe = mockServer.takeRequest(10, TimeUnit.SECONDS)
+            assertNotNull(subscribe)
+            val body = JSONObject(subscribe!!.body.readUtf8())
+            assertEquals("resources/subscribe", body.getString("method"))
+            assertEquals("file://notes.txt", body.getJSONObject("params").getString("uri"))
+        } finally {
+            mockServer.shutdown()
+        }
+    }
+
+    // ---- SSE listening channel ----
+
+    @Test
+    fun `resourceChannelFlow emits updated notifications from the SSE stream`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody(
+                        "data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/resources/updated\"," +
+                            "\"params\":{\"uri\":\"file://notes.txt\"}}\n\n",
+                    ),
+            )
+
+            val server = createServer(endpointUrl = mockServer.url("/mcp").toString())
+            val notification = client.resourceChannelFlow(server).first()
+
+            assertEquals(McpResourceNotification.Updated("file://notes.txt"), notification)
+            val getRequest = mockServer.takeRequest(10, TimeUnit.SECONDS)
+            assertNotNull(getRequest)
+            assertEquals("GET", getRequest!!.method)
+            assertEquals("text/event-stream", getRequest.getHeader("Accept"))
+        } finally {
+            mockServer.shutdown()
+        }
+    }
+
+    @Test
+    fun `resourceChannelFlow emits listChanged notifications`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody("data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/resources/list_changed\"}\n\n"),
+            )
+
+            val server = createServer(endpointUrl = mockServer.url("/mcp").toString())
+            val notification = client.resourceChannelFlow(server).first()
+
+            assertEquals(McpResourceNotification.ListChanged, notification)
+        } finally {
+            mockServer.shutdown()
+        }
+    }
+
+    @Test
+    fun `resourceChannelFlow completes when server offers no channel`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse().setResponseCode(405).setBody("method not allowed"),
+            )
+
+            val server = createServer(endpointUrl = mockServer.url("/mcp").toString())
+            val events = client.resourceChannelFlow(server).toList()
+
+            assertTrue(events.isEmpty())
+        } finally {
+            mockServer.shutdown()
+        }
+    }
+
+    @Test
+    fun `resourceChannelFlow reconnects after a dropped stream`() = runTest {
+        val mockServer = okhttp3.mockwebserver.MockWebServer()
+        mockServer.start()
+        try {
+            val updated = "data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/resources/updated\"," +
+                "\"params\":{\"uri\":\"file://a.txt\"}}\n\n"
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody(updated),
+            )
+            mockServer.enqueue(
+                okhttp3.mockwebserver.MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody(updated),
+            )
+
+            val fastClient = McpHttpClient(reconnectBaseDelayMs = 10)
+            val server = createServer(endpointUrl = mockServer.url("/mcp").toString())
+            val events = fastClient.resourceChannelFlow(server).take(2).toList()
+
+            assertEquals(listOf(McpResourceNotification.Updated("file://a.txt")), events.distinct())
+            assertEquals(2, mockServer.requestCount)
+        } finally {
+            mockServer.shutdown()
+        }
     }
 
     @Test

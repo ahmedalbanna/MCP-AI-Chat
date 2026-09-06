@@ -4,9 +4,13 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aistudio.mcpchat.data.model.McpLogItem
+import com.aistudio.mcpchat.data.model.McpResource
+import com.aistudio.mcpchat.data.model.McpResourceContent
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.repository.McpRepository
+import com.aistudio.mcpchat.data.repository.ResourceEvent
+import com.aistudio.mcpchat.data.repository.ResourceSummary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -71,6 +75,25 @@ class McpInspectorViewModel @Inject constructor(
     private val _error = MutableStateFlow<UiError?>(null)
     val error: StateFlow<UiError?> = _error.asStateFlow()
 
+    // ---- Resources tab ----
+
+    private val _resourceSummaries = MutableStateFlow<List<ResourceSummary>>(emptyList())
+    val resourceSummaries: StateFlow<List<ResourceSummary>> = _resourceSummaries.asStateFlow()
+
+    private val _selectedResourceServerId = MutableStateFlow<String?>(null)
+    val selectedResourceServerId: StateFlow<String?> = _selectedResourceServerId.asStateFlow()
+
+    private val _viewedResource = MutableStateFlow<McpResource?>(null)
+    val viewedResource: StateFlow<McpResource?> = _viewedResource.asStateFlow()
+
+    private val _viewedResourceContent = MutableStateFlow<McpResourceContent?>(null)
+    val viewedResourceContent: StateFlow<McpResourceContent?> = _viewedResourceContent.asStateFlow()
+
+    private val _isLoadingResources = MutableStateFlow(false)
+    val isLoadingResources: StateFlow<Boolean> = _isLoadingResources.asStateFlow()
+
+    val subscribedResources: StateFlow<Map<String, Set<String>>> = repository.subscribedResources
+
     init {
         // Restore parameter defaults after process death: SavedStateHandle
         // brings back the tool id, but the schema-derived inputs are lost.
@@ -82,6 +105,68 @@ class McpInspectorViewModel @Inject constructor(
                         _parameterInputs.value = buildInitialParams(tool)
                     }
                 }
+            }
+        }
+        // Live resource view: a push for the resource currently on screen
+        // swaps in the fresh content; catalog changes reload the listing.
+        viewModelScope.launch {
+            repository.resourceEvents.collect { event ->
+                when (event) {
+                    is ResourceEvent.Updated -> {
+                        val viewing = _viewedResource.value
+                        if (viewing != null && event.serverId == _selectedResourceServerId.value && event.uri == viewing.uri) {
+                            _viewedResourceContent.value = event.content
+                        }
+                    }
+                    is ResourceEvent.ListChanged -> {
+                        if (event.serverId == _selectedResourceServerId.value) {
+                            loadResources()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun selectResourceServer(serverId: String?) {
+        _selectedResourceServerId.value = serverId
+        _viewedResource.value = null
+        _viewedResourceContent.value = null
+        loadResources()
+    }
+
+    fun loadResources() {
+        val serverId = _selectedResourceServerId.value ?: return
+        viewModelScope.launch {
+            val server = servers.value.find { it.id == serverId } ?: return@launch
+            _isLoadingResources.value = true
+            try {
+                _resourceSummaries.value = repository.listResources(server)
+                    .map { ResourceSummary(server.id, server.name, it) }
+            } finally {
+                _isLoadingResources.value = false
+            }
+        }
+    }
+
+    fun openResource(resource: McpResource) {
+        val serverId = _selectedResourceServerId.value ?: return
+        _viewedResource.value = resource
+        _viewedResourceContent.value = null
+        viewModelScope.launch {
+            val server = servers.value.find { it.id == serverId } ?: return@launch
+            _viewedResourceContent.value = repository.readResource(server, resource.uri)
+        }
+    }
+
+    fun toggleSubscription(resource: McpResource) {
+        val serverId = _selectedResourceServerId.value ?: return
+        viewModelScope.launch {
+            val server = servers.value.find { it.id == serverId } ?: return@launch
+            if (repository.isSubscribed(serverId, resource.uri)) {
+                repository.unsubscribeFromResource(server, resource.uri)
+            } else {
+                repository.subscribeToResource(server, resource.uri)
             }
         }
     }

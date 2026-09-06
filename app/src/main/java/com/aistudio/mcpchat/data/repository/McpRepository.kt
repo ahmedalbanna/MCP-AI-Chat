@@ -5,23 +5,64 @@ import com.aistudio.mcpchat.data.local.McpLogEntity
 import com.aistudio.mcpchat.data.local.McpServerEntity
 import com.aistudio.mcpchat.data.local.McpToolEntity
 import com.aistudio.mcpchat.data.model.McpLogItem
+import com.aistudio.mcpchat.data.model.McpResource
+import com.aistudio.mcpchat.data.model.McpResourceContent
+import com.aistudio.mcpchat.data.model.McpResourceNotification
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.network.McpHttpClient
 import com.aistudio.mcpchat.data.security.CryptoManager
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.MalformedURLException
 import java.net.URL
+import java.util.concurrent.ConcurrentHashMap
 
+/** One resource together with the server that exposes it. */
+data class ResourceSummary(
+    val serverId: String,
+    val serverName: String,
+    val resource: McpResource,
+)
+
+/** Push-driven resource lifecycle emitted through [McpRepository.resourceEvents]. */
+sealed interface ResourceEvent {
+    /** A subscribed resource changed; [content] is the fresh read (null if the re-read failed). */
+    data class Updated(
+        val serverId: String,
+        val serverName: String,
+        val uri: String,
+        val content: McpResourceContent?,
+    ) : ResourceEvent
+
+    /** The server's resource catalog changed — cached listings are invalid. */
+    data class ListChanged(val serverId: String, val serverName: String) : ResourceEvent
+}
+
+// Single facade over the MCP data domain (servers, tools, logs, resources);
+// splitting it would scatter one DAO family's concerns across repositories.
+@Suppress("TooManyFunctions")
 class McpRepository(
     private val database: AppDatabase,
     private val mcpHttpClient: McpHttpClient = McpHttpClient(),
     // Auth headers are secrets; they are encrypted before touching Room.
     private val crypto: CryptoManager = CryptoManager(),
+    // Owns the per-server SSE listening jobs; injectable for tests.
+    private val resourceScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
     private val serverDao = database.mcpServerDao()
     private val toolDao = database.mcpToolDao()
@@ -184,6 +225,129 @@ class McpRepository(
 
     suspend fun clearAllLogs() = withContext(Dispatchers.IO) {
         logDao.clearLogs()
+    }
+
+    // ---- MCP resources: listing, reading, subscriptions, push updates ----
+
+    /**
+     * Hot stream of resource lifecycle events. Emissions are best-effort —
+     * collectors refresh caches/UI from the payload rather than relying on
+     * event ordering.
+     */
+    private val _resourceEvents = MutableSharedFlow<ResourceEvent>(
+        extraBufferCapacity = 64,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val resourceEvents: SharedFlow<ResourceEvent> = _resourceEvents.asSharedFlow()
+
+    /** serverId -> uris currently subscribed server-side. */
+    private val _subscribedResources = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
+    val subscribedResources: StateFlow<Map<String, Set<String>>> = _subscribedResources.asStateFlow()
+
+    private val resourceListCache = ConcurrentHashMap<String, List<McpResource>>()
+    private val resourceContentCache = ConcurrentHashMap<String, McpResourceContent>()
+    private val listenerJobs = ConcurrentHashMap<String, Job>()
+
+    private fun resourceKey(serverId: String, uri: String) = "$serverId|$uri"
+
+    fun isSubscribed(serverId: String, uri: String): Boolean = uri in (_subscribedResources.value[serverId] ?: emptySet())
+
+    suspend fun listResources(server: McpServer): List<McpResource> = withContext(Dispatchers.IO) {
+        val resources = mcpHttpClient.listResources(server)
+        resourceListCache[server.id] = resources
+        resources
+    }
+
+    suspend fun readResource(server: McpServer, uri: String, forceRefresh: Boolean = false): McpResourceContent? = withContext(Dispatchers.IO) {
+        val key = resourceKey(server.id, uri)
+        if (!forceRefresh) resourceContentCache[key]?.let { return@withContext it }
+        val content = mcpHttpClient.readResource(server, uri) ?: return@withContext resourceContentCache[key]
+        resourceContentCache[key] = content
+        content
+    }
+
+    /**
+     * Registers a subscription server-side and (on success) ensures the
+     * server's SSE listening channel is running so pushes arrive.
+     */
+    suspend fun subscribeToResource(server: McpServer, uri: String): Boolean = withContext(Dispatchers.IO) {
+        val registered = mcpHttpClient.subscribeResource(server, uri)
+        if (registered) {
+            val current = _subscribedResources.value.toMutableMap()
+            current[server.id] = (current[server.id] ?: emptySet()) + uri
+            _subscribedResources.value = current
+            ensureResourceListener(server)
+        }
+        registered
+    }
+
+    suspend fun unsubscribeFromResource(server: McpServer, uri: String) = withContext(Dispatchers.IO) {
+        val current = _subscribedResources.value.toMutableMap()
+        val remaining = (current[server.id] ?: emptySet()) - uri
+        if (remaining.isEmpty()) current.remove(server.id) else current[server.id] = remaining
+        _subscribedResources.value = current
+        // Best-effort; servers drop subscriptions on session loss anyway.
+        mcpHttpClient.unsubscribeResource(server, uri)
+        Unit
+    }
+
+    private fun ensureResourceListener(server: McpServer) {
+        listenerJobs.computeIfAbsent(server.id) {
+            resourceScope.launch {
+                mcpHttpClient.resourceChannelFlow(server).collect { notification ->
+                    handleResourceNotification(server, notification)
+                }
+            }
+        }
+    }
+
+    private suspend fun handleResourceNotification(server: McpServer, notification: McpResourceNotification) {
+        when (notification) {
+            is McpResourceNotification.Updated -> {
+                if (notification.uri !in (_subscribedResources.value[server.id] ?: emptySet())) return
+                // Subscribed resource changed — re-read immediately so the
+                // cache and event carry the fresh content, not a stale copy.
+                val content = mcpHttpClient.readResource(server, notification.uri)
+                if (content != null) {
+                    resourceContentCache[resourceKey(server.id, notification.uri)] = content
+                }
+                _resourceEvents.tryEmit(
+                    ResourceEvent.Updated(server.id, server.name, notification.uri, content),
+                )
+            }
+            is McpResourceNotification.ListChanged -> {
+                resourceListCache.remove(server.id)
+                _resourceEvents.tryEmit(ResourceEvent.ListChanged(server.id, server.name))
+            }
+        }
+    }
+
+    /** All resources across enabled servers — the AI-facing catalog. */
+    suspend fun listAllResourceSummaries(): List<ResourceSummary> = withContext(Dispatchers.IO) {
+        getEnabledServers().flatMap { server ->
+            mcpHttpClient.listResources(server).map { ResourceSummary(server.id, server.name, it) }
+        }
+    }
+
+    /**
+     * Reads one resource for use in chat. [serverName] narrows the search
+     * when known; without it every enabled server is tried until one owns
+     * the uri.
+     */
+    suspend fun readResourceForChat(serverName: String?, uri: String): McpResourceContent? = withContext(Dispatchers.IO) {
+        val servers = getEnabledServers()
+        val candidates = if (serverName.isNullOrBlank()) {
+            servers
+        } else {
+            servers.filter { it.name.equals(serverName.trim(), ignoreCase = true) }
+        }
+        for (server in candidates) {
+            mcpHttpClient.readResource(server, uri)?.let { content ->
+                resourceContentCache[resourceKey(server.id, uri)] = content
+                return@withContext content
+            }
+        }
+        null
     }
 
     private fun validateEndpointUrl(endpointUrl: String) {

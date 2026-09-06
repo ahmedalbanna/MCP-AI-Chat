@@ -10,6 +10,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,14 +26,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Terminal
@@ -42,7 +48,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -74,11 +83,13 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.model.McpLogItem
 import com.aistudio.mcpchat.data.model.McpTool
+import com.aistudio.mcpchat.data.repository.ResourceSummary
 import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.EmeraldTertiary
@@ -181,6 +192,21 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                             )
                             Spacer(modifier = Modifier.width(Spacing.sm))
                             Text("Audit Logs (${logs.size})", fontWeight = FontWeight.SemiBold)
+                        }
+                    },
+                )
+                Tab(
+                    selected = selectedTabIndex == 2,
+                    onClick = { selectedTabIndex = 2 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Description,
+                                contentDescription = "Resources tab",
+                                modifier = Modifier.size(Dimens.iconSizeMd),
+                            )
+                            Spacer(modifier = Modifier.width(Spacing.sm))
+                            Text("Resources", fontWeight = FontWeight.SemiBold)
                         }
                     },
                 )
@@ -440,7 +466,295 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                             }
                         }
                     }
+                    2 -> ResourcesTab(viewModel = viewModel, onNavigateToServers = onNavigateToServers)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * MCP resources browser: pick a server, list its resources, read content
+ * and subscribe for server-push updates (live content swaps in via
+ * resourceEvents).
+ */
+@Composable
+fun ResourcesTab(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier, onNavigateToServers: (() -> Unit)? = null) {
+    val servers by viewModel.servers.collectAsStateWithLifecycle()
+    val summaries by viewModel.resourceSummaries.collectAsStateWithLifecycle()
+    val selectedServerId by viewModel.selectedResourceServerId.collectAsStateWithLifecycle()
+    val viewedResource by viewModel.viewedResource.collectAsStateWithLifecycle()
+    val viewedContent by viewModel.viewedResourceContent.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoadingResources.collectAsStateWithLifecycle()
+    val subscriptions by viewModel.subscribedResources.collectAsStateWithLifecycle()
+
+    val enabledServers = servers.filter { it.isEnabled }
+
+    LaunchedEffect(enabledServers.map { it.id }.joinToString()) {
+        // Auto-select the first server the first time the tab is opened.
+        if (selectedServerId == null && enabledServers.isNotEmpty()) {
+            viewModel.selectResourceServer(enabledServers.first().id)
+        }
+    }
+
+    LazyColumn(
+        contentPadding = PaddingValues(Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+        modifier = modifier
+            .fillMaxSize()
+            .testTag("resources_view"),
+    ) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Text(
+                    text = "MCP RESOURCES",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = CyanSecondary,
+                    fontFamily = FontFamily.Monospace,
+                )
+                Text(
+                    text = "Server-exposed documents and data. Subscribe to track live changes.",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        if (enabledServers.isEmpty()) {
+            item {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(Dimens.cornerRadiusLg),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(Spacing.xl),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Description,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(Dimens.iconSizeXl),
+                        )
+                        Spacer(modifier = Modifier.height(Spacing.sm))
+                        Text(
+                            text = "No enabled MCP servers",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = "Go to MCP Servers tab",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = IndigoPrimary,
+                            modifier = Modifier
+                                .clickable { onNavigateToServers?.invoke() }
+                                .semantics { role = Role.Button }
+                                .padding(Spacing.xs),
+                        )
+                    }
+                }
+            }
+        } else {
+            item {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                ) {
+                    enabledServers.forEach { server ->
+                        val selected = server.id == selectedServerId
+                        Surface(
+                            onClick = { viewModel.selectResourceServer(server.id) },
+                            color = if (selected) IndigoPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(Dimens.cornerRadiusXl),
+                            modifier = Modifier
+                                .testTag("resource_server_chip_${server.id}")
+                                .semantics { role = Role.Button },
+                        ) {
+                            Text(
+                                text = server.name,
+                                fontSize = 12.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (selected) IndigoPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (isLoading) {
+                item {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+            }
+
+            if (!isLoading && summaries.isEmpty()) {
+                item {
+                    Text(
+                        text = "No resources exposed by this server.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = Spacing.md),
+                    )
+                }
+            }
+
+            items(summaries, key = { it.serverId + it.resource.uri }) { summary ->
+                ResourceItemCard(
+                    summary = summary,
+                    isViewed = viewedResource?.uri == summary.resource.uri,
+                    isSubscribed = summary.resource.uri in (subscriptions[summary.serverId] ?: emptySet()),
+                    onClick = { viewModel.openResource(summary.resource) },
+                    onToggleSubscription = { viewModel.toggleSubscription(summary.resource) },
+                )
+            }
+
+            if (viewedResource != null) {
+                item {
+                    ResourceContentCard(
+                        title = viewedResource?.name ?: "",
+                        uri = viewedResource?.uri ?: "",
+                        mimeType = viewedContent?.mimeType,
+                        content = viewedContent?.text,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResourceItemCard(
+    summary: ResourceSummary,
+    isViewed: Boolean,
+    isSubscribed: Boolean,
+    onClick: () -> Unit,
+    onToggleSubscription: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        color = if (isViewed) IndigoPrimary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(Dimens.cornerRadiusLg),
+        border = if (isViewed) BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.5f)) else null,
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("resource_item")
+            .clickable { onClick() },
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(Spacing.md),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = summary.resource.name,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = summary.resource.uri,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontFamily = FontFamily.Monospace,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            IconButton(
+                onClick = onToggleSubscription,
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("resource_subscribe_button"),
+            ) {
+                Icon(
+                    imageVector = if (isSubscribed) Icons.Default.Notifications else Icons.Default.NotificationsNone,
+                    contentDescription = if (isSubscribed) "Unsubscribe from ${summary.resource.name}" else "Subscribe to ${summary.resource.name}",
+                    tint = if (isSubscribed) EmeraldTertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(Dimens.iconSizeSm),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResourceContentCard(title: String, uri: String, mimeType: String?, content: String?, modifier: Modifier = Modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(Dimens.cornerRadiusLg),
+        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("resource_content_card"),
+    ) {
+        Column(modifier = Modifier.padding(Spacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Description,
+                    contentDescription = null,
+                    tint = IndigoPrimary,
+                    modifier = Modifier.size(Dimens.iconSizeSm),
+                )
+                Spacer(modifier = Modifier.width(Spacing.xs))
+                Text(
+                    text = title,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                if (mimeType != null) {
+                    Text(
+                        text = mimeType,
+                        fontSize = 10.sp,
+                        color = CyanSecondary,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(Spacing.xs))
+            Text(
+                text = uri,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontFamily = FontFamily.Monospace,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.sm))
+            if (content == null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(Dimens.iconSizeSm),
+                        strokeWidth = Dimens.borderWidthThick,
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Text(
+                        text = "Reading resource…",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                Text(
+                    text = content,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp)
+                        .verticalScroll(rememberScrollState()),
+                )
             }
         }
     }

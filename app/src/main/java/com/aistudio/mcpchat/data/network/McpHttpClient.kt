@@ -3,10 +3,18 @@ package com.aistudio.mcpchat.data.network
 import android.util.Log
 import com.aistudio.mcpchat.data.model.McpHeaderCodec
 import com.aistudio.mcpchat.data.model.McpLogItem
+import com.aistudio.mcpchat.data.model.McpResource
+import com.aistudio.mcpchat.data.model.McpResourceContent
+import com.aistudio.mcpchat.data.model.McpResourceNotification
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.ServerStatus
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -14,10 +22,15 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
+// One class per MCP server connection: session lifecycle, tool RPCs and
+// resource RPCs share the session/circuit/retry machinery, so the size is
+// accepted rather than splitting state across helpers.
+@Suppress("TooManyFunctions")
 class McpHttpClient(
     private val retryManager: RetryManager = RetryManager(),
     private val circuitBreaker: CircuitBreaker = CircuitBreaker(),
@@ -26,6 +39,16 @@ class McpHttpClient(
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .build(),
+    // Long-lived SSE listening channel: read timeout is deliberately much
+    // laxer than the RPC client so a quiet (but healthy) connection isn't
+    // torn down between server keep-alives.
+    private val streamingClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(5, TimeUnit.MINUTES)
+        .build(),
+    // Exponential reconnect base for the SSE channel; injectable to keep
+    // reconnect tests fast.
+    private val reconnectBaseDelayMs: Long = 5_000,
 ) {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
@@ -245,6 +268,18 @@ class McpHttpClient(
         return false
     }
 
+    /** GET carrying the MCP session id — the Streamable HTTP listening channel. */
+    private fun buildSessionGetRequest(server: McpServer): Request {
+        val key = sessionKey(server)
+        return Request.Builder()
+            .url(server.endpointUrl)
+            .get()
+            .header("Accept", "text/event-stream")
+            .applyAuthHeaders(server)
+            .applySessionHeader(key)
+            .build()
+    }
+
     suspend fun testConnection(server: McpServer): Pair<ServerStatus, Long> = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         sessions.remove(sessionKey(server))
@@ -396,11 +431,160 @@ class McpHttpClient(
             Pair(result.text, logItem)
         }
 
+    // ---- MCP resources (list / read / subscribe) ----
+
+    @Suppress("CyclomaticComplexMethod")
+    suspend fun listResources(server: McpServer): List<McpResource> = withContext(Dispatchers.IO) {
+        if (shouldSkipDueToCircuit(server)) return@withContext emptyList()
+        try {
+            val json = callWithSessionRetry(server, buildJsonRpcRequest("resources/list"), retriable = true)
+            if (json == null || json.has("error")) {
+                Log.e(TAG, "Resource listing failed on ${server.name}: ${json?.optJSONObject("error")?.optString("message")}")
+                circuitBreaker.recordFailure(server.id)
+                return@withContext emptyList()
+            }
+            circuitBreaker.recordSuccess(server.id)
+            val result = json.optJSONObject("result") ?: JSONObject()
+            val resourcesArray = result.optJSONArray("resources") ?: JSONArray()
+            val resources = mutableListOf<McpResource>()
+            for (i in 0 until resourcesArray.length()) {
+                val resObj = resourcesArray.getJSONObject(i)
+                val uri = resObj.optString("uri")
+                if (uri.isBlank()) continue
+                resources.add(
+                    McpResource(
+                        uri = uri,
+                        name = resObj.optString("name", uri),
+                        description = resObj.optString("description").takeIf { it.isNotBlank() },
+                        mimeType = resObj.optString("mimeType").takeIf { it.isNotBlank() },
+                    ),
+                )
+            }
+            resources
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Resource listing error on ${server.name}: ${e.message}")
+            circuitBreaker.recordFailure(server.id)
+            emptyList()
+        }
+    }
+
+    suspend fun readResource(server: McpServer, uri: String): McpResourceContent? = withContext(Dispatchers.IO) {
+        try {
+            val requestPayload = buildJsonRpcRequest(
+                "resources/read",
+                JSONObject().put("uri", uri),
+            )
+            val json = callWithSessionRetry(server, requestPayload, retriable = false)
+            if (json == null || json.has("error")) {
+                Log.e(TAG, "Resource read failed on ${server.name} ($uri): ${json?.optJSONObject("error")?.optString("message")}")
+                return@withContext null
+            }
+            val contents = json.optJSONObject("result")?.optJSONArray("contents") ?: return@withContext null
+            val content = contents.optJSONObject(0) ?: return@withContext null
+            val contentUri = content.optString("uri", uri)
+            val mimeType = content.optString("mimeType").takeIf { it.isNotBlank() }
+            val text = if (content.has("text")) {
+                content.optString("text")
+            } else {
+                val blobLength = content.optString("blob").length
+                "(binary resource, ~${blobLength * 3 / 4} bytes)"
+            }
+            McpResourceContent(uri = contentUri, mimeType = mimeType, text = text)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Resource read error on ${server.name} ($uri): ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Registers a resources/subscribe subscription server-side. Returns
+     * false when the server rejects it (unknown method, unsupported
+     * capability) — callers then treat the resource as poll-only.
+     */
+    suspend fun subscribeResource(server: McpServer, uri: String): Boolean {
+        val json = callWithSessionRetry(
+            server,
+            buildJsonRpcRequest("resources/subscribe", JSONObject().put("uri", uri)),
+            retriable = false,
+        )
+        return json != null && !json.has("error")
+    }
+
+    /** Best-effort: servers may drop subscriptions on disconnect anyway. */
+    suspend fun unsubscribeResource(server: McpServer, uri: String): Boolean {
+        val json = callWithSessionRetry(
+            server,
+            buildJsonRpcRequest("resources/unsubscribe", JSONObject().put("uri", uri)),
+            retriable = false,
+        )
+        return json != null && !json.has("error")
+    }
+
+    /**
+     * The server-push listening channel for one server: a GET SSE stream
+     * (MCP Streamable HTTP) that delivers notifications/resources/updated
+     * and notifications/resources/list_changed as they happen.
+     *
+     * - Transport hiccups (IOException, 5xx, 429) reconnect with capped
+     *   exponential backoff.
+     * - 404/405 or other 4xx mean the server offers no listening channel —
+     *   the flow completes so callers stop instead of retry-storming.
+     * - Collecting-scope cancellation tears the connection down immediately.
+     */
+    fun resourceChannelFlow(server: McpServer): Flow<McpResourceNotification> = flow {
+        var delayMs = reconnectBaseDelayMs.coerceAtLeast(1)
+        while (currentCoroutineContext().isActive) {
+            val call = streamingClient.newCall(buildSessionGetRequest(server))
+            var channelAvailable = true
+            try {
+                call.sseStreamFlow().collect { event ->
+                    when (event) {
+                        is SseStreamEvent.Data -> parseResourceNotification(event.payload)?.let { emit(it) }
+                        is SseStreamEvent.PlainBody -> channelAvailable = false
+                        is SseStreamEvent.StreamRejected -> channelAvailable = false
+                        is SseStreamEvent.HttpError -> channelAvailable = event.code == 429 || event.code >= 500
+                    }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                // Connection dropped — reconnect below.
+                Log.d(TAG, "Resource channel dropped for ${server.name}: ${e.message}")
+            }
+            if (!channelAvailable) {
+                Log.d(TAG, "Server ${server.name} offers no SSE listening channel; stopping")
+                return@flow
+            }
+            delay(delayMs)
+            delayMs = (delayMs * 2).coerceAtMost(MAX_RECONNECT_DELAY_MS)
+        }
+    }
+
+    private fun parseResourceNotification(payload: String): McpResourceNotification? {
+        val json = try {
+            JSONObject(payload)
+        } catch (_: Exception) {
+            return null
+        }
+        return when (json.optString("method")) {
+            "notifications/resources/updated" -> json.optJSONObject("params")?.optString("uri")
+                ?.takeIf { it.isNotBlank() }
+                ?.let { McpResourceNotification.Updated(it) }
+            "notifications/resources/list_changed" -> McpResourceNotification.ListChanged
+            else -> null
+        }
+    }
+
     companion object {
         private const val TAG = "McpHttpClient"
         private const val HEADER_SESSION_ID = "Mcp-Session-Id"
         private const val MAX_ERROR_MESSAGE_LENGTH = 500
         private const val DEFAULT_SESSION_TTL_MS = 5 * 60_000L
+        private const val MAX_RECONNECT_DELAY_MS = 60_000L
 
         private class SessionEntry(
             var sessionId: String,

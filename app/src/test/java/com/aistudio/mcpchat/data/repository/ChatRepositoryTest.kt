@@ -32,6 +32,7 @@ import org.junit.Before
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@Suppress("LargeClass")
 class ChatRepositoryTest {
 
     private val testDispatcher = StandardTestDispatcher()
@@ -264,6 +265,136 @@ class ChatRepositoryTest {
         assertEquals(listOf("tool_a", "tool_b"), responses.map { it.name })
         assertEquals("Tool execution failed: boom", responses[0].response["error"])
         assertEquals("b done", responses[1].response["result"])
+    }
+
+    @Test
+    fun `builtin resource tools are advertised when servers are enabled`() = runTest {
+        val server = com.aistudio.mcpchat.data.model.McpServer(
+            id = "srv",
+            name = "Test Server",
+            description = "",
+            endpointUrl = "http://mcp.test",
+        )
+        val mcpRepository = mockk<com.aistudio.mcpchat.data.repository.McpRepository>(relaxed = true)
+        coEvery { mcpRepository.getEnabledServers() } returns listOf(server)
+        coEvery { mcpRepository.getEnabledTools() } returns emptyList()
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getRecentMessages("s1", any()) } returns emptyList()
+        val toolsSlot = slot<List<com.aistudio.mcpchat.data.model.McpTool>>()
+        coEvery {
+            geminiService.streamContent(any(), any(), any(), capture(toolsSlot), any(), any())
+        } returns com.aistudio.mcpchat.data.model.GeminiResponse(text = "ok")
+
+        repository = ChatRepository(database, mcpRepository, geminiService)
+        repository.sendMessage(sessionId = "s1", userPrompt = "hi")
+        advanceUntilIdle()
+
+        val names = toolsSlot.captured.map { it.name }
+        assertTrue(names.contains("list_mcp_resources"))
+        assertTrue(names.contains("read_mcp_resource"))
+    }
+
+    @Test
+    fun `builtin resource tools are omitted without enabled servers`() = runTest {
+        val mcpRepository = mockk<com.aistudio.mcpchat.data.repository.McpRepository>(relaxed = true)
+        coEvery { mcpRepository.getEnabledServers() } returns emptyList()
+        coEvery { mcpRepository.getEnabledTools() } returns emptyList()
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getRecentMessages("s1", any()) } returns emptyList()
+        val toolsSlot = slot<List<com.aistudio.mcpchat.data.model.McpTool>>()
+        coEvery {
+            geminiService.streamContent(any(), any(), any(), capture(toolsSlot), any(), any())
+        } returns com.aistudio.mcpchat.data.model.GeminiResponse(text = "ok")
+
+        repository = ChatRepository(database, mcpRepository, geminiService)
+        repository.sendMessage(sessionId = "s1", userPrompt = "hi")
+        advanceUntilIdle()
+
+        assertTrue(toolsSlot.captured.none { it.serverId == com.aistudio.mcpchat.data.tool.BuiltinResourceTools.SERVER_ID })
+    }
+
+    @Test
+    fun `read_mcp_resource executes locally and returns content as the tool result`() = runTest {
+        val server = com.aistudio.mcpchat.data.model.McpServer(
+            id = "srv",
+            name = "Test Server",
+            description = "",
+            endpointUrl = "http://mcp.test",
+        )
+        val mcpRepository = mockk<com.aistudio.mcpchat.data.repository.McpRepository>(relaxed = true)
+        coEvery { mcpRepository.getEnabledServers() } returns listOf(server)
+        coEvery { mcpRepository.getEnabledTools() } returns emptyList()
+        coEvery { mcpRepository.readResourceForChat(null, "file://notes.txt") } returns
+            com.aistudio.mcpchat.data.model.McpResourceContent("file://notes.txt", "text/plain", "the file body")
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getRecentMessages("s1", any()) } returns emptyList()
+        val historySlot = slot<List<GeminiMessage>>()
+        coEvery { geminiService.streamContent(any(), any(), capture(historySlot), any(), any(), any()) } returnsMany listOf(
+            com.aistudio.mcpchat.data.model.GeminiResponse(
+                text = null,
+                functionCalls = listOf(
+                    GeminiPart.FunctionCall("read_mcp_resource", mapOf("uri" to "file://notes.txt")),
+                ),
+            ),
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "summarized the file"),
+        )
+
+        repository = ChatRepository(database, mcpRepository, geminiService)
+        val result = repository.sendMessage(sessionId = "s1", userPrompt = "read the notes file")
+        advanceUntilIdle()
+
+        assertTrue(result.isSuccess)
+        val toolMessage = historySlot.captured.last { it.role == "tool" }
+        val response = toolMessage.parts.filterIsInstance<GeminiPart.FunctionResponse>().single()
+        assertEquals("read_mcp_resource", response.name)
+        assertEquals("the file body", response.response["content"])
+        // The builtin ran locally — no MCP server round trip for execution.
+        coVerify(exactly = 0) { mcpRepository.executeTool(any(), any(), any()) }
+    }
+
+    @Test
+    fun `list_mcp_resources returns the catalog across servers`() = runTest {
+        val server = com.aistudio.mcpchat.data.model.McpServer(
+            id = "srv",
+            name = "Test Server",
+            description = "",
+            endpointUrl = "http://mcp.test",
+        )
+        val mcpRepository = mockk<com.aistudio.mcpchat.data.repository.McpRepository>(relaxed = true)
+        coEvery { mcpRepository.getEnabledServers() } returns listOf(server)
+        coEvery { mcpRepository.getEnabledTools() } returns emptyList()
+        coEvery { mcpRepository.listAllResourceSummaries() } returns listOf(
+            com.aistudio.mcpchat.data.repository.ResourceSummary(
+                "srv",
+                "Test Server",
+                com.aistudio.mcpchat.data.model.McpResource("file://notes.txt", "notes", "daily notes", "text/plain"),
+            ),
+        )
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getRecentMessages("s1", any()) } returns emptyList()
+        val historySlot = slot<List<GeminiMessage>>()
+        coEvery { geminiService.streamContent(any(), any(), capture(historySlot), any(), any(), any()) } returnsMany listOf(
+            com.aistudio.mcpchat.data.model.GeminiResponse(
+                text = null,
+                functionCalls = listOf(
+                    GeminiPart.FunctionCall("list_mcp_resources", emptyMap()),
+                ),
+            ),
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "found one resource"),
+        )
+
+        repository = ChatRepository(database, mcpRepository, geminiService)
+        val result = repository.sendMessage(sessionId = "s1", userPrompt = "what resources exist")
+        advanceUntilIdle()
+
+        assertTrue(result.isSuccess)
+        val toolMessage = historySlot.captured.last { it.role == "tool" }
+        val response = toolMessage.parts.filterIsInstance<GeminiPart.FunctionResponse>().single()
+        val resources = response.response["resources"]
+        assertTrue(resources is org.json.JSONArray)
+        val first = (resources as org.json.JSONArray).getJSONObject(0)
+        assertEquals("file://notes.txt", first.getString("uri"))
+        assertEquals("Test Server", first.getString("server"))
     }
 
     @Test
