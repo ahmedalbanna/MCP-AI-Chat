@@ -435,24 +435,21 @@ fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
                 if (line.startsWith("### ")) {
                     Text(
                         text = line.removePrefix("### "),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs),
                     )
                 } else if (line.startsWith("## ")) {
                     Text(
                         text = line.removePrefix("## "),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(top = Spacing.cardPadding, bottom = Spacing.xs),
                     )
                 } else if (line.startsWith("# ")) {
                     Text(
                         text = line.removePrefix("# "),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Black),
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.sm),
                     )
@@ -461,9 +458,8 @@ fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
                     Row(modifier = Modifier.padding(vertical = Spacing.xxs)) {
                         Text(
                             text = "•",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.secondary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
                             modifier = Modifier.padding(end = Spacing.sm),
                         )
                         val annotated = remember(bulletText) { parseInlineMarkdown(bulletText) }
@@ -595,11 +591,7 @@ private fun AnnotatedString.Builder.appendLink(text: String, start: Int): Int {
 private fun InlineMarkdownText(annotatedString: androidx.compose.ui.text.AnnotatedString, modifier: Modifier = Modifier) {
     Text(
         text = annotatedString,
-        style = androidx.compose.ui.text.TextStyle(
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurface,
-            lineHeight = 20.sp,
-        ),
+        style = MaterialTheme.typography.bodyMedium,
         modifier = modifier,
     )
 }

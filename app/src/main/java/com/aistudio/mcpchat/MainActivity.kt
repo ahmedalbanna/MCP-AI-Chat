@@ -50,7 +50,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -358,7 +357,7 @@ private fun AppBottomBar(items: List<Screen>, currentRoute: String?, onNavigate:
         items.forEach { screen ->
             NavigationBarItem(
                 icon = { Icon(screen.icon, contentDescription = screen.title) },
-                label = { Text(screen.title, fontSize = 11.sp) },
+                label = { Text(screen.title, style = MaterialTheme.typography.labelSmall) },
                 selected = currentRoute == screen.route,
                 colors = navItemColors(),
                 modifier = Modifier.testTag("nav_tab_${screen.route}"),
@@ -392,7 +391,7 @@ private fun AppNavigationRail(
             }
             NavigationRailItem(
                 icon = { Icon(screen.icon, contentDescription = screen.title) },
-                label = { Text(screen.title, fontSize = 11.sp) },
+                label = { Text(screen.title, style = MaterialTheme.typography.labelSmall) },
                 selected = selected,
                 colors = railItemColors(),
                 modifier = Modifier.testTag("nav_tab_${screen.route}"),
