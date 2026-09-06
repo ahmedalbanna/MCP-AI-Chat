@@ -1,6 +1,8 @@
 package com.aistudio.mcpchat.data.local
 
 import androidx.room.Entity
+import androidx.room.Fts4
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "mcp_servers")
@@ -43,7 +45,10 @@ data class ChatSessionEntity(
     val isPinned: Boolean = false,
 )
 
-@Entity(tableName = "chat_messages")
+@Entity(
+    tableName = "chat_messages",
+    indices = [Index(value = ["sessionId", "timestamp"])],
+)
 data class ChatMessageEntity(
     @PrimaryKey val id: String,
     val sessionId: String,
@@ -60,6 +65,16 @@ data class ChatMessageEntity(
     val latencyMs: Long = 0,
     val timestamp: Long = System.currentTimeMillis(),
     val isError: Boolean = false,
+)
+
+/**
+ * Full-text index over [ChatMessageEntity.content]. Room keeps it in sync
+ * with the content table via triggers; queries JOIN through `rowid`.
+ */
+@Fts4(contentEntity = ChatMessageEntity::class)
+@Entity(tableName = "chat_messages_fts")
+data class ChatMessageFtsEntity(
+    val content: String,
 )
 
 @Entity(tableName = "mcp_logs")

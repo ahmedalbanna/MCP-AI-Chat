@@ -60,6 +60,8 @@ class ChatViewModel @Inject constructor(
 
     private fun updateCurrentSessionId(id: String?) {
         savedStateHandle[KEY_SESSION_ID] = id
+        // New conversation, fresh window — start from the most recent page.
+        _messageWindowLimit.value = MESSAGE_WINDOW_INITIAL
     }
 
     private val _isGenerating = MutableStateFlow(false)
@@ -112,9 +114,47 @@ class ChatViewModel @Inject constructor(
     val tools: StateFlow<List<McpTool>> = mcpRepository.allToolsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val messages: StateFlow<List<ChatMessageEntity>> = _currentSessionId.flatMapLatest { id ->
-        if (id != null) chatRepository.getMessagesForSession(id) else flowOf(emptyList())
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    /**
+     * How many of the most recent messages the chat list materializes. Grows
+     * by [loadEarlierMessages] as the user scrolls up; reset whenever the
+     * session switches.
+     */
+    private val _messageWindowLimit = MutableStateFlow(MESSAGE_WINDOW_INITIAL)
+    val messageWindowLimit: StateFlow<Int> = _messageWindowLimit.asStateFlow()
+
+    val messages: StateFlow<List<ChatMessageEntity>> = combine(
+        _currentSessionId,
+        _messageWindowLimit,
+    ) { id, limit -> id to limit }
+        .flatMapLatest { (id, limit) ->
+            if (id != null) chatRepository.getMessagesWindow(id, limit) else flowOf(emptyList())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * Expands the message window one page when the visible list has filled
+     * the current window (i.e. older history may exist). No-op once the
+     * whole conversation is materialized.
+     */
+    fun loadEarlierMessages() {
+        if (messages.value.size < _messageWindowLimit.value) return
+        _messageWindowLimit.value += MESSAGE_WINDOW_STEP
+    }
+
+    /**
+     * Query typed into the conversations sheet's search field. Blank means
+     * "not searching" — [messageSearchResults] is empty and costs nothing.
+     */
+    private val _messageSearchQuery = MutableStateFlow("")
+    val messageSearchQuery: StateFlow<String> = _messageSearchQuery.asStateFlow()
+
+    val messageSearchResults: StateFlow<List<ChatMessageEntity>> = _messageSearchQuery
+        .flatMapLatest { query ->
+            if (query.isBlank()) flowOf(emptyList()) else chatRepository.searchMessages(query)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun updateMessageSearchQuery(query: String) {
+        _messageSearchQuery.value = query
+    }
 
     val uiState: StateFlow<ChatUiState> = combine(
         _currentSessionId,
@@ -399,5 +439,9 @@ class ChatViewModel @Inject constructor(
     companion object {
         private const val TAG = "ChatViewModel"
         private const val KEY_SESSION_ID = "current_session_id"
+
+        /** Messages materialized initially and per load-earlier step. */
+        const val MESSAGE_WINDOW_INITIAL = 50
+        const val MESSAGE_WINDOW_STEP = 50
     }
 }

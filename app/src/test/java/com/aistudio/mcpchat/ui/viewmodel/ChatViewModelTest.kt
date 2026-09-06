@@ -59,7 +59,7 @@ class ChatViewModelTest {
         every { mcpRepository.serversFlow } returns serversFlow
         every { mcpRepository.allToolsFlow } returns toolsFlow
         every { chatRepository.allSessionsFlow } returns sessionsFlow
-        every { chatRepository.getMessagesForSession(any()) } returns messagesFlow
+        every { chatRepository.getMessagesWindow(any(), any()) } returns messagesFlow
         every { chatRepository.streamEvents } returns streamEventsFlow
     }
 
@@ -86,6 +86,69 @@ class ChatViewModelTest {
         assertFalse(state.isGenerating)
         assertTrue(state.inProgressToolCalls.isEmpty())
         assertNull(state.error)
+    }
+
+    @Test
+    fun `message window grows only while the visible list fills it`() = runTest {
+        // Exactly one window's worth of messages: the list is "full", so a
+        // load request expands the window.
+        messagesFlow.value = List(ChatViewModel.MESSAGE_WINDOW_INITIAL) { i ->
+            ChatMessageEntity(id = "m$i", sessionId = "s1", role = "user", content = "msg $i")
+        }
+        createViewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.messages.collect {} }
+        viewModel.selectSession("s1")
+        advanceUntilIdle()
+
+        assertEquals(ChatViewModel.MESSAGE_WINDOW_INITIAL, viewModel.messageWindowLimit.value)
+
+        viewModel.loadEarlierMessages()
+        advanceUntilIdle()
+        assertEquals(ChatViewModel.MESSAGE_WINDOW_INITIAL + ChatViewModel.MESSAGE_WINDOW_STEP, viewModel.messageWindowLimit.value)
+
+        // The flow now emits a short list (< window): all history is
+        // materialized, so further requests are no-ops.
+        messagesFlow.value = messagesFlow.value.take(10)
+        advanceUntilIdle()
+
+        viewModel.loadEarlierMessages()
+        advanceUntilIdle()
+        assertEquals(ChatViewModel.MESSAGE_WINDOW_INITIAL + ChatViewModel.MESSAGE_WINDOW_STEP, viewModel.messageWindowLimit.value)
+    }
+
+    @Test
+    fun `message window resets when switching sessions`() = runTest {
+        messagesFlow.value = List(ChatViewModel.MESSAGE_WINDOW_INITIAL) { i ->
+            ChatMessageEntity(id = "m$i", sessionId = "s1", role = "user", content = "msg $i")
+        }
+        createViewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.messages.collect {} }
+        viewModel.selectSession("s1")
+        advanceUntilIdle()
+        viewModel.loadEarlierMessages()
+        advanceUntilIdle()
+        assertTrue(viewModel.messageWindowLimit.value > ChatViewModel.MESSAGE_WINDOW_INITIAL)
+
+        viewModel.selectSession("s2")
+        advanceUntilIdle()
+
+        assertEquals(ChatViewModel.MESSAGE_WINDOW_INITIAL, viewModel.messageWindowLimit.value)
+    }
+
+    @Test
+    fun `search query drives messageSearchResults and blank query clears them`() = runTest {
+        val results = listOf(ChatMessageEntity(id = "m1", sessionId = "s1", role = "user", content = "hit"))
+        every { chatRepository.searchMessages("quarterly") } returns MutableStateFlow(results)
+        createViewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.messageSearchResults.collect {} }
+
+        viewModel.updateMessageSearchQuery("quarterly")
+        advanceUntilIdle()
+        assertEquals(results, viewModel.messageSearchResults.value)
+
+        viewModel.updateMessageSearchQuery("")
+        advanceUntilIdle()
+        assertTrue(viewModel.messageSearchResults.value.isEmpty())
     }
 
     @Test

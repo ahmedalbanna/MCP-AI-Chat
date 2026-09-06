@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -87,7 +88,12 @@ class DatabaseMigrationTest {
     @Test
     fun migrate1To2_addsIsPinnedAndMemoryNotes_preservingData() = runBlocking {
         val db = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-            .addMigrations(AppDatabase.migration1To2, AppDatabase.migration2To3, AppDatabase.migration3To4)
+            .addMigrations(
+                AppDatabase.migration1To2,
+                AppDatabase.migration2To3,
+                AppDatabase.migration3To4,
+                AppDatabase.migration4To5,
+            )
             .allowMainThreadQueries()
             .build()
 
@@ -110,7 +116,12 @@ class DatabaseMigrationTest {
             )
             assertTrue(noteId > 0)
 
-            assertEquals(4, db.openHelper.writableDatabase.version)
+            // v5 FTS rebuild indexed pre-existing rows — the legacy message
+            // must be findable through the full-text index.
+            val hits = dao.searchMessages("hello*").first()
+            assertEquals(listOf("hello from v1"), hits.map { it.content })
+
+            assertEquals(5, db.openHelper.writableDatabase.version)
         } finally {
             db.close()
         }

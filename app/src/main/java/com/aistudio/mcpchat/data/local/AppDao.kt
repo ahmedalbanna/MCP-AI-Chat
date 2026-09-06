@@ -52,6 +52,9 @@ interface McpToolDao {
     suspend fun setToolEnabled(id: String, isEnabled: Boolean)
 }
 
+// Cohesive chat_sessions + chat_messages access; splitting it would scatter
+// one table's reads across DAOs, so the size is accepted deliberately.
+@Suppress("TooManyFunctions")
 @Dao
 interface ChatDao {
     @Query("SELECT * FROM chat_sessions ORDER BY isPinned DESC, updatedAt DESC")
@@ -74,6 +77,49 @@ interface ChatDao {
 
     @Query("SELECT * FROM chat_messages WHERE sessionId = :sessionId ORDER BY timestamp ASC")
     suspend fun getMessagesList(sessionId: String): List<ChatMessageEntity>
+
+    /**
+     * The most recent [limit] messages of a session, returned in ascending
+     * order. Backed by the (sessionId, timestamp) index; the UI grows the
+     * window as the user scrolls to the top instead of materializing whole
+     * conversations.
+     */
+    @Query(
+        """
+        SELECT * FROM (
+            SELECT * FROM chat_messages WHERE sessionId = :sessionId
+            ORDER BY timestamp DESC LIMIT :limit
+        ) ORDER BY timestamp ASC
+        """,
+    )
+    fun getMessagesWindow(sessionId: String, limit: Int): Flow<List<ChatMessageEntity>>
+
+    @Query(
+        """
+        SELECT * FROM (
+            SELECT * FROM chat_messages WHERE sessionId = :sessionId
+            ORDER BY timestamp DESC LIMIT :limit
+        ) ORDER BY timestamp ASC
+        """,
+    )
+    suspend fun getRecentMessages(sessionId: String, limit: Int): List<ChatMessageEntity>
+
+    /**
+     * Full-text search over message content via the chat_messages_fts
+     * shadow table. [ftsQuery] must be a valid FTS4 MATCH expression
+     * (see ChatRepository.buildFtsQuery).
+     */
+    @Query(
+        """
+        SELECT * FROM chat_messages
+        WHERE rowid IN (
+            SELECT rowid FROM chat_messages_fts WHERE chat_messages_fts MATCH :ftsQuery
+        )
+        ORDER BY timestamp DESC
+        LIMIT 100
+        """,
+    )
+    fun searchMessages(ftsQuery: String): Flow<List<ChatMessageEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: ChatMessageEntity)

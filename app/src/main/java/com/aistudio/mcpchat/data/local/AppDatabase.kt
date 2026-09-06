@@ -13,10 +13,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         McpToolEntity::class,
         ChatSessionEntity::class,
         ChatMessageEntity::class,
+        ChatMessageFtsEntity::class,
         McpLogEntity::class,
         MemoryNoteEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -59,6 +60,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val migration4To5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_chat_messages_sessionId_timestamp` " +
+                        "ON `chat_messages` (`sessionId`, `timestamp`)",
+                )
+                db.execSQL(
+                    "CREATE VIRTUAL TABLE IF NOT EXISTS `chat_messages_fts` USING FTS4(" +
+                        "`content` TEXT NOT NULL, content=`chat_messages`)",
+                )
+                // Index rows that predate the FTS table; Room's sync triggers
+                // (created at open) only cover writes made after migration.
+                db.execSQL("INSERT INTO chat_messages_fts(chat_messages_fts) VALUES('rebuild')")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return instance ?: synchronized(this) {
                 val current = instance
@@ -67,7 +84,7 @@ abstract class AppDatabase : RoomDatabase() {
                         AppDatabase::class.java,
                         "mcp_chat_database",
                     )
-                        .addMigrations(migration1To2, migration2To3, migration3To4)
+                        .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5)
                         .build()
                         .also { created -> instance = created }
                 current

@@ -279,6 +279,78 @@ class AppDatabaseTest {
     }
 
     @Test
+    fun chatDao_getMessagesWindow_returnsMostRecentInAscendingOrder() = runTest {
+        for (i in 1..12) {
+            chatDao.insertMessage(
+                createMessage(id = "m$i", content = "message $i").copy(timestamp = i.toLong()),
+            )
+        }
+
+        val window = chatDao.getMessagesWindow("session_1", limit = 5).first()
+
+        assertEquals(listOf("m8", "m9", "m10", "m11", "m12"), window.map { it.id })
+    }
+
+    @Test
+    fun chatDao_getMessagesWindow_limitBeyondCountReturnsAll() = runTest {
+        chatDao.insertMessage(createMessage(id = "m1"))
+        chatDao.insertMessage(createMessage(id = "m2"))
+
+        val window = chatDao.getMessagesWindow("session_1", limit = 50).first()
+
+        assertEquals(2, window.size)
+    }
+
+    @Test
+    fun chatDao_getRecentMessages_matchesFullList() = runTest {
+        for (i in 1..3) {
+            chatDao.insertMessage(
+                createMessage(id = "m$i", content = "message $i").copy(timestamp = i.toLong()),
+            )
+        }
+
+        val recent = chatDao.getRecentMessages("session_1", limit = 200)
+        val all = chatDao.getMessagesList("session_1")
+
+        assertEquals(all, recent)
+    }
+
+    @Test
+    fun chatDao_searchMessages_matchesTokensAcrossMessages() = runTest {
+        chatDao.insertMessage(createMessage(id = "m1", content = "The quarterly report is ready"))
+        chatDao.insertMessage(createMessage(id = "m2", content = "Unrelated chatter about lunch"))
+        chatDao.insertMessage(createMessage(id = "m3", content = "Please review the quarterly figures"))
+
+        val hits = chatDao.searchMessages("quarterly*").first()
+
+        assertEquals(setOf("m1", "m3"), hits.map { it.id }.toSet())
+    }
+
+    @Test
+    fun chatDao_searchMessages_prefixAndMultiTokenQueries() = runTest {
+        chatDao.insertMessage(createMessage(id = "m1", content = "Bitcoin price surge"))
+        chatDao.insertMessage(createMessage(id = "m2", content = "Ethereum price drop"))
+
+        val both = chatDao.searchMessages("price*").first()
+        assertEquals(2, both.size)
+
+        val narrowed = chatDao.searchMessages("bitcoin* price*").first()
+        assertEquals(listOf("m1"), narrowed.map { it.id })
+    }
+
+    @Test
+    fun chatDao_searchMessages_updatesWhenMessagesAreDeleted() = runTest {
+        val message = createMessage(id = "m1", content = "ephemeral note")
+        chatDao.insertMessage(message)
+
+        assertEquals(1, chatDao.searchMessages("ephemeral*").first().size)
+
+        chatDao.deleteMessageById("m1")
+
+        assertEquals(0, chatDao.searchMessages("ephemeral*").first().size)
+    }
+
+    @Test
     fun chatDao_sessionNotFound() = runTest {
         val session = chatDao.getSessionById("nonexistent")
         assertNull(session)

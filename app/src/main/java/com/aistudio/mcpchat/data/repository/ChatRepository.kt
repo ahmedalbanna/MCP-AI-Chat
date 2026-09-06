@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -54,9 +55,34 @@ class ChatRepository(
         private const val TAG = "ChatRepository"
         private const val MAX_TOOL_HOPS = 5
 
+        /**
+         * Upper bound on messages fed to the provider and to history
+         * rebuilds — protects pathological sessions from unbounded memory
+         * and request sizes. Chosen at ~100 user/assistant turns.
+         */
+        const val MAX_HISTORY_MESSAGES = 200
+
         private val hopLimitMessage =
             "I reached the maximum number of tool-call rounds ($MAX_TOOL_HOPS) without completing this task. " +
                 "Please try rephrasing your request or breaking it into smaller steps."
+
+        /**
+         * Turns a raw user query into an FTS4 MATCH expression: each
+         * whitespace-separated token becomes a prefix term ("tok*"), tokens
+         * are AND-combined, and FTS operator characters are stripped so the
+         * input can never produce a MATCH syntax error. Returns null when
+         * nothing searchable remains.
+         */
+        fun buildFtsQuery(rawQuery: String): String? {
+            val tokens = rawQuery.trim()
+                .split(Regex("\\s+"))
+                .map { it.replace(Regex("[\"'()\\-:*^]"), "") }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .take(8)
+            if (tokens.isEmpty()) return null
+            return tokens.joinToString(" ") { "$it*" }
+        }
     }
 
     val allSessionsFlow: Flow<List<ChatSessionEntity>> = chatDao.getAllSessions()
@@ -75,6 +101,20 @@ class ChatRepository(
 
     fun getMessagesForSession(sessionId: String): Flow<List<ChatMessageEntity>> {
         return chatDao.getMessagesForSession(sessionId)
+    }
+
+    /** See [ChatDao.getMessagesWindow] — the chat UI's paged message feed. */
+    fun getMessagesWindow(sessionId: String, limit: Int): Flow<List<ChatMessageEntity>> {
+        return chatDao.getMessagesWindow(sessionId, limit)
+    }
+
+    /**
+     * Full-text message search across all sessions. Blank/operator-only
+     * queries resolve to an empty result without touching the FTS index.
+     */
+    fun searchMessages(query: String): Flow<List<ChatMessageEntity>> {
+        val ftsQuery = buildFtsQuery(query) ?: return flowOf(emptyList())
+        return chatDao.searchMessages(ftsQuery)
     }
 
     suspend fun createNewSession(title: String = "New Chat", model: String = DEFAULT_MODEL, systemPrompt: String = ""): ChatSessionEntity =
@@ -142,7 +182,7 @@ class ChatRepository(
             val session = chatDao.getSessionById(sessionId)
                 ?: return@withContext Result.failure(ChatException.GeminiApi("Session no longer exists"))
 
-            val messages = chatDao.getMessagesList(session.id)
+            val messages = chatDao.getRecentMessages(session.id, MAX_HISTORY_MESSAGES)
             messages.lastOrNull()?.takeIf { it.role == "assistant" }?.let { last ->
                 chatDao.deleteMessageById(last.id)
             }
@@ -184,9 +224,13 @@ class ChatRepository(
             GeminiApiService.sanitizeFunctionNameStatic(tool.name) to tool.name
         }
 
-        // 3. Construct conversation history for Gemini — synchronous realtime,
-        // no cache: every message rebuilds fresh history + prompt.
-        val allMsgs = chatDao.getMessagesList(effectiveSessionId)
+        // 3. Construct conversation history for the provider — synchronous realtime,
+        // no cache: every message rebuilds fresh history + prompt. The read is
+        // capped at MAX_HISTORY_MESSAGES; a truncation that would start the
+        // window mid-exchange is trimmed forward to the next user turn so
+        // strict providers never see an orphaned tool result.
+        val allMsgs = chatDao.getRecentMessages(effectiveSessionId, MAX_HISTORY_MESSAGES)
+            .dropWhile { it.role != "user" }
         val systemInstruction = withContext(Dispatchers.Default) {
             systemPromptBuilder.buildSystemPrompt(session.systemPrompt, activeTools)
         }

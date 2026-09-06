@@ -55,7 +55,7 @@ class ChatViewModelLifecycleTest {
         every { mcpRepository.serversFlow } returns serversFlow
         every { mcpRepository.allToolsFlow } returns toolsFlow
         every { chatRepository.allSessionsFlow } returns sessionsFlow
-        every { chatRepository.getMessagesForSession(any()) } returns messagesFlow
+        every { chatRepository.getMessagesWindow(any(), any()) } returns messagesFlow
         every { chatRepository.streamEvents } returns streamEventsFlow
     }
 
@@ -179,8 +179,8 @@ class ChatViewModelLifecycleTest {
         )
 
         var currentMessages = MutableStateFlow(s1Messages)
-        every { chatRepository.getMessagesForSession("s1") } returns currentMessages
-        every { chatRepository.getMessagesForSession("s2") } returns MutableStateFlow(s2Messages)
+        every { chatRepository.getMessagesWindow("s1", any()) } returns currentMessages
+        every { chatRepository.getMessagesWindow("s2", any()) } returns MutableStateFlow(s2Messages)
 
         val savedStateHandle = SavedStateHandle()
         val viewModel = ChatViewModel(mcpRepository, chatRepository, savedStateHandle)

@@ -15,6 +15,7 @@ import io.mockk.slot
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -25,6 +26,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -85,7 +87,7 @@ class ChatRepositoryTest {
     @Test
     fun `history rebuild includes inline image parts for persisted attachments`() = runTest {
         coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
-        coEvery { chatDao.getMessagesList("s1") } returns listOf(
+        coEvery { chatDao.getRecentMessages("s1", any()) } returns listOf(
             ChatMessageEntity(
                 id = "m1",
                 sessionId = "s1",
@@ -117,7 +119,7 @@ class ChatRepositoryTest {
     @Test
     fun `history rebuild drops attachments whose URI is unreadable`() = runTest {
         coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
-        coEvery { chatDao.getMessagesList("s1") } returns listOf(
+        coEvery { chatDao.getRecentMessages("s1", any()) } returns listOf(
             ChatMessageEntity(
                 id = "m1",
                 sessionId = "s1",
@@ -262,6 +264,72 @@ class ChatRepositoryTest {
         assertEquals(listOf("tool_a", "tool_b"), responses.map { it.name })
         assertEquals("Tool execution failed: boom", responses[0].response["error"])
         assertEquals("b done", responses[1].response["result"])
+    }
+
+    @Test
+    fun `history is capped at MAX_HISTORY_MESSAGES and trimmed forward to a user turn`() = runTest {
+        // 202 messages: a leading assistant pair (orphaned by truncation)
+        // followed by 100 user/assistant turns, then the new prompt.
+        val seeded = buildList {
+            add(ChatMessageEntity(id = "old_a", sessionId = "s1", role = "assistant", content = "orphan tail"))
+            repeat(100) { i ->
+                add(ChatMessageEntity(id = "u$i", sessionId = "s1", role = "user", content = "turn $i"))
+                add(ChatMessageEntity(id = "a$i", sessionId = "s1", role = "assistant", content = "reply $i"))
+            }
+            add(ChatMessageEntity(id = "last_user", sessionId = "s1", role = "user", content = "final question"))
+        }
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        // The capped DAO read returns only the LAST 200 messages.
+        coEvery { chatDao.getRecentMessages("s1", any()) } returns seeded.takeLast(200)
+        coEvery { chatDao.getMessagesList(any()) } returns emptyList()
+        val historySlot = slot<List<GeminiMessage>>()
+        coEvery { geminiService.streamContent(any(), any(), capture(historySlot), any(), any(), any()) } returns
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "ok")
+
+        createRepository()
+        repository.sendMessage(sessionId = "s1", userPrompt = "final question")
+        advanceUntilIdle()
+
+        val history = historySlot.captured
+        // 200 capped + 1 newly persisted prompt; leading orphan trimmed.
+        assertTrue(history.size <= 201)
+        assertEquals("user", history.first().role)
+        coVerify { chatDao.getRecentMessages("s1", ChatRepository.MAX_HISTORY_MESSAGES) }
+    }
+
+    @Test
+    fun `searchMessages delegates the sanitized FTS expression to chatDao`() = runTest {
+        val expected = flowOf(
+            listOf(ChatMessageEntity(id = "m1", sessionId = "s1", role = "user", content = "quarterly report")),
+        )
+        coEvery { chatDao.searchMessages("quarterly* report*") } returns expected
+
+        createRepository()
+        val results = repository.searchMessages("  quarterly (report) ").first()
+
+        assertEquals(1, results.size)
+        assertEquals("m1", results[0].id)
+    }
+
+    @Test
+    fun `searchMessages with blank or operator-only query never touches the FTS index`() = runTest {
+        createRepository()
+
+        assertTrue(repository.searchMessages("   ").first().isEmpty())
+        assertTrue(repository.searchMessages("***\"-()").first().isEmpty())
+        coVerify(exactly = 0) { chatDao.searchMessages(any()) }
+    }
+
+    @Test
+    fun `buildFtsQuery sanitizes operators, dedupes and caps tokens`() {
+        assertEquals("quarterly*", ChatRepository.buildFtsQuery("quarterly"))
+        assertEquals("bit* coin*", ChatRepository.buildFtsQuery("  bit   coin "))
+        // Operator characters are stripped so MATCH can never syntax-error;
+        // a no-whitespace input collapses to a single prefix token.
+        assertEquals("bitcoin*", ChatRepository.buildFtsQuery("\"bit\"-(coin)*"))
+        assertNull(ChatRepository.buildFtsQuery("  "))
+        assertNull(ChatRepository.buildFtsQuery("- * \"'"))
+        assertEquals(8, Regex("[a-z0-9]+\\*").findAll(ChatRepository.buildFtsQuery((1..20).joinToString(" ") { "w$it" })!!).count())
     }
 
     @Test
@@ -516,7 +584,7 @@ class ChatRepositoryTest {
         coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
         // First call (trailing-message detection) sees the assistant message;
         // the second (history build) runs after its deletion.
-        coEvery { chatDao.getMessagesList("s1") } returnsMany listOf(initial, initial.filter { it.id != "m2" })
+        coEvery { chatDao.getRecentMessages("s1", any()) } returnsMany listOf(initial, initial.filter { it.id != "m2" })
         val historySlot = slot<List<GeminiMessage>>()
         coEvery {
             geminiService.streamContent(any(), any(), capture(historySlot), any(), any(), any())
@@ -535,7 +603,7 @@ class ChatRepositoryTest {
     @Test
     fun `regenerateLastMessage retries as-is when last message is a user turn`() = runTest {
         coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
-        coEvery { chatDao.getMessagesList("s1") } returns listOf(
+        coEvery { chatDao.getRecentMessages("s1", any()) } returns listOf(
             ChatMessageEntity(id = "m1", sessionId = "s1", role = "user", content = "Hello"),
         )
         coEvery { geminiService.streamContent(any(), any(), any(), any(), any(), any()) } returns
@@ -565,7 +633,7 @@ class ChatRepositoryTest {
     @Test
     fun `history rebuild pairs every persisted tool call with a result even when output blank`() = runTest {
         coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
-        coEvery { chatDao.getMessagesList("s1") } returns listOf(
+        coEvery { chatDao.getRecentMessages("s1", any()) } returns listOf(
             ChatMessageEntity(id = "m1", sessionId = "s1", role = "user", content = "weather?"),
             ChatMessageEntity(
                 id = "m2",

@@ -64,6 +64,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.WbSunny
@@ -217,7 +218,10 @@ fun ChatScreen(
 
     var userHasScrolledUp by remember { mutableStateOf(false) }
 
-    LaunchedEffect(messages.size, inProgressToolCalls.size, streamingText?.length) {
+    // Key on the LAST message identity, not the list size: growing the
+    // history window prepends items and must not yank the user to the
+    // bottom, while a genuinely new message should.
+    LaunchedEffect(messages.lastOrNull()?.id, inProgressToolCalls.size, streamingText?.length) {
         if (!userHasScrolledUp && messages.isNotEmpty()) {
             val count = listState.layoutInfo.totalItemsCount
             if (count > 0) listState.scrollToItem(count - 1)
@@ -234,6 +238,11 @@ fun ChatScreen(
             )
         }.debounce(100).collect { (firstVisible, lastVisible, total) ->
             userHasScrolledUp = total > 0 && lastVisible < total - 3 && firstVisible > 0
+            // Pinned at the very top — back-fill one page of history if the
+            // window is full (loadEarlierMessages no-ops at the list start).
+            if (firstVisible == 0 && total > 0) {
+                viewModel.loadEarlierMessages()
+            }
         }
     }
 
@@ -827,8 +836,17 @@ fun ChatScreen(
         val sheetState = rememberModalBottomSheetState()
         var sessionToDelete by remember { mutableStateOf<com.aistudio.mcpchat.data.local.ChatSessionEntity?>(null) }
         val sessionDateFormatter = remember { SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.getDefault()) }
+        val searchResults by viewModel.messageSearchResults.collectAsStateWithLifecycle()
+        var searchQuery by remember { mutableStateOf("") }
+        val isSearching = searchQuery.isNotBlank()
+        val titleFilter = searchQuery.trim()
+        val visibleSessions = if (titleFilter.isEmpty()) sessions else sessions.filter { it.title.contains(titleFilter, ignoreCase = true) }
         ModalBottomSheet(
-            onDismissRequest = { showSessionsSheet = false },
+            onDismissRequest = {
+                showSessionsSheet = false
+                searchQuery = ""
+                viewModel.updateMessageSearchQuery("")
+            },
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surface,
         ) {
@@ -859,13 +877,80 @@ fun ChatScreen(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(Spacing.md))
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = {
+                        searchQuery = it
+                        viewModel.updateMessageSearchQuery(it)
+                    },
+                    placeholder = {
+                        Text(text = "Search conversations and messages…", fontSize = 14.sp)
+                    },
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    shape = RoundedCornerShape(Dimens.cornerRadiusXl),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("message_search_field"),
+                )
+
                 Spacer(modifier = Modifier.height(Spacing.lg))
 
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    items(sessions) { session ->
+                    if (isSearching) {
+                        item {
+                            Text(
+                                text = "Messages",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = Spacing.xxs),
+                            )
+                        }
+                        if (searchResults.isEmpty()) {
+                            item {
+                                Text(
+                                    text = "No messages matched \"$searchQuery\".",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        items(searchResults, key = { it.id }) { message ->
+                            MessageSearchResultItem(
+                                message = message,
+                                sessionTitle = sessions.find { it.id == message.sessionId }?.title,
+                                dateFormatter = sessionDateFormatter,
+                                onClick = {
+                                    viewModel.selectSession(message.sessionId)
+                                    showSessionsSheet = false
+                                },
+                            )
+                        }
+                        if (visibleSessions.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Conversations",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.xxs),
+                                )
+                            }
+                        }
+                    }
+                    items(visibleSessions) { session ->
                         val isSelected = session.id == currentSessionId
                         Surface(
                             color = sessionSurfaceColor(isSelected),
@@ -1419,6 +1504,49 @@ private fun sessionSurfaceColor(isSelected: Boolean): Color = if (isSelected) {
     IndigoPrimary.copy(alpha = 0.15f)
 } else {
     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+}
+
+/**
+ * One full-text search hit: content snippet, originating conversation, and
+ * timestamp. Tapping jumps to that conversation.
+ */
+@Composable
+fun MessageSearchResultItem(
+    message: ChatMessageEntity,
+    sessionTitle: String?,
+    dateFormatter: SimpleDateFormat,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        color = sessionSurfaceColor(false),
+        shape = RoundedCornerShape(Dimens.cornerRadiusLg),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("message_search_result")
+            .semantics {
+                role = Role.Button
+                contentDescription = "Open conversation: ${sessionTitle ?: "Conversation"}"
+            }
+            .clickable { onClick() },
+    ) {
+        Column(modifier = Modifier.padding(Spacing.md)) {
+            Text(
+                text = message.content.take(120).ifBlank { "(no text)" },
+                fontSize = 13.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.height(Spacing.xxs))
+            Text(
+                text = "${sessionTitle ?: "Conversation"} • ${dateFormatter.format(Date(message.timestamp))}",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 /**
