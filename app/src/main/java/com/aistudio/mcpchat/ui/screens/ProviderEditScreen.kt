@@ -50,7 +50,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.AiProviderType
@@ -134,7 +133,7 @@ fun ProviderEditScreen(
                 title = {
                     Text(
                         text = if (configId == null) "Add AI Provider" else "Edit AI Provider",
-                        fontSize = 18.sp,
+                        style = MaterialTheme.typography.headlineSmall,
                     )
                 },
                 navigationIcon = {
@@ -161,13 +160,13 @@ fun ProviderEditScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "Provider not found",
-                        fontSize = 16.sp,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Spacer(modifier = Modifier.height(Spacing.xs))
                     Text(
                         text = "It may have been removed. Go back and refresh the list.",
-                        fontSize = 13.sp,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(modifier = Modifier.height(Spacing.md))

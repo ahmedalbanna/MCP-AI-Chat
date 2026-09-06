@@ -89,12 +89,12 @@ fun SettingsScreenContent(
                     Column {
                         Text(
                             text = "Appearance",
-                            fontSize = 18.sp,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
                             text = "Customize chat theme & colors",
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -131,7 +131,7 @@ fun SettingsScreenContent(
                         Text(
                             text = "Theme mode",
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp,
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                             modifier = Modifier.semantics { heading() },
                         )
                     }
@@ -169,7 +169,7 @@ fun SettingsScreenContent(
                             ThemeMode.LIGHT -> "Always light"
                             ThemeMode.DARK -> "Always dark (AMOLED optional)"
                         },
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -217,7 +217,7 @@ fun SettingsScreenContent(
                 Column(modifier = Modifier.padding(Spacing.cardPadding)) {
                     Text(
                         text = "Preview",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.semantics { heading() },
@@ -243,7 +243,7 @@ private fun ThemeModeChip(label: String, icon: ImageVector, selected: Boolean, o
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+        label = { Text(label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)) },
         leadingIcon = {
             Icon(icon, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeSm))
         },
@@ -283,13 +283,13 @@ private fun SettingSwitchRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                fontSize = 14.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = subtitle,
-                fontSize = 11.sp,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 14.sp,
             )
@@ -318,7 +318,7 @@ private fun PreviewBubble(text: String, isUser: Boolean, modifier: Modifier = Mo
     ) {
         Text(
             text = text,
-            fontSize = 12.sp,
+            style = MaterialTheme.typography.bodyMedium,
             color = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
         )

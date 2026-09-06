@@ -85,7 +85,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.model.McpLogItem
 import com.aistudio.mcpchat.data.model.McpTool
@@ -140,12 +139,12 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                     Column {
                         Text(
                             text = "MCP Inspector & Test Bench",
-                            fontSize = 18.sp,
+                            style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
                             text = "Direct JSON-RPC tool invocation & telemetry logs",
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontFamily = FontFamily.Monospace,
                         )
@@ -242,19 +241,19 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                     )
                                     Text(
                                         text = "No tools available",
-                                        fontSize = 14.sp,
+                                        style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
                                         text = "Connect to an MCP server and sync tools to get started",
-                                        fontSize = 12.sp,
+                                        style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                     )
                                     Spacer(modifier = Modifier.height(Spacing.xxs))
                                     Text(
                                         text = "Go to MCP Servers tab",
-                                        fontSize = 12.sp,
+                                        style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = IndigoPrimary,
                                         modifier = Modifier
@@ -320,7 +319,7 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                 ) {
                                     Text(
                                         text = "RAW JSON-RPC TELEMETRY",
-                                        fontSize = 11.sp,
+                                        style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = CyanSecondary,
                                         fontFamily = FontFamily.Monospace,
@@ -333,7 +332,7 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                         ) {
                                             Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeMd))
                                             Spacer(modifier = Modifier.width(Spacing.xs))
-                                            Text("Clear Logs", fontSize = 12.sp)
+                                            Text("Clear Logs", style = MaterialTheme.typography.bodyMedium)
                                         }
                                     }
                                 }
@@ -358,40 +357,40 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                         ) {
                                             Text(
                                                 text = "$totalCount calls",
-                                                fontSize = 12.sp,
+                                                style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = MaterialTheme.colorScheme.onSurface,
                                                 fontFamily = FontFamily.Monospace,
                                             )
                                             Text(
                                                 text = "  |  ",
-                                                fontSize = 12.sp,
+                                                style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 fontFamily = FontFamily.Monospace,
                                             )
                                             Text(
                                                 text = "$successCount success",
-                                                fontSize = 12.sp,
+                                                style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = EmeraldTertiary,
                                                 fontFamily = FontFamily.Monospace,
                                             )
                                             Text(
                                                 text = "  |  ",
-                                                fontSize = 12.sp,
+                                                style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 fontFamily = FontFamily.Monospace,
                                             )
                                             Text(
                                                 text = "$failCount failed",
-                                                fontSize = 12.sp,
+                                                style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = RoseError,
                                                 fontFamily = FontFamily.Monospace,
                                             )
                                             Text(
                                                 text = "  ($successRate% success rate)",
-                                                fontSize = 12.sp,
+                                                style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.Medium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 fontFamily = FontFamily.Monospace,
@@ -423,12 +422,12 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                             Spacer(modifier = Modifier.height(Spacing.sectionGap))
                                             Text(
                                                 text = "No MCP invocations recorded yet.",
-                                                fontSize = 13.sp,
+                                                style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
                                             Text(
                                                 text = "Execute tools in Chat or Playground to view audit logs.",
-                                                fontSize = 11.sp,
+                                                style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                             )
                                         }
@@ -508,14 +507,14 @@ fun ResourcesTab(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Text(
                     text = "MCP RESOURCES",
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = CyanSecondary,
                     fontFamily = FontFamily.Monospace,
                 )
                 Text(
                     text = "Server-exposed documents and data. Subscribe to track live changes.",
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -541,13 +540,13 @@ fun ResourcesTab(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier
                         Spacer(modifier = Modifier.height(Spacing.sm))
                         Text(
                             text = "No enabled MCP servers",
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
                             text = "Go to MCP Servers tab",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = IndigoPrimary,
                             modifier = Modifier
@@ -578,7 +577,7 @@ fun ResourcesTab(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier
                         ) {
                             Text(
                                 text = server.name,
-                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                                 color = if (selected) IndigoPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
@@ -598,7 +597,7 @@ fun ResourcesTab(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier
                 item {
                     Text(
                         text = "No resources exposed by this server.",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = Spacing.md),
                     )
@@ -654,14 +653,14 @@ private fun ResourceItemCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = summary.resource.name,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = summary.resource.uri,
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontFamily = FontFamily.Monospace,
                     maxLines = 1,
@@ -706,7 +705,7 @@ private fun ResourceContentCard(title: String, uri: String, mimeType: String?, c
                 Spacer(modifier = Modifier.width(Spacing.xs))
                 Text(
                     text = title,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -715,7 +714,7 @@ private fun ResourceContentCard(title: String, uri: String, mimeType: String?, c
                 if (mimeType != null) {
                     Text(
                         text = mimeType,
-                        fontSize = 10.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         color = CyanSecondary,
                         fontFamily = FontFamily.Monospace,
                     )
@@ -724,7 +723,7 @@ private fun ResourceContentCard(title: String, uri: String, mimeType: String?, c
             Spacer(modifier = Modifier.height(Spacing.xs))
             Text(
                 text = uri,
-                fontSize = 10.sp,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontFamily = FontFamily.Monospace,
                 maxLines = 1,
@@ -740,14 +739,14 @@ private fun ResourceContentCard(title: String, uri: String, mimeType: String?, c
                     Spacer(modifier = Modifier.width(Spacing.sm))
                     Text(
                         text = "Reading resource…",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             } else {
                 Text(
                     text = content,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier
@@ -784,7 +783,7 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
         Column(modifier = Modifier.padding(Spacing.cardPadding)) {
             Text(
                 text = "TARGET MCP TOOL:",
-                fontSize = 10.sp,
+                style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = CyanSecondary,
                 fontFamily = FontFamily.Monospace,
@@ -812,7 +811,7 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = selectedTool?.name ?: "Select a Tool...",
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
                             fontFamily = FontFamily.Monospace,
@@ -820,7 +819,7 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
                         if (selectedTool != null) {
                             Text(
                                 text = "Server: ${selectedTool.serverName}",
-                                fontSize = 11.sp,
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -845,7 +844,7 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
                         OutlinedTextField(
                             value = pickerQuery,
                             onValueChange = { pickerQuery = it },
-                            placeholder = { Text("Filter tools...", fontSize = 12.sp) },
+                            placeholder = { Text("Filter tools...", style = MaterialTheme.typography.bodyMedium) },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -857,7 +856,7 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
                             text = {
                                 Column {
                                     Text(t.name, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                                    Text("${t.serverName} • ${t.description.take(50)}...", fontSize = 11.sp)
+                                    Text("${t.serverName} • ${t.description.take(50)}...", style = MaterialTheme.typography.bodySmall)
                                 }
                             },
                             onClick = {
@@ -869,7 +868,7 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
                     }
                     if (filteredTools.isEmpty()) {
                         DropdownMenuItem(
-                            text = { Text("No matches", fontSize = 12.sp) },
+                            text = { Text("No matches", style = MaterialTheme.typography.bodyMedium) },
                             onClick = {},
                             enabled = false,
                         )
@@ -881,7 +880,7 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
                 Spacer(modifier = Modifier.height(Spacing.md))
                 Text(
                     text = selectedTool.description,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -907,7 +906,7 @@ fun ParametersCard(
         Column(modifier = Modifier.padding(Spacing.cardPadding)) {
             Text(
                 text = "INVOCATION PARAMETERS:",
-                fontSize = 10.sp,
+                style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = CyanSecondary,
                 fontFamily = FontFamily.Monospace,
@@ -918,7 +917,7 @@ fun ParametersCard(
             if (parameterInputs.isEmpty()) {
                 Text(
                     text = "No parameters required for this tool.",
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
@@ -954,10 +953,10 @@ fun ParametersCard(
                         OutlinedTextField(
                             value = value,
                             onValueChange = { onParameterChange(key, it) },
-                            label = { Text(key, fontFamily = FontFamily.Monospace, fontSize = 12.sp) },
+                            label = { Text(key, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium) },
                             isError = isError || helperText != null,
                             supportingText = helperText?.let { msg ->
-                                { Text(msg, fontSize = 11.sp, color = RoseError) }
+                                { Text(msg, style = MaterialTheme.typography.labelSmall, color = RoseError) }
                             },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
@@ -991,11 +990,11 @@ fun ParametersCard(
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
                     Spacer(modifier = Modifier.width(Spacing.md))
-                    Text("Invoking over JSON-RPC...", fontSize = 13.sp)
+                    Text("Invoking over JSON-RPC...", style = MaterialTheme.typography.bodyMedium)
                 } else {
                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeMd))
                     Spacer(modifier = Modifier.width(Spacing.sm))
-                    Text("Invoke MCP Tool", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("Invoke MCP Tool", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -1026,7 +1025,7 @@ fun ExecutionResultCard(result: String, latencyMs: Long, isSuccess: Boolean, mod
                     Spacer(modifier = Modifier.width(Spacing.sm))
                     Text(
                         text = if (isSuccess) "EXECUTION SUCCESS" else "EXECUTION ERROR",
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = if (isSuccess) EmeraldTertiary else RoseError,
                         fontFamily = FontFamily.Monospace,
@@ -1039,7 +1038,7 @@ fun ExecutionResultCard(result: String, latencyMs: Long, isSuccess: Boolean, mod
                 ) {
                     Text(
                         text = "${latencyMs}ms",
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = EmeraldTertiary,
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs),
@@ -1094,7 +1093,7 @@ fun LogItemCard(
                     Spacer(modifier = Modifier.width(Spacing.sm))
                     Text(
                         text = logItem.toolName,
-                        fontSize = 13.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.primary,
@@ -1104,14 +1103,14 @@ fun LogItemCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "${logItem.latencyMs}ms",
-                        fontSize = 10.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         color = EmeraldTertiary,
                         fontFamily = FontFamily.Monospace,
                     )
                     Spacer(modifier = Modifier.width(Spacing.md))
                     Text(
                         text = (dateFormatter ?: SimpleDateFormat("HH:mm:ss", Locale.getDefault())).format(Date(logItem.timestamp)),
-                        fontSize = 10.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -1119,7 +1118,7 @@ fun LogItemCard(
 
             Text(
                 text = "Server: ${logItem.serverName}",
-                fontSize = 11.sp,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
@@ -1127,8 +1126,7 @@ fun LogItemCard(
                 Column(modifier = Modifier.padding(top = Spacing.md)) {
                     Text(
                         text = "REQUEST JSON-RPC:",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = CyanSecondary,
                         fontFamily = FontFamily.Monospace,
                     )
@@ -1139,8 +1137,7 @@ fun LogItemCard(
 
                     Text(
                         text = "RESPONSE PAYLOAD:",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = if (logItem.isSuccess) EmeraldTertiary else RoseError,
                         fontFamily = FontFamily.Monospace,
                     )
@@ -1167,7 +1164,7 @@ fun LogItemCard(
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeSm))
                             Spacer(modifier = Modifier.width(Spacing.xs))
-                            Text("Re-execute", fontSize = 11.sp)
+                            Text("Re-execute", style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }

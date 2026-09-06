@@ -136,7 +136,7 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
 
                 Text(
                     text = "Welcome to",
-                    fontSize = 16.sp,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium,
                 )
@@ -145,7 +145,7 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
 
                 Text(
                     text = "MCP AI Chat",
-                    fontSize = 28.sp,
+                    style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -154,7 +154,7 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
 
                 Text(
                     text = "AI-powered chat with Model Context Protocol.\nConnect to remote servers, invoke tools,\nand explore the Inspector.",
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     lineHeight = 22.sp,
@@ -216,7 +216,7 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Get Started", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("Get Started", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -252,13 +252,13 @@ private fun OnboardingFeatureRow(icon: ImageVector, title: String, description: 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                fontSize = 15.sp,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = description,
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 16.sp,
             )

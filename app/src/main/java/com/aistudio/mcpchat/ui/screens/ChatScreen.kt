@@ -260,7 +260,7 @@ fun ChatScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "MCP AI Chat",
-                                fontSize = 17.sp,
+                                style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Bold,
                             )
                             Spacer(modifier = Modifier.width(Spacing.sm))
@@ -286,7 +286,7 @@ fun ChatScreen(
                                         } else {
                                             "Select provider"
                                         },
-                                        fontSize = 11.sp,
+                                        style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         maxLines = 1,
@@ -321,7 +321,7 @@ fun ChatScreen(
                             Spacer(modifier = Modifier.width(Spacing.xs))
                             Text(
                                 text = "$enabledServersCount Remote MCP Servers Active",
-                                fontSize = 11.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = EmeraldTertiary,
                                 fontFamily = FontFamily.Monospace,
                             )
@@ -416,7 +416,7 @@ fun ChatScreen(
                                         Spacer(modifier = Modifier.width(Spacing.sm))
                                         Text(
                                             text = "Executing Remote MCP Tool Calls...",
-                                            fontSize = 12.sp,
+                                            style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.SemiBold,
                                             color = AmberWarning,
                                             fontFamily = FontFamily.Monospace,
@@ -514,7 +514,7 @@ fun ChatScreen(
                         )
                         Text(
                             text = errorMessage ?: "",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = RoseError,
                             modifier = Modifier.weight(1f),
                         )
@@ -652,7 +652,7 @@ fun ChatScreen(
                             placeholder = {
                                 Text(
                                     text = "Ask anything with remote MCP tools...",
-                                    fontSize = 14.sp,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             },
@@ -745,12 +745,12 @@ fun ChatScreen(
                     Column {
                         Text(
                             text = "Active MCP Servers",
-                            fontSize = 18.sp,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
                             text = "Toggle servers enabled for AI tool discovery",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -787,7 +787,7 @@ fun ChatScreen(
                                         Text(
                                             text = server.name,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontSize = 14.sp,
+                                            style = MaterialTheme.typography.bodyMedium,
                                         )
                                         if (server.isPreset) {
                                             Spacer(modifier = Modifier.width(Spacing.sm))
@@ -797,7 +797,7 @@ fun ChatScreen(
                                             ) {
                                                 Text(
                                                     text = "PRESET",
-                                                    fontSize = 9.sp,
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                                     fontWeight = FontWeight.Bold,
                                                     color = CyanSecondary,
                                                     modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs),
@@ -807,7 +807,7 @@ fun ChatScreen(
                                     }
                                     Text(
                                         text = "${server.toolsCount} tools • ${server.endpointUrl}",
-                                        fontSize = 11.sp,
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontFamily = FontFamily.Monospace,
                                     )
@@ -862,7 +862,7 @@ fun ChatScreen(
                 ) {
                     Text(
                         text = "Conversations",
-                        fontSize = 18.sp,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                     )
                     FilledTonalButton(
@@ -886,7 +886,7 @@ fun ChatScreen(
                         viewModel.updateMessageSearchQuery(it)
                     },
                     placeholder = {
-                        Text(text = "Search conversations and messages…", fontSize = 14.sp)
+                        Text(text = "Search conversations and messages…", style = MaterialTheme.typography.bodyMedium)
                     },
                     singleLine = true,
                     leadingIcon = {
@@ -912,7 +912,7 @@ fun ChatScreen(
                         item {
                             Text(
                                 text = "Messages",
-                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(bottom = Spacing.xxs),
@@ -922,7 +922,7 @@ fun ChatScreen(
                             item {
                                 Text(
                                     text = "No messages matched \"$searchQuery\".",
-                                    fontSize = 13.sp,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -942,7 +942,7 @@ fun ChatScreen(
                             item {
                                 Text(
                                     text = "Conversations",
-                                    fontSize = 12.sp,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.xxs),
@@ -976,11 +976,11 @@ fun ChatScreen(
                                     Text(
                                         text = session.title,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        fontSize = 14.sp,
+                                        style = MaterialTheme.typography.bodyMedium,
                                     )
                                     Text(
                                         text = sessionDateFormatter.format(Date(session.updatedAt)),
-                                        fontSize = 11.sp,
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -1058,7 +1058,7 @@ fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifi
             ) {
                 Text(
                     text = "MCP Invocations (${toolCalls.size}):",
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
                     color = CyanSecondary,
                     fontFamily = FontFamily.Monospace,
@@ -1141,7 +1141,7 @@ fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifi
                             Text(
                                 text = message.content,
                                 color = MaterialTheme.colorScheme.onPrimary,
-                                fontSize = 14.sp,
+                                style = MaterialTheme.typography.bodyMedium,
                                 lineHeight = 20.sp,
                             )
                         }
@@ -1157,7 +1157,7 @@ fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifi
                             Spacer(modifier = Modifier.height(Spacing.xs))
                             Text(
                                 text = if (isExpanded) "Show less" else "Show more",
-                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = CyanSecondary,
                                 modifier = Modifier.clickable { isExpanded = !isExpanded },
@@ -1174,7 +1174,7 @@ fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifi
                         ) {
                             Text(
                                 text = "${message.latencyMs}ms",
-                                fontSize = 10.sp,
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 fontFamily = FontFamily.Monospace,
                             )
@@ -1231,7 +1231,7 @@ fun EmptyChatView(onPromptSelected: (String) -> Unit, modifier: Modifier = Modif
 
         Text(
             text = "Welcome to MCP AI Chat",
-            fontSize = 20.sp,
+            style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -1240,7 +1240,7 @@ fun EmptyChatView(onPromptSelected: (String) -> Unit, modifier: Modifier = Modif
 
         Text(
             text = "Connected to remote MCP servers. Seamless tool calling over JSON-RPC & HTTP SSE.",
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.padding(horizontal = Spacing.lg),
@@ -1273,7 +1273,7 @@ fun EmptyChatView(onPromptSelected: (String) -> Unit, modifier: Modifier = Modif
 
         Text(
             text = "TRY ASKING:",
-            fontSize = 11.sp,
+            style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Bold,
             color = CyanSecondary,
             fontFamily = FontFamily.Monospace,
@@ -1331,7 +1331,7 @@ private fun FeatureHighlightItem(icon: ImageVector, label: String, modifier: Mod
             Spacer(modifier = Modifier.height(Spacing.xs))
             Text(
                 text = label,
-                fontSize = 10.sp,
+                style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1383,12 +1383,12 @@ fun PromptSuggestionCard(icon: ImageVector, title: String, prompt: String, onPro
                 Text(
                     text = title,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = prompt,
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                 )
@@ -1431,7 +1431,7 @@ fun QuickActionChip(label: String, icon: ImageVector? = null, onClick: () -> Uni
             }
             Text(
                 text = label,
-                fontSize = 11.sp,
+                style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1533,14 +1533,14 @@ fun MessageSearchResultItem(
         Column(modifier = Modifier.padding(Spacing.md)) {
             Text(
                 text = message.content.take(120).ifBlank { "(no text)" },
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodyLarge,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(modifier = Modifier.height(Spacing.xxs))
             Text(
                 text = "${sessionTitle ?: "Conversation"} • ${dateFormatter.format(Date(message.timestamp))}",
-                fontSize = 11.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1635,7 +1635,7 @@ fun StreamProgressIndicator(progress: StreamProgress?, modifier: Modifier = Modi
             } else {
                 "${progress.tokensPerSecond} tok/s · ${progress.charsStreamed} chars · ~${formatRemainingMs(progress.estimatedRemainingMs)} left"
             },
-            fontSize = 10.sp,
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontFamily = FontFamily.Monospace,
             modifier = Modifier.semantics {
@@ -1673,7 +1673,7 @@ fun RegenerateAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
             )
             Text(
                 text = "Regenerate",
-                fontSize = 11.sp,
+                style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
                 color = CyanSecondary,
             )

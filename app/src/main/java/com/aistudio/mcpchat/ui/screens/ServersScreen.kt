@@ -73,7 +73,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
@@ -142,12 +141,11 @@ fun ServersScreen(
                     Column {
                         Text(
                             text = "MCP Remote Servers Hub",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.headlineSmall,
                         )
                         Text(
                             text = "Model Context Protocol (2024-11-05) Integrations",
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontFamily = FontFamily.Monospace,
                         )
@@ -212,14 +210,13 @@ fun ServersScreen(
                             Column {
                                 Text(
                                     text = "Dynamic Tool Discovery Active",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                                 Text(
                                     text = "Connected servers expose tools to Gemini via JSON-RPC. " +
                                         "When enabled, tools are dynamically registered for conversational function calling.",
-                                    fontSize = 11.sp,
+                                    style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -233,7 +230,7 @@ fun ServersScreen(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
                             placeholder = {
-                                Text("Search servers...", fontSize = 13.sp)
+                                Text("Search servers...", style = MaterialTheme.typography.bodyMedium)
                             },
                             leadingIcon = {
                                 Icon(Icons.Default.Search, contentDescription = "Search servers", modifier = Modifier.size(Dimens.iconSizeMd))
@@ -256,7 +253,7 @@ fun ServersScreen(
                         item {
                             Text(
                                 text = "${filteredServers.size} of ${servers.size} servers",
-                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(start = Spacing.xs, top = Spacing.xxs),
                             )
@@ -282,14 +279,13 @@ fun ServersScreen(
                                 Spacer(modifier = Modifier.height(Spacing.md))
                                 Text(
                                     text = "No MCP servers connected",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Spacer(modifier = Modifier.height(Spacing.xs))
                                 Text(
                                     text = "Add your first server to get started",
-                                    fontSize = 13.sp,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Spacer(modifier = Modifier.height(Spacing.md))
@@ -408,7 +404,7 @@ fun ServerCardItem(
                     ) {
                         Text(
                             text = server.name,
-                            fontSize = 15.sp,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
@@ -422,8 +418,7 @@ fun ServerCardItem(
                             ) {
                                 Text(
                                     text = "PRESET",
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                     color = CyanSecondary,
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
                                 )
@@ -446,7 +441,7 @@ fun ServerCardItem(
 
                 Text(
                     text = server.description,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
@@ -459,7 +454,7 @@ fun ServerCardItem(
                 ) {
                     Text(
                         text = server.endpointUrl,
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.weight(1f, fill = false),
@@ -494,7 +489,7 @@ fun ServerCardItem(
                             Spacer(modifier = Modifier.width(Spacing.xs))
                             Text(
                                 text = "Not Secure â€” plain HTTP, data can be intercepted",
-                                fontSize = 11.sp,
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = AmberWarning,
                             )
@@ -521,7 +516,7 @@ fun ServerCardItem(
                             } else {
                                 Icon(Icons.Default.Speed, contentDescription = "Ping server", modifier = Modifier.size(Dimens.iconSizeSm))
                                 Spacer(modifier = Modifier.width(Spacing.xs))
-                                Text("Ping", fontSize = 11.sp)
+                                Text("Ping", style = MaterialTheme.typography.labelSmall)
                             }
                         }
 
@@ -533,7 +528,7 @@ fun ServerCardItem(
                         ) {
                             Icon(Icons.Default.Sync, contentDescription = "Sync tools", modifier = Modifier.size(Dimens.iconSizeSm))
                             Spacer(modifier = Modifier.width(Spacing.xs))
-                            Text("Sync (${tools.size})", fontSize = 11.sp)
+                            Text("Sync (${tools.size})", style = MaterialTheme.typography.labelSmall)
                         }
 
                         IconButton(
@@ -575,7 +570,7 @@ fun ServerCardItem(
                     ) {
                         Text(
                             text = if (isExpanded) "Hide Tools" else "View Tools (${tools.size})",
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.labelMedium,
                         )
                         Icon(
                             imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -593,7 +588,7 @@ fun ServerCardItem(
                     ) {
                         Text(
                             text = "DISCOVERED MCP TOOLS:",
-                            fontSize = 10.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = CyanSecondary,
                             fontFamily = FontFamily.Monospace,
@@ -603,7 +598,7 @@ fun ServerCardItem(
                         if (tools.isEmpty()) {
                             Text(
                                 text = "No tools discovered yet. Tap 'Sync' to handshake with this server.",
-                                fontSize = 11.sp,
+                                style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         } else {
@@ -631,7 +626,7 @@ fun ServerCardItem(
                                                     Spacer(modifier = Modifier.width(Spacing.sm))
                                                     Text(
                                                         text = tool.name,
-                                                        fontSize = 12.sp,
+                                                        style = MaterialTheme.typography.bodySmall,
                                                         fontWeight = FontWeight.Bold,
                                                         color = MaterialTheme.colorScheme.primary,
                                                         fontFamily = FontFamily.Monospace,
@@ -652,7 +647,7 @@ fun ServerCardItem(
 
                                             Text(
                                                 text = tool.description,
-                                                fontSize = 11.sp,
+                                                style = MaterialTheme.typography.labelMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 modifier = Modifier.padding(top = 2.dp),
                                             )

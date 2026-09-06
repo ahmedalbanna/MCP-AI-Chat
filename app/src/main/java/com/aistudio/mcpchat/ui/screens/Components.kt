@@ -120,8 +120,7 @@ fun ServerStatusBadge(status: ServerStatus, latencyMs: Long = 0, modifier: Modif
             Text(
                 text = label,
                 color = textColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                 fontFamily = FontFamily.Monospace,
             )
         }
@@ -216,7 +215,7 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = "MCP Tool:",
-                                    fontSize = 11.sp,
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Spacer(modifier = Modifier.width(Spacing.xs))
@@ -225,14 +224,13 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
                                     ),
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                             }
                             Text(
                                 text = toolCall.serverName,
-                                fontSize = 10.sp,
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -249,7 +247,6 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                                     text = "${toolCall.executionTimeMs}ms",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontFamily = FontFamily.Monospace,
-                                        fontSize = 10.sp,
                                     ),
                                     color = EmeraldTertiary,
                                     modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
@@ -274,8 +271,7 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                     Column(modifier = Modifier.padding(top = Spacing.cardPadding)) {
                         Text(
                             text = "INPUT PARAMETERS (JSON-RPC):",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.secondary,
                             fontFamily = FontFamily.Monospace,
                         )
@@ -295,8 +291,7 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                             ) {
                                 Text(
                                     text = "OUTPUT RESULT:",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                     color = if (toolCall.isSuccess) EmeraldTertiary else RoseError,
                                     fontFamily = FontFamily.Monospace,
                                 )
@@ -362,9 +357,7 @@ fun CodeBlock(code: String, language: String = "", modifier: Modifier = Modifier
                 ) {
                     Text(
                         text = language.uppercase(),
-                        fontSize = 10.sp,
-                        color = CyanSecondary,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         fontFamily = FontFamily.Monospace,
                     )
                     IconButton(
@@ -397,7 +390,7 @@ fun CodeBlock(code: String, language: String = "", modifier: Modifier = Modifier
                     Text(
                         text = code,
                         color = codeTextColor,
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         fontFamily = FontFamily.Monospace,
                         lineHeight = 16.sp,
                     )
@@ -462,14 +455,16 @@ fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
                             color = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier.padding(end = Spacing.sm),
                         )
-                        val annotated = remember(bulletText) { parseInlineMarkdown(bulletText) }
+                        val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
+                        val annotated = remember(bulletText) { parseInlineMarkdown(bulletText, surfaceVariant) }
                         InlineMarkdownText(
                             annotatedString = annotated,
                             modifier = Modifier,
                         )
                     }
                 } else if (line.isNotBlank()) {
-                    val annotated = remember(line) { parseInlineMarkdown(line) }
+                    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
+                    val annotated = remember(line) { parseInlineMarkdown(line, surfaceVariant) }
                     InlineMarkdownText(
                         annotatedString = annotated,
                         modifier = Modifier.padding(vertical = Spacing.xxs),
@@ -491,7 +486,7 @@ fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
 }
 
 @Suppress("CyclomaticComplexMethod")
-private fun parseInlineMarkdown(text: String): AnnotatedString {
+private fun parseInlineMarkdown(text: String, codeBackground: Color): AnnotatedString {
     return buildAnnotatedString {
         var idx = 0
         while (idx < text.length) {
@@ -514,7 +509,7 @@ private fun parseInlineMarkdown(text: String): AnnotatedString {
 
             idx = when (nextSpecial) {
                 boldStart -> appendBold(text, boldStart)
-                codeStart -> appendCode(text, codeStart)
+                codeStart -> appendCode(text, codeStart, codeBackground)
                 linkStart -> appendLink(text, linkStart)
                 else -> {
                     append(text.substring(idx, nextSpecial + 1))
@@ -540,14 +535,14 @@ private fun AnnotatedString.Builder.appendBold(text: String, start: Int): Int {
 }
 
 /** Appends a `` `code` `` span starting at [start]; returns the next scan index. */
-private fun AnnotatedString.Builder.appendCode(text: String, start: Int): Int {
+private fun AnnotatedString.Builder.appendCode(text: String, start: Int, backgroundColor: Color): Int {
     val end = text.indexOf("`", start + 1)
     return if (end != -1) {
         withStyle(
             SpanStyle(
                 fontFamily = FontFamily.Monospace,
                 color = CyanSecondary,
-                background = Color(0xFFE2E8F0).copy(alpha = 0.6f),
+                background = backgroundColor.copy(alpha = 0.6f),
             ),
         ) {
             append(text.substring(start + 1, end))

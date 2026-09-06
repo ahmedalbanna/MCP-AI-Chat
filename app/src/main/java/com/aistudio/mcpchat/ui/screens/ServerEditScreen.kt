@@ -51,7 +51,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.model.McpHeaderCodec
 import com.aistudio.mcpchat.data.repository.McpRepository
@@ -127,7 +126,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                 title = {
                     Text(
                         text = if (isEdit) "Edit MCP Server" else "Add MCP Server",
-                        fontSize = 18.sp,
+                        style = MaterialTheme.typography.headlineSmall,
                     )
                 },
                 navigationIcon = {
@@ -152,13 +151,13 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "Server not found",
-                        fontSize = 16.sp,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Spacer(modifier = Modifier.height(Spacing.xs))
                     Text(
                         text = "It may have been removed. Go back and refresh the list.",
-                        fontSize = 13.sp,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(modifier = Modifier.height(Spacing.md))
@@ -181,7 +180,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                 } else {
                     "Connect any remote server implementing the Model Context Protocol (HTTP POST or SSE)."
                 },
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
@@ -246,8 +245,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                 // this server — add as many as the server requires.
                 Text(
                     text = "HTTP HEADERS",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
@@ -309,7 +307,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                         modifier = Modifier.size(Dimens.iconSizeSm),
                     )
                     Spacer(modifier = Modifier.width(Spacing.xs))
-                    Text("Add Header", fontSize = 12.sp)
+                    Text("Add Header", style = MaterialTheme.typography.bodyMedium)
                 }
 
                 if (isInsecureInput) {
@@ -333,14 +331,14 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Not Secure MCP",
-                                    fontSize = 12.sp,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = AmberWarning,
                                 )
                                 Text(
                                     text = "This server uses plain HTTP. Tokens and tool data can be intercepted. " +
                                         "Only connect if you trust the network.",
-                                    fontSize = 11.sp,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }

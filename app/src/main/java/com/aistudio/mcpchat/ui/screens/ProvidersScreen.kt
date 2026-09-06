@@ -41,7 +41,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.AiProviderType
@@ -82,7 +81,7 @@ fun ProvidersScreen(
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
                 title = {
-                    Text(text = "AI Providers", fontSize = 18.sp)
+                    Text(text = "AI Providers", style = MaterialTheme.typography.headlineSmall)
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
