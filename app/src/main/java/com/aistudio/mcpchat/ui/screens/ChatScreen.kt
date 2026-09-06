@@ -649,6 +649,7 @@ fun ChatScreen(
                         OutlinedTextField(
                             value = inputText,
                             onValueChange = { inputText = it },
+                            label = { Text("Message") },
                             placeholder = {
                                 Text(
                                     text = "Ask anything with remote MCP tools...",
@@ -822,6 +823,12 @@ fun ChatScreen(
                                         checkedThumbColor = IndigoPrimary,
                                         checkedTrackColor = IndigoPrimary.copy(alpha = 0.3f),
                                     ),
+                                    modifier = Modifier
+                                        .semantics {
+                                            contentDescription = "${server.name} ${if (server.isEnabled) "enabled" else "disabled"}"
+                                            stateDescription = if (server.isEnabled) "On" else "Off"
+                                        }
+                                        .testTag("toggle_server_${server.id}"),
                                 )
                             }
                         }
@@ -1713,15 +1720,22 @@ fun PendingAttachmentsBar(
                         .align(Alignment.TopEnd)
                         .padding(Spacing.xxs),
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Remove attachment",
-                        tint = RoseError,
+                    IconButton(
+                        onClick = { onRemove(attachment) },
                         modifier = Modifier
-                            .size(16.dp)
-                            .clickable { onRemove(attachment) }
-                            .testTag("remove_attachment_button"),
-                    )
+                            .testTag("remove_attachment_button")
+                            .semantics {
+                                contentDescription = "Remove attachment"
+                                role = Role.Button
+                            },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = null,
+                            tint = RoseError,
+                            modifier = Modifier.size(Dimens.iconSizeSm),
+                        )
+                    }
                 }
             }
         }

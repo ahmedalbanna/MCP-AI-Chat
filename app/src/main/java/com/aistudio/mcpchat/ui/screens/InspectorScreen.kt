@@ -442,27 +442,27 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                     )
                                 }
                             }
-                            if (showClearConfirm) {
-                                item {
-                                    androidx.compose.material3.AlertDialog(
-                                        onDismissRequest = { showClearConfirm = false },
-                                        title = { Text("Clear audit logs?") },
-                                        text = { Text("This will delete all ${logs.size} log entries.") },
-                                        confirmButton = {
-                                            TextButton(
-                                                onClick = {
-                                                    viewModel.clearLogs()
-                                                    showClearConfirm = false
-                                                },
-                                                colors = ButtonDefaults.textButtonColors(contentColor = RoseError),
-                                            ) { Text("Clear") }
+                        }
+                        if (showClearConfirm) {
+                            androidx.compose.material3.AlertDialog(
+                                onDismissRequest = { showClearConfirm = false },
+                                title = { Text("Clear audit logs?") },
+                                text = { Text("This will delete all ${logs.size} log entries.") },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            viewModel.clearLogs()
+                                            showClearConfirm = false
                                         },
-                                        dismissButton = {
-                                            TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
-                                        },
-                                    )
-                                }
-                            }
+                                        colors = ButtonDefaults.textButtonColors(contentColor = RoseError),
+                                    ) { Text("Clear") }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
+                                },
+                            )
+                        } else {
+                            Unit
                         }
                     }
                     2 -> ResourcesTab(viewModel = viewModel, onNavigateToServers = onNavigateToServers)

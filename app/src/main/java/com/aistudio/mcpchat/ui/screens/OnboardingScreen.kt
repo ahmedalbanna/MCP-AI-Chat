@@ -47,8 +47,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.IndigoPrimary
 import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
+import com.aistudio.mcpchat.ui.theme.Spacing
 
 internal const val ONBOARDING_PREFS = "mcp_chat_onboarding"
 internal const val KEY_HAS_SEEN_ONBOARDING = "has_seen_onboarding"
@@ -95,7 +97,7 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
-                    .padding(top = 4.dp, end = 8.dp),
+                    .padding(top = Spacing.xs, end = Spacing.sm),
             ) {
                 Text("Skip", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -105,9 +107,9 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(32.dp),
+                    .padding(Spacing.xxl),
             ) {
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(Spacing.xxl))
 
                 Box(contentAlignment = Alignment.Center) {
                     Surface(
@@ -118,7 +120,7 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                     Surface(
                         color = IndigoPrimary.copy(alpha = 0.15f),
                         shape = CircleShape,
-                        border = BorderStroke(2.dp, IndigoPrimary.copy(alpha = 0.4f)),
+                        border = BorderStroke(Dimens.borderWidthThick, IndigoPrimary.copy(alpha = 0.4f)),
                         modifier = Modifier.size(96.dp),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -126,13 +128,13 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                                 imageVector = Icons.Default.AutoAwesome,
                                 contentDescription = null,
                                 tint = IndigoPrimaryLight,
-                                modifier = Modifier.size(48.dp),
+                                modifier = Modifier.size(Dimens.touchTargetMin),
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(Spacing.xxl))
 
                 Text(
                     text = "Welcome to",
@@ -141,7 +143,7 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                     fontWeight = FontWeight.Medium,
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(Spacing.xs))
 
                 Text(
                     text = "MCP AI Chat",
@@ -150,7 +152,7 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                     color = MaterialTheme.colorScheme.onSurface,
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Spacing.md))
 
                 Text(
                     text = "AI-powered chat with Model Context Protocol.\nConnect to remote servers, invoke tools,\nand explore the Inspector.",
@@ -168,7 +170,7 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                     description = "Ask questions and get answers powered by Gemini with MCP tools",
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.lg))
 
                 OnboardingFeatureRow(
                     icon = Icons.Default.Hub,
@@ -176,7 +178,7 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                     description = "Connect remote servers and invoke tools via JSON-RPC",
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.lg))
 
                 OnboardingFeatureRow(
                     icon = Icons.Default.Science,
@@ -184,18 +186,18 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                     description = "Test tools directly and view audit logs of every invocation",
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Spacing.xl))
 
                 // Pagination dots
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = 8.dp),
+                    modifier = Modifier.padding(vertical = Spacing.sm),
                 ) {
                     repeat(3) { index ->
                         Box(
                             modifier = Modifier
-                                .size(if (index == 0) 24.dp else 8.dp)
+                                .size(if (index == 0) Dimens.iconSizeLg else Spacing.sm)
                                 .background(
                                     color = if (index == 0) IndigoPrimary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
                                     shape = CircleShape,
@@ -204,22 +206,22 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.lg))
 
                 Button(
                     onClick = onDismiss,
                     colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(Dimens.cornerRadiusXl),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeLg))
+                    Spacer(modifier = Modifier.width(Spacing.sm))
                     Text("Get Started", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.lg))
             }
         }
     }
@@ -233,21 +235,21 @@ private fun OnboardingFeatureRow(icon: ImageVector, title: String, description: 
     ) {
         Surface(
             color = IndigoPrimary.copy(alpha = 0.12f),
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, IndigoPrimary.copy(alpha = 0.3f)),
-            modifier = Modifier.size(48.dp),
+            shape = RoundedCornerShape(Dimens.cornerRadiusMd),
+            border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.3f)),
+            modifier = Modifier.size(Dimens.touchTargetMin),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = IndigoPrimaryLight,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(Dimens.iconSizeLg),
                 )
             }
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(Spacing.lg))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(

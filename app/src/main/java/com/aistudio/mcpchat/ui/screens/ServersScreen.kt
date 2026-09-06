@@ -70,6 +70,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -274,7 +277,7 @@ fun ServersScreen(
                                     imageVector = Icons.Default.Cloud,
                                     contentDescription = "No servers",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    modifier = Modifier.size(48.dp),
+                                    modifier = Modifier.size(Dimens.touchTargetMin),
                                 )
                                 Spacer(modifier = Modifier.height(Spacing.md))
                                 Text(
@@ -433,7 +436,12 @@ fun ServerCardItem(
                             checkedThumbColor = IndigoPrimary,
                             checkedTrackColor = IndigoPrimary.copy(alpha = 0.3f),
                         ),
-                        modifier = Modifier.testTag("toggle_server_${server.id}"),
+                        modifier = Modifier
+                            .semantics {
+                                contentDescription = "${server.name} ${if (server.isEnabled) "enabled" else "disabled"}"
+                                stateDescription = if (server.isEnabled) "On" else "Off"
+                            }
+                            .testTag("toggle_server_${server.id}"),
                     )
                 }
 
@@ -484,7 +492,7 @@ fun ServerCardItem(
                                 imageVector = Icons.Default.Warning,
                                 contentDescription = null,
                                 tint = AmberWarning,
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier.size(Dimens.iconSizeSm),
                             )
                             Spacer(modifier = Modifier.width(Spacing.xs))
                             Text(
@@ -508,8 +516,8 @@ fun ServerCardItem(
                         OutlinedButton(
                             onClick = onPing,
                             enabled = !isTesting,
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = Spacing.sm, vertical = Spacing.xs),
+                            modifier = Modifier.height(Spacing.xxl),
                         ) {
                             if (isTesting) {
                                 CircularProgressIndicator(modifier = Modifier.size(Dimens.iconSizeXs), strokeWidth = 2.dp)
@@ -523,8 +531,8 @@ fun ServerCardItem(
                         OutlinedButton(
                             onClick = onSync,
                             enabled = !isTesting,
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = Spacing.sm, vertical = Spacing.xs),
+                            modifier = Modifier.height(Spacing.xxl),
                         ) {
                             Icon(Icons.Default.Sync, contentDescription = "Sync tools", modifier = Modifier.size(Dimens.iconSizeSm))
                             Spacer(modifier = Modifier.width(Spacing.xs))
@@ -565,8 +573,8 @@ fun ServerCardItem(
 
                     TextButton(
                         onClick = { isExpanded = !isExpanded },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(horizontal = Spacing.sm, vertical = Spacing.xs),
+                        modifier = Modifier.height(Spacing.xxl),
                     ) {
                         Text(
                             text = if (isExpanded) "Hide Tools" else "View Tools (${tools.size})",
@@ -641,6 +649,12 @@ fun ServerCardItem(
                                                             checkedThumbColor = CyanSecondary,
                                                             checkedTrackColor = CyanSecondary.copy(alpha = 0.3f),
                                                         ),
+                                                        modifier = Modifier
+                                                            .semantics {
+                                                                contentDescription = "${tool.name} ${if (tool.isEnabled) "enabled" else "disabled"}"
+                                                                stateDescription = if (tool.isEnabled) "On" else "Off"
+                                                            }
+                                                            .testTag("toggle_tool_${tool.id}"),
                                                     )
                                                 }
                                             }
@@ -649,7 +663,7 @@ fun ServerCardItem(
                                                 text = tool.description,
                                                 style = MaterialTheme.typography.labelMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(top = 2.dp),
+                                                modifier = Modifier.padding(top = Spacing.xxs),
                                             )
                                         }
                                     }

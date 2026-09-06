@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -180,7 +181,9 @@ private fun ProviderRow(config: AiProviderConfig, isActive: Boolean, onSelect: (
             TextButton(onClick = onEdit) { Text("Edit") }
             IconButton(
                 onClick = onDelete,
-                modifier = Modifier.testTag("delete_provider_${config.id}"),
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("delete_provider_${config.id}"),
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,

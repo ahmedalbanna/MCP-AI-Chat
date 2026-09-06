@@ -34,6 +34,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -301,7 +302,12 @@ private fun ProviderDraftForm(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             singleLine = true,
             trailingIcon = {
-                IconButton(onClick = { apiKeyVisible = !apiKeyVisible }) {
+                IconButton(
+                    onClick = { apiKeyVisible = !apiKeyVisible },
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("toggle_api_key_visibility"),
+                ) {
                     Icon(
                         imageVector = if (apiKeyVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                         contentDescription = if (apiKeyVisible) "Hide API key" else "Show API key",

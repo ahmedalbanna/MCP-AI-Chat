@@ -38,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -283,6 +284,9 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                             onClick = {
                                 headerEntries = headerEntries.filterIndexed { i, _ -> i != index }
                             },
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("remove_header_$index"),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
@@ -361,7 +365,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                 },
                 enabled = name.isNotBlank() && endpointUrl.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
-                modifier = Modifier.fillMaxWidth().height(48.dp).testTag("submit_server_button"),
+                modifier = Modifier.fillMaxWidth().height(Dimens.touchTargetMin).testTag("submit_server_button"),
             ) {
                 Text(if (isEdit) "Save Changes" else "Connect & Sync")
             }
