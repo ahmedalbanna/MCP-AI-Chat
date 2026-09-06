@@ -115,11 +115,9 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
         }
     }
 
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     Scaffold(
         topBar = {
             TopAppBar(
-                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
@@ -128,6 +126,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                     Text(
                         text = if (isEdit) "Edit MCP Server" else "Add MCP Server",
                         style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
                     )
                 },
                 navigationIcon = {
@@ -141,7 +140,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        modifier = modifier.fillMaxSize().testTag("server_edit_screen").nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = modifier.fillMaxSize().testTag("server_edit_screen"),
     ) { padding ->
         // Edit target vanished (e.g. deleted on another screen) — nothing to edit.
         if (isEdit && initial == null && servers.isNotEmpty()) {

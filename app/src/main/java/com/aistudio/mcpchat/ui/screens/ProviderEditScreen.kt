@@ -122,11 +122,9 @@ fun ProviderEditScreen(
         }
     }
 
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     Scaffold(
         topBar = {
             TopAppBar(
-                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
@@ -135,6 +133,7 @@ fun ProviderEditScreen(
                     Text(
                         text = if (configId == null) "Add AI Provider" else "Edit AI Provider",
                         style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
                     )
                 },
                 navigationIcon = {
@@ -151,7 +150,7 @@ fun ProviderEditScreen(
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        modifier = modifier.fillMaxSize().testTag("provider_edit_screen").nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = modifier.fillMaxSize().testTag("provider_edit_screen"),
     ) { padding ->
         if (providerMissing) {
             Box(

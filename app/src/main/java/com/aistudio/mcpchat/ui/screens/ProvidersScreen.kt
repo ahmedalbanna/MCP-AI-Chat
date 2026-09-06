@@ -72,17 +72,15 @@ fun ProvidersScreen(
         viewModel.clearFeedback()
     }
 
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     Scaffold(
         topBar = {
             TopAppBar(
-                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
                 title = {
-                    Text(text = "AI Providers", style = MaterialTheme.typography.headlineSmall)
+                    Text(text = "AI Providers", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -95,7 +93,7 @@ fun ProvidersScreen(
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        modifier = modifier.fillMaxSize().testTag("providers_screen").nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = modifier.fillMaxSize().testTag("providers_screen"),
     ) { padding ->
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(Spacing.xs),

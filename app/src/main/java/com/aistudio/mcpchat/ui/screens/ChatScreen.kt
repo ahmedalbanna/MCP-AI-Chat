@@ -246,11 +246,9 @@ fun ChatScreen(
         }
     }
 
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     Scaffold(
         topBar = {
             TopAppBar(
-                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
@@ -359,8 +357,7 @@ fun ChatScreen(
         },
         modifier = modifier
             .fillMaxSize()
-            .imePadding()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+            .imePadding(),
     ) { padding ->
         Column(
             modifier = Modifier
