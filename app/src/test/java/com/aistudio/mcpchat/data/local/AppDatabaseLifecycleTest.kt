@@ -91,7 +91,7 @@ class AppDatabaseLifecycleTest {
 
         val retrieved = database.chatDao().getSessionById("test_session")
         assertNotNull(retrieved)
-        assertEquals("gemini-3.5-flash", retrieved?.model)
+        assertEquals("gemini-3.6-flash", retrieved?.model)
         assertEquals("", retrieved?.systemPrompt)
         assertEquals("[]", retrieved?.enabledServerIdsJson)
         assertEquals(false, retrieved?.isPinned)

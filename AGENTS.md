@@ -15,7 +15,7 @@ Android app (Kotlin + Jetpack Compose + Hilt + Room) with a single `app/` module
 | Spotless / ktlint formatting check | `./gradlew spotlessCheck` |
 | Apply formatting | `./gradlew spotlessApply` |
 | Lint | `./gradlew lintDebug` |
-| Coverage gate (40% minBound) | `./gradlew koverVerify` |
+| Coverage gate (60% minBound) | `./gradlew koverVerify` |
 
 **Order matters**: `detekt` → `spotlessCheck` → `testDebugUnitTest`.
 
@@ -84,5 +84,5 @@ app/src/androidTest/       # Instrumented tests
 ## CI Workflows
 
 - `ci.yml` — PR checks: detekt, spotless, tests (with screenshots), Room migration tests, lint, gitleaks.
-- `nightly.yml` — Daily: same checks + `koverVerify` coverage gate (40%) + artifact upload.
+- `nightly.yml` — Daily: same checks + `koverVerify` coverage gate (60%) + artifact upload.
 - Branch conventions: PRs target `main` or `kotlin`.

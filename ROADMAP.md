@@ -140,7 +140,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Drift fixed: both `ci.yml:18`/`pr-checks.yml:15` JDK 21 per 10.4; `continue-on-error` removed
 
 ### 7.2 Quality Gates [x] — completed via Phase 12 (2026-08-26)
-- Lint/detekt gates run [x]; `gitleaks` `gitleaks-action@v2` with `.gitleaks.toml` allowlist [x] (`detekt maxIssues=0` enforced, now passing) [x]; coverage via `org.jetbrains.kotlinx.kover:0.9.1` (`libs.versions.toml:35` `kover`, `build.gradle.kts:11` apply false, `app/build.gradle.kts:11` `kover` + `kover{reports{verify{minBound(40)}}}` enforced 40% gate, raise toward 60% next) [x]
+- Lint/detekt gates run [x]; `gitleaks` `gitleaks-action@v2` with `.gitleaks.toml` allowlist [x] (`detekt maxIssues=0` enforced, now passing) [x]; coverage via `org.jetbrains.kotlinx.kover:0.9.9` (AGP 9 support; 0.9.1 collected nothing) + `kover{reports{verify{minBound(60)}}}` enforced 60% gate, measured 60.1% [x]
 
 ---
 
@@ -236,6 +236,7 @@ Ordered by severity. Checkboxes are **work to do** (all `[ ]` at start of phase)
 - [x] Decide SSE (2026-09-23): **WONTFIX** — HTTP+SSE-framed via `McpHttpClient:369` `extractJsonRpcBody` is sufficient for streamable-http; no dedicated `McpSseClient`/`EventSource` needed; stale references removed from `ROADMAP.md:121`/`8.1` and docs; DI binding deferred [x]
 - [x] Decide MemoryTool (2026-09-23): **retain** `MemoryTool:11`/`MemoryNoteDao`/`memory_notes` as intentional local Room utility (not dead code) but **not wired** to `ChatRepository:99`; documented in `MemoryTool.kt:11` and `ROADMAP.md:152`/`6.2`; avoids local/remote namespace mixing — revisit via `ToolOrchestrator` if local tool provider is desired [x]
 - [x] Capture Roborazzi goldens: `SnapshotTests.kt` wired with `RoborazziRule` (previously captures were silent no-ops — `taskType.isEnabled()` gate), `logItem_*` pinned to a fixed timestamp, all `19` goldens committed under `app/src/test/snapshots/` and verified via `:app:verifyRoborazziDebug` [x]
+- [x] Bump Google default model `gemini-3.5-flash` → `gemini-3.6-flash` (GA Jul 2026, cheaper/faster; 3.5 retires May 2027): `ChatDefaults`/`AiProviders.google()`/`Entities` default + provider-sheet hint; stored sessions keep their persisted model (no migration) [x]
 
 ---
 
@@ -295,7 +296,7 @@ Addresses remaining P1/P2 from priority table (accessibility, detekt, snapshots,
 - [x] Capture via `captureRoboImage("src/test/snapshots/$name.png")` (needs `ROBORAZZI_RECORD=1` to commit goldens; currently verify-mode passes, goldens deferred but tests green) [x]
 
 ### 12.4 Coverage Gate [P2] — **completed 2026-08-26**
-- [x] Add `kover:0.9.1` to `libs.versions.toml:35` `kover` + `build.gradle.kts:11` `alias(kover) apply false` + `app/build.gradle.kts:11` `alias(kover)` + `kover{reports{filters{excludes{BuildConfig,Hilt_*,hilt_aggregated_deps}} verify{minBound(40)}}}` enforced 40% gate (raise toward 60% after baseline stabilises) [x]
+- [x] Add `kover:0.9.9` (0.9.1 predates AGP 9 support so the report was empty and the gate vacuous) + `kover{reports{filters{excludes{BuildConfig,Hilt_*,hilt_aggregated_deps}} verify{minBound(60)}}}` enforced 60% gate, measured 60.1% [x]
 - [x] Enables `./gradlew koverReport` + `koverVerify` in `nightly.yml` future; `assembleDebug` still SUCCESS 10s with kover instrumentation [x]
 
 ---
@@ -314,7 +315,7 @@ Addresses remaining P1/P2 from priority table (accessibility, detekt, snapshots,
 | **P0** | 12.1 Detekt cleanup (11→0) | S | High |
 | **P1** | 1.3 Accessibility audit (TalkBack focus) | M | High |
 | **P2** | 12.3 Snapshot goldens (Settings variants) | M | Medium |
-| **P2** | 12.4 Kover gate 40% enforced | S | Medium |
+| **P2** | 12.4 Kover gate 60% enforced | S | Medium |
 | **P0** | 13.1 Theme Activity cast crash | S | Critical |
 | **P0** | 13.2 Chat autoscroll + IME Send + gradient | S | High |
 | **P1** | 13.3 Servers filter + 13.4 Inspector dropdown | S | High |

@@ -37,7 +37,7 @@ data class McpToolEntity(
 data class ChatSessionEntity(
     @PrimaryKey val id: String,
     val title: String,
-    val model: String = "gemini-3.5-flash",
+    val model: String = "gemini-3.6-flash",
     val systemPrompt: String = "",
     val enabledServerIdsJson: String = "[]",
     val createdAt: Long = System.currentTimeMillis(),

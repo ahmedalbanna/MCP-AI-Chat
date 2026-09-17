@@ -25,7 +25,7 @@ data class AiProviderConfig(
     val model: String = "",
 ) {
     companion object {
-        fun google(apiKey: String = "", model: String = "gemini-3.5-flash") = AiProviderConfig(
+        fun google(apiKey: String = "", model: String = "gemini-3.6-flash") = AiProviderConfig(
             id = ID_GOOGLE,
             name = "Google Gemini",
             type = AiProviderType.GOOGLE,

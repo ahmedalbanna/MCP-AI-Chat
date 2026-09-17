@@ -320,7 +320,7 @@ private fun ProviderDraftForm(
                 onChange { current -> current.copy(model = model) }
             },
             label = { Text("Model") },
-            placeholder = { Text("gpt-4o-mini / claude-sonnet-4-5 / gemini-3.5-flash") },
+            placeholder = { Text("gpt-4o-mini / claude-sonnet-4-5 / gemini-3.6-flash") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )

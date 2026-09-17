@@ -177,9 +177,8 @@ kover {
     }
      verify {
         rule {
-            // 40% gate is the first enforced threshold (see ROADMAP Phase 12.4).
-            // Raise to 60 once coverage baseline stabilises.
-            minBound(40)
+            // 60% gate enforced (see ROADMAP Phase 12.4).
+            minBound(60)
         }
     }
     total {

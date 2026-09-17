@@ -263,7 +263,7 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertEquals("new_session", viewModel.currentSessionId.value)
-        coVerify { chatRepository.createNewSession(title = "New AI Chat", model = "gemini-3.5-flash") }
+        coVerify { chatRepository.createNewSession(title = "New AI Chat", model = "gemini-3.6-flash") }
     }
 
     @Test
