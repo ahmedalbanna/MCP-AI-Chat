@@ -86,9 +86,8 @@ object AppModule {
     /** Routes chat requests to whichever provider the user configured. */
     @Provides
     @Singleton
-    fun provideAiChatService(okHttpClient: OkHttpClient, settings: AiProviderSettings): AiChatService {
-        // AiProviderSettings.getActive() satisfies the read-only source.
-        return ProviderChatRouter(okHttpClient, settings)
+    fun provideAiChatService(okHttpClient: OkHttpClient): AiChatService {
+        return ProviderChatRouter(okHttpClient)
     }
 
     @Provides

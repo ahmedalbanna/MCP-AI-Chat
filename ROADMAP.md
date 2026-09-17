@@ -86,8 +86,8 @@ A phased plan to transform the current prototype into a production-ready, mainta
 ### 4.3 UI Tests [x]
 - `ComponentsTest`, `NavigationTest`, `ChatViewModelLifecycleTest` etc. replace `Example*Test`; instrumented tests via `connectedDebugAndroidTest`
 
-### 4.4 Snapshot Tests [x] — completed via Phase 12 (2026-08-26)
-- Roborazzi `1.59.0` configured `app/build.gradle.kts:15` with `screenshotTests` opt-in [x]; `SnapshotTests.kt:22` now covers `ServerStatusBadge`/`ToolCallCard` + `SettingsScreen` variants `settings_light/dark/amoled/system` (`ThemePreferences` presets, `MyApplicationTheme(darkTheme, useAmoledDark)`) [x]; CI runs `-PscreenshotTests=true` `ci.yml:40`/`nightly.yml:25` — goldens generated via `captureRoboImage("src/test/snapshots/...")`, diff gate on `10` cases [x] (only `greeting.png` legacy in `screenshots/` kept)
+### 4.4 Snapshot Tests [x] — completed via Phase 12 (2026-08-26), extended Sept 2026
+- Roborazzi `1.59.0` configured `app/build.gradle.kts:15` with `screenshotTests` opt-in [x]; `SnapshotTests.kt` now covers `ServerStatusBadge`/`ToolCallCard` + `SettingsScreen` variants + `TypingIndicator`/`EmptyChatView`/`ServerCard`/`ExecutionResult`/`LogItem` (`19` cases total, wired via `RoborazziRule` so captures actually engage) [x]; CI runs `-PscreenshotTests=true` `ci.yml:40`/`nightly.yml:25` — goldens committed under `src/test/snapshots/`, verified via `:app:verifyRoborazziDebug` (negative control: corrupted golden fails the gate) [x] (only `greeting.png` legacy in `screenshots/` kept)
 
 ---
 
@@ -140,7 +140,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Drift fixed: both `ci.yml:18`/`pr-checks.yml:15` JDK 21 per 10.4; `continue-on-error` removed
 
 ### 7.2 Quality Gates [x] — completed via Phase 12 (2026-08-26)
-- Lint/detekt gates run [x]; `gitleaks` `gitleaks-action@v2` with `.gitleaks.toml` allowlist [x] (`detekt maxIssues=0` enforced, now passing) [x]; coverage via `org.jetbrains.kotlinx.kover:0.9.1` (`libs.versions.toml:35` `kover`, `build.gradle.kts:11` apply false, `app/build.gradle.kts:11` `kover` + `kover{reports{verify{rule{minBound(0)}}}}` placeholder 60% - green until baseline raised) [x]
+- Lint/detekt gates run [x]; `gitleaks` `gitleaks-action@v2` with `.gitleaks.toml` allowlist [x] (`detekt maxIssues=0` enforced, now passing) [x]; coverage via `org.jetbrains.kotlinx.kover:0.9.1` (`libs.versions.toml:35` `kover`, `build.gradle.kts:11` apply false, `app/build.gradle.kts:11` `kover` + `kover{reports{verify{minBound(40)}}}` enforced 40% gate, raise toward 60% next) [x]
 
 ---
 
@@ -230,12 +230,12 @@ Ordered by severity. Checkboxes are **work to do** (all `[ ]` at start of phase)
 ### 10.5 CI Quality Gates [P1] — **completed 2026-09-23**
 - [x] Add migration gate to `ci.yml` (2026-09-23): `ci.yml:42` now `testDebugUnitTest --tests "*DatabaseMigrationTest*"` after unit tests (schemas `1.json`/`2.json` via `app/src/test/assets` already exported)
 - [x] Add `detekt`/`spotlessCheck` to `pr-checks.yml` (2026-09-23): `pr-checks.yml:35` now runs `detekt` + `spotlessCheck` before `assembleDebug`; `lintDebug` still gates without `continue-on-error`
-- [x] Add nightly/snapshot job (2026-09-23): new `.github/workflows/nightly.yml` (schedule `0 2 * * *` + `workflow_dispatch`) runs `detekt`/`spotlessCheck`/`testDebugUnitTest -PscreenshotTests=true`/`DatabaseMigrationTest`/`lintDebug`/`gitleaks`; uploads reports, retention 14d; coverage threshold 60% placeholder until Kover/JaCoCo configured (see file comment)
+- [x] Add nightly/snapshot job (2026-09-23): new `.github/workflows/nightly.yml` (schedule `0 2 * * *` + `workflow_dispatch`) runs `detekt`/`spotlessCheck`/`testDebugUnitTest -PscreenshotTests=true`/`DatabaseMigrationTest`/`lintDebug`/`gitleaks`; uploads reports, retention 14d; coverage via `koverVerify` 40% gate (see `app/build.gradle.kts`)
 
 ### 10.6 Features & Dead Code [P2] — **completed 2026-09-23**
 - [x] Decide SSE (2026-09-23): **WONTFIX** — HTTP+SSE-framed via `McpHttpClient:369` `extractJsonRpcBody` is sufficient for streamable-http; no dedicated `McpSseClient`/`EventSource` needed; stale references removed from `ROADMAP.md:121`/`8.1` and docs; DI binding deferred [x]
 - [x] Decide MemoryTool (2026-09-23): **retain** `MemoryTool:11`/`MemoryNoteDao`/`memory_notes` as intentional local Room utility (not dead code) but **not wired** to `ChatRepository:99`; documented in `MemoryTool.kt:11` and `ROADMAP.md:152`/`6.2`; avoids local/remote namespace mixing — revisit via `ToolOrchestrator` if local tool provider is desired [x]
-- [x] Capture Roborazzi goldens (2026-09-23): `SnapshotTests.kt:22` covers `ServerStatusBadge` + `ToolCallCard` variants (`app/src/test/screenshots/greeting.png` already committed); full `ChatScreen`/`ServersScreen`/`InspectorScreen` goldens deferred as large-effort but CI already runs `testDebugUnitTest -PscreenshotTests=true` via `ci.yml:40`/`nightly.yml:25` with `screenshotTests=false` for local speed [x]
+- [x] Capture Roborazzi goldens: `SnapshotTests.kt` wired with `RoborazziRule` (previously captures were silent no-ops — `taskType.isEnabled()` gate), `logItem_*` pinned to a fixed timestamp, all `19` goldens committed under `app/src/test/snapshots/` and verified via `:app:verifyRoborazziDebug` [x]
 
 ---
 
@@ -271,13 +271,13 @@ Implements user-controlled appearance (approved 2026-08-26: System/Light/Dark + 
 
 ## Phase 12: Quality & Accessibility Hardening (Aug 2026)
 
-Addresses remaining P1/P2 from priority table (accessibility, detekt, snapshots, coverage). All items **completed 2026-08-26**, verified `detekt` SUCCESS, `spotlessCheck` SUCCESS, `assembleDebug` SUCCESS 10s, `testDebugUnitTest` 10 snapshot cases SUCCESS 32s.
+Addresses remaining P1/P2 from priority table (accessibility, detekt, snapshots, coverage). All items **completed 2026-08-26**, verified `detekt` SUCCESS, `spotlessCheck` SUCCESS, `assembleDebug` SUCCESS 10s, `testDebugUnitTest` snapshot cases SUCCESS 32s.
 
 ### 12.1 Detekt Cleanup [P0] — **completed 2026-08-26**
 - [x] `AnthropicClient.kt:65` — add `@Suppress("CyclomaticComplexMethod","NestedBlockDepth","UnusedParameter")` on `buildRequestJson` (20/15, `config` unused param kept for API symmetry) and `@Suppress("NestedBlockDepth")` on `parseResponse:168` [x]
 - [x] `OpenAiCompatibleClient.kt:73` — `@Suppress("UnusedParameter")` on `buildRequestJson` (`config` retained for parity with Anthropic/Gemini) [x]
 - [x] `CryptoManager.kt:40` — `@Suppress("ThrowsCount")` + replace first `throw IllegalArgumentException("Unsupported ciphertext format")` with `require(parts.size==3 && parts[0]==VERSION)` (Uses `UseRequire` fix, reduces throws 3→2 within `ThrowsCount` threshold 2) [x]
-- [x] `ProviderChatRouter.kt:17` — `@Suppress("UnusedPrivateProperty")` on `settings: ActiveAiProviderSource` (injected for future use, not wired to `generateContent` which takes explicit `config`; keep for DI symmetry) [x]
+- [x] `ProviderChatRouter.kt:17` — remove unused `settings: ActiveAiProviderSource` DI param (was `@Suppress("UnusedPrivateProperty")`); router is stateless, active config flows via `generateContent`/`streamContent` args [x]
 - [x] `ChatScreen.kt:141` — remove unused `var showModelMenu by remember { mutableStateOf(false) }` (dead code from earlier provider sheet iteration) [x]
 - [x] `AiProviderSettingsTest.kt:89` — `@Suppress("EmptyFunctionBlock")` on `apply() {}` and delete `private fun Context.dummy()` `137` + unused `import android.content.Context:3` [x]
 - [x] Result: `detekt` 11→0 weighted issues, `BUILD SUCCESSFUL` [x]
@@ -291,11 +291,11 @@ Addresses remaining P1/P2 from priority table (accessibility, detekt, snapshots,
 ### 12.3 Snapshot Goldens [P2] — **completed 2026-08-26**
 - [x] Extract `SettingsScreen.kt:56` into `SettingsScreen(viewModel)` + `SettingsScreenContent(prefs, onSelectMode, onAmoledChange, onDynamicChange)` for testability [x]
 - [x] `SnapshotTests.kt:22` — add 4 variants `settings_light` (LIGHT light), `settings_dark` (DARK dark), `settings_amoled` (DARK amoled), `settings_system` (SYSTEM light) using `ThemePreferences` presets and `MyApplicationTheme(darkTheme, useAmoledDark)` [x]
-- [x] Total `10` snapshot cases (`server_status_* 3` + `tool_call_card_* 3` + `settings_* 4`) — `testDebugUnitTest -PscreenshotTests=true` SUCCESS 32.738s (`settings_light 1.195s`, `settings_amoled 0.504s` etc.) `TEST-com.aistudio.mcpchat.SnapshotTests.xml:1` [x]
+- [x] Total `19` snapshot cases (`server_status_* 3` + `tool_call_card_* 3` + `settings_* 4` + typing/empty/server-card/execution/log variants) — verified via `:app:verifyRoborazziDebug` SUCCESS [x]
 - [x] Capture via `captureRoboImage("src/test/snapshots/$name.png")` (needs `ROBORAZZI_RECORD=1` to commit goldens; currently verify-mode passes, goldens deferred but tests green) [x]
 
 ### 12.4 Coverage Gate [P2] — **completed 2026-08-26**
-- [x] Add `kover:0.9.1` to `libs.versions.toml:35` `kover` + `build.gradle.kts:11` `alias(kover) apply false` + `app/build.gradle.kts:11` `alias(kover)` + `kover{reports{filters{excludes{BuildConfig,Hilt_*,hilt_aggregated_deps}} verify{rule{minBound(0)}} total{verify{rule{minBound(0)}}}}}` placeholder (60% target documented but set 0 to keep CI green until baseline; raise after follow-up) [x]
+- [x] Add `kover:0.9.1` to `libs.versions.toml:35` `kover` + `build.gradle.kts:11` `alias(kover) apply false` + `app/build.gradle.kts:11` `alias(kover)` + `kover{reports{filters{excludes{BuildConfig,Hilt_*,hilt_aggregated_deps}} verify{minBound(40)}}}` enforced 40% gate (raise toward 60% after baseline stabilises) [x]
 - [x] Enables `./gradlew koverReport` + `koverVerify` in `nightly.yml` future; `assembleDebug` still SUCCESS 10s with kover instrumentation [x]
 
 ---
@@ -314,7 +314,7 @@ Addresses remaining P1/P2 from priority table (accessibility, detekt, snapshots,
 | **P0** | 12.1 Detekt cleanup (11→0) | S | High |
 | **P1** | 1.3 Accessibility audit (TalkBack focus) | M | High |
 | **P2** | 12.3 Snapshot goldens (Settings variants) | M | Medium |
-| **P2** | 12.4 Kover gate 60% placeholder | S | Medium |
+| **P2** | 12.4 Kover gate 40% enforced | S | Medium |
 | **P0** | 13.1 Theme Activity cast crash | S | Critical |
 | **P0** | 13.2 Chat autoscroll + IME Send + gradient | S | High |
 | **P1** | 13.3 Servers filter + 13.4 Inspector dropdown | S | High |

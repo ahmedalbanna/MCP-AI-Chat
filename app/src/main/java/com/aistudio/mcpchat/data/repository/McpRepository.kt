@@ -166,6 +166,7 @@ class McpRepository(
     }
 
     suspend fun deleteServer(serverId: String) = withContext(Dispatchers.IO) {
+        stopResourceListener(serverId)
         toolDao.deleteToolsForServer(serverId)
         serverDao.deleteServerById(serverId)
     }
@@ -288,7 +289,18 @@ class McpRepository(
         _subscribedResources.value = current
         // Best-effort; servers drop subscriptions on session loss anyway.
         mcpHttpClient.unsubscribeResource(server, uri)
+        if (remaining.isEmpty()) stopResourceListener(server.id)
         Unit
+    }
+
+    fun stopResourceListener(serverId: String) {
+        listenerJobs.remove(serverId)?.cancel()
+        resourceListCache.remove(serverId)
+        resourceContentCache.keys.removeIf { it.startsWith("$serverId|") }
+    }
+
+    fun clearResourceListeners() {
+        listenerJobs.keys.toList().forEach(::stopResourceListener)
     }
 
     private fun ensureResourceListener(server: McpServer) {

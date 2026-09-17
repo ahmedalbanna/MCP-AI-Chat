@@ -10,7 +10,7 @@ Android app (Kotlin + Jetpack Compose + Hilt + Room) with a single `app/` module
 | Build release APK | `KEYSTORE_PATH=... STORE_PASSWORD=... KEY_PASSWORD=... ./gradlew assembleRelease` |
 | Run unit tests (fast, skips snapshots) | `./gradlew testDebugUnitTest` |
 | Run unit tests incl. snapshots | `./gradlew testDebugUnitTest -PscreenshotTests=true` |
-| Record Roborazzi goldens | `ROBORAZZI_RECORD=1 ./gradlew testDebugUnitTest -PscreenshotTests=true` |
+| Record Roborazzi goldens | `./gradlew :app:recordRoborazziDebug -PscreenshotTests=true` |
 | Detekt static analysis (0 issues allowed) | `./gradlew detekt` |
 | Spotless / ktlint formatting check | `./gradlew spotlessCheck` |
 | Apply formatting | `./gradlew spotlessApply` |

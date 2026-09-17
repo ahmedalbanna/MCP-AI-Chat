@@ -64,7 +64,7 @@ data class AiProviderConfig(
             id = ID_GROQ,
             name = "Groq",
             type = AiProviderType.OPENAI_COMPATIBLE,
-            baseUrl = "https://api.groq.com/openapi-1",
+            baseUrl = "https://api.groq.com/openai/v1",
             apiKey = apiKey,
             model = model,
         )

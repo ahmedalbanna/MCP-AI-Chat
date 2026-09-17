@@ -1,10 +1,9 @@
 package com.aistudio.mcpchat.ui.adaptive
 
-import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
@@ -76,7 +75,7 @@ fun horizontalHingeInsetPx(parentHeightPx: Float, hinge: HingeInfo?): Pair<Float
  */
 @Composable
 fun rememberHingeInfo(): HingeInfo? {
-    val activity = LocalContext.current as? ComponentActivity ?: return null
+    val activity = LocalActivity.current ?: return null
     val layoutInfo by remember(activity) {
         WindowInfoTracker.getOrCreate(activity).windowLayoutInfo(activity)
     }.collectAsStateWithLifecycle(initialValue = null)

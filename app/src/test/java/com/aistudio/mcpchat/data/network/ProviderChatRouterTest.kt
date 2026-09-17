@@ -7,7 +7,7 @@ import org.junit.Test
 
 class ProviderChatRouterTest {
 
-    private val router = ProviderChatRouter(OkHttpClient()) { AiProviderConfig.google() }
+    private val router = ProviderChatRouter(OkHttpClient())
 
     @Test
     fun `gemini session model kept on google provider`() {

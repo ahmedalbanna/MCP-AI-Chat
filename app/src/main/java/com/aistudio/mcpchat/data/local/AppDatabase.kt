@@ -85,7 +85,6 @@ abstract class AppDatabase : RoomDatabase() {
                         "mcp_chat_database",
                     )
                         .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5)
-                        .fallbackToDestructiveMigration(dropAllTables = true)
                         .build()
                         .also { created -> instance = created }
                 current

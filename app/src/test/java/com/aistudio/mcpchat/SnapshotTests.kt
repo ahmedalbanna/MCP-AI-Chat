@@ -19,6 +19,7 @@ import com.aistudio.mcpchat.ui.screens.SettingsScreenContent
 import com.aistudio.mcpchat.ui.screens.ToolCallCard
 import com.aistudio.mcpchat.ui.screens.TypingIndicator
 import com.aistudio.mcpchat.ui.theme.MyApplicationTheme
+import com.github.takahirom.roborazzi.RoborazziRule
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
@@ -35,8 +36,20 @@ class SnapshotTests {
     @get:Rule
     val composeTestRule = createComposeRule()
 
+    @get:Rule
+    val roborazziRule = RoborazziRule(
+        composeRule = composeTestRule,
+        captureRoot = composeTestRule.onRoot(),
+        options = RoborazziRule.Options(),
+    )
+
     private fun capture(name: String) {
         composeTestRule.onRoot().captureRoboImage("src/test/snapshots/$name.png")
+    }
+
+    companion object {
+        // LogItemCard renders the timestamp, so snapshots need a fixed clock.
+        private const val FIXED_LOG_TIMESTAMP = 1_700_000_000_000L
     }
 
     @Test
@@ -330,6 +343,7 @@ class SnapshotTests {
             responsePayload = """{"temp":22,"condition":"sunny"}""",
             isSuccess = true,
             latencyMs = 150,
+            timestamp = FIXED_LOG_TIMESTAMP,
         )
         composeTestRule.setContent {
             MyApplicationTheme {
@@ -349,6 +363,7 @@ class SnapshotTests {
             responsePayload = """{"error":"Connection refused"}""",
             isSuccess = false,
             latencyMs = 5000,
+            timestamp = FIXED_LOG_TIMESTAMP,
             errorMessage = "Connection refused",
         )
         composeTestRule.setContent {
