@@ -87,7 +87,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - `ComponentsTest`, `NavigationTest`, `ChatViewModelLifecycleTest` etc. replace `Example*Test`; instrumented tests via `connectedDebugAndroidTest`
 
 ### 4.4 Snapshot Tests [x] — completed via Phase 12 (2026-08-26), extended Sept 2026
-- Roborazzi `1.59.0` configured `app/build.gradle.kts:15` with `screenshotTests` opt-in [x]; `SnapshotTests.kt` now covers `ServerStatusBadge`/`ToolCallCard` + `SettingsScreen` variants + `TypingIndicator`/`EmptyChatView`/`ServerCard`/`ExecutionResult`/`LogItem` (`19` cases total, wired via `RoborazziRule` so captures actually engage) [x]; CI runs `-PscreenshotTests=true` `ci.yml:40`/`nightly.yml:25` — goldens committed under `src/test/snapshots/`, verified via `:app:verifyRoborazziDebug` (negative control: corrupted golden fails the gate) [x] (only `greeting.png` legacy in `screenshots/` kept)
+- Roborazzi `1.59.0` configured `app/build.gradle.kts:15` with `screenshotTests` opt-in [x]; `SnapshotTests.kt` now covers `ServerStatusBadge`/`ToolCallCard` + `SettingsScreen` variants + `TypingIndicator`/`EmptyChatView`/`ServerCard`/`ExecutionResult`/`LogItem` (`19` cases total, wired via `RoborazziRule` so captures actually engage) [x]; CI runs `-PscreenshotTests=true` `ci.yml:40`/`nightly.yml:25` — goldens committed under `src/test/snapshots/`, verified via `:app:verifyRoborazziDebug` (negative control: corrupted golden fails the gate) [x]
 
 ---
 
@@ -322,7 +322,7 @@ Addresses remaining P1/P2 from priority table (accessibility, detekt, snapshots,
 | **P1** | 13.5 Components nested click/selectable/mono | S | High |
 | **P2** | 13.6 Markdown link support | S | Medium |
 | **P2** | 7.1-7.2 CI coverage + nightly | M | Medium |
-| **P2** | 4.4 Snapshot goldens (legacy `greeting.png`) | L | Medium |
+| **P2** | 4.4 Snapshot goldens (legacy `greeting.png` removed; goldens in `snapshots/`) | L | Medium |
 | **P3** | 8.1/8.2 SSE vs Memory decision | M | Low-Med |
 
 > Completion rule: Phase 10-12 items must be verified by `./gradlew detekt spotlessCheck testDebugUnitTest -PscreenshotTests=true lintDebug koverVerify` on JDK 21 + `MockWebServer` handshake→list→call + `NavigationTest` 4/4 + `SnapshotTests` 10/10 before closing the phase.

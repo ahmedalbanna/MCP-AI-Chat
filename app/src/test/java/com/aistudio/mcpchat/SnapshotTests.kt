@@ -3,24 +3,39 @@ package com.aistudio.mcpchat
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import com.aistudio.mcpchat.data.local.ChatMessageEntity
+import com.aistudio.mcpchat.data.local.ChatSessionEntity
 import com.aistudio.mcpchat.data.local.ThemeMode
 import com.aistudio.mcpchat.data.local.ThemePreferences
+import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.McpLogItem
 import com.aistudio.mcpchat.data.model.McpServer
+import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.model.ToolExecutionStatus
+import com.aistudio.mcpchat.ui.screens.ChatScreen
 import com.aistudio.mcpchat.ui.screens.EmptyChatView
 import com.aistudio.mcpchat.ui.screens.ExecutionResultCard
+import com.aistudio.mcpchat.ui.screens.InspectorScreen
 import com.aistudio.mcpchat.ui.screens.LogItemCard
 import com.aistudio.mcpchat.ui.screens.ServerCardItem
 import com.aistudio.mcpchat.ui.screens.ServerStatusBadge
+import com.aistudio.mcpchat.ui.screens.ServersScreen
 import com.aistudio.mcpchat.ui.screens.SettingsScreenContent
 import com.aistudio.mcpchat.ui.screens.ToolCallCard
 import com.aistudio.mcpchat.ui.screens.TypingIndicator
 import com.aistudio.mcpchat.ui.theme.MyApplicationTheme
+import com.aistudio.mcpchat.ui.viewmodel.AiProviderSettingsViewModel
+import com.aistudio.mcpchat.ui.viewmodel.AiProviderUiState
+import com.aistudio.mcpchat.ui.viewmodel.ChatViewModel
+import com.aistudio.mcpchat.ui.viewmodel.McpInspectorViewModel
+import com.aistudio.mcpchat.ui.viewmodel.McpServersViewModel
 import com.github.takahirom.roborazzi.RoborazziRule
 import com.github.takahirom.roborazzi.captureRoboImage
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -372,5 +387,172 @@ class SnapshotTests {
             }
         }
         capture("log_item_error")
+    }
+
+    @Test
+    fun servers_populated() {
+        val server = McpServer(
+            id = "srv_1",
+            name = "Weather MCP",
+            description = "Provides weather data",
+            endpointUrl = "https://weather.example.com/mcp",
+            isEnabled = true,
+            status = ServerStatus.CONNECTED,
+            latencyMs = 85,
+        )
+        val tool = McpTool(
+            id = "srv_1_get_weather",
+            serverId = "srv_1",
+            serverName = "Weather MCP",
+            name = "get_weather",
+            description = "Current weather for a city",
+            inputSchemaJson = """{"type":"object","properties":{"city":{"type":"string"}}}""",
+        )
+        val viewModel = mockk<McpServersViewModel>(relaxed = true)
+        every { viewModel.servers } returns MutableStateFlow(listOf(server))
+        every { viewModel.tools } returns MutableStateFlow(listOf(tool))
+        every { viewModel.isTesting } returns MutableStateFlow(null)
+        every { viewModel.feedbackMessage } returns MutableStateFlow(null)
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ServersScreen(viewModel = viewModel, onAddServer = {}, onEditServer = {})
+            }
+        }
+        capture("servers_populated")
+    }
+
+    @Test
+    fun servers_empty() {
+        val viewModel = mockk<McpServersViewModel>(relaxed = true)
+        every { viewModel.servers } returns MutableStateFlow(emptyList())
+        every { viewModel.tools } returns MutableStateFlow(emptyList())
+        every { viewModel.isTesting } returns MutableStateFlow(null)
+        every { viewModel.feedbackMessage } returns MutableStateFlow(null)
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ServersScreen(viewModel = viewModel, onAddServer = {}, onEditServer = {})
+            }
+        }
+        capture("servers_empty")
+    }
+
+    @Test
+    fun inspector_with_result() {
+        val server = McpServer(
+            id = "srv_1",
+            name = "Weather MCP",
+            description = "Provides weather data",
+            endpointUrl = "https://weather.example.com/mcp",
+            isEnabled = true,
+            status = ServerStatus.CONNECTED,
+            latencyMs = 85,
+        )
+        val tool = McpTool(
+            id = "srv_1_get_weather",
+            serverId = "srv_1",
+            serverName = "Weather MCP",
+            name = "get_weather",
+            description = "Current weather for a city",
+            inputSchemaJson = """{"type":"object","properties":{"city":{"type":"string"}}}""",
+        )
+        val log = McpLogItem(
+            serverId = "srv_1",
+            serverName = "Weather MCP",
+            toolName = "get_weather",
+            requestPayload = """{"name":"get_weather","arguments":{"city":"Tokyo"}}""",
+            responsePayload = """{"temp":22,"condition":"sunny"}""",
+            isSuccess = true,
+            latencyMs = 150,
+            timestamp = FIXED_LOG_TIMESTAMP,
+        )
+        val viewModel = mockk<McpInspectorViewModel>(relaxed = true)
+        every { viewModel.servers } returns MutableStateFlow(listOf(server))
+        every { viewModel.tools } returns MutableStateFlow(listOf(tool))
+        every { viewModel.logs } returns MutableStateFlow(listOf(log))
+        every { viewModel.selectedToolId } returns MutableStateFlow("srv_1_get_weather")
+        every { viewModel.parameterInputs } returns MutableStateFlow(mapOf("city" to "Tokyo"))
+        every { viewModel.isInvoking } returns MutableStateFlow(false)
+        every { viewModel.latestResult } returns MutableStateFlow("""{"temp":22,"condition":"sunny"}""")
+        every { viewModel.latestLatencyMs } returns MutableStateFlow(150L)
+        every { viewModel.latestIsSuccess } returns MutableStateFlow(true)
+        every { viewModel.resourceSummaries } returns MutableStateFlow(emptyList())
+        every { viewModel.selectedResourceServerId } returns MutableStateFlow(null)
+        every { viewModel.viewedResource } returns MutableStateFlow(null)
+        every { viewModel.viewedResourceContent } returns MutableStateFlow(null)
+        every { viewModel.isLoadingResources } returns MutableStateFlow(false)
+        every { viewModel.subscribedResources } returns MutableStateFlow(emptyMap())
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                InspectorScreen(viewModel = viewModel)
+            }
+        }
+        capture("inspector_with_result")
+    }
+
+    @Test
+    fun chat_with_history() {
+        val session = ChatSessionEntity(
+            id = "s1",
+            title = "Tokyo weather",
+            createdAt = FIXED_LOG_TIMESTAMP,
+            updatedAt = FIXED_LOG_TIMESTAMP,
+        )
+        val messages = listOf(
+            ChatMessageEntity(
+                id = "m1",
+                sessionId = "s1",
+                role = "user",
+                content = "What is the weather in Tokyo?",
+                timestamp = FIXED_LOG_TIMESTAMP,
+            ),
+            ChatMessageEntity(
+                id = "m2",
+                sessionId = "s1",
+                role = "assistant",
+                content = "It is 22°C and sunny in Tokyo.",
+                latencyMs = 150,
+                timestamp = FIXED_LOG_TIMESTAMP,
+            ),
+        )
+        val server = McpServer(
+            id = "srv_1",
+            name = "Weather MCP",
+            description = "Provides weather data",
+            endpointUrl = "https://weather.example.com/mcp",
+            isEnabled = true,
+            status = ServerStatus.CONNECTED,
+            latencyMs = 85,
+        )
+        val viewModel = mockk<ChatViewModel>(relaxed = true)
+        every { viewModel.sessions } returns MutableStateFlow(listOf(session))
+        every { viewModel.currentSessionId } returns MutableStateFlow("s1")
+        every { viewModel.messages } returns MutableStateFlow(messages)
+        every { viewModel.servers } returns MutableStateFlow(listOf(server))
+        every { viewModel.isGenerating } returns MutableStateFlow(false)
+        every { viewModel.inProgressToolCalls } returns MutableStateFlow(emptyList())
+        every { viewModel.streamingText } returns MutableStateFlow(null)
+        every { viewModel.streamProgress } returns MutableStateFlow(null)
+        every { viewModel.pendingAttachments } returns MutableStateFlow(emptyList())
+        every { viewModel.messageSearchResults } returns MutableStateFlow(emptyList())
+        every { viewModel.errorMessage } returns MutableStateFlow(null)
+        every { viewModel.hasPendingUserTurn } returns MutableStateFlow(false)
+        val providerViewModel = mockk<AiProviderSettingsViewModel>(relaxed = true)
+        every { providerViewModel.uiState } returns MutableStateFlow(
+            AiProviderUiState(
+                configs = listOf(AiProviderConfig.google()),
+                activeId = "preset_google",
+            ),
+        )
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                ChatScreen(
+                    viewModel = viewModel,
+                    providerViewModel = providerViewModel,
+                    onNavigateToServers = {},
+                    onNavigateToProviders = {},
+                )
+            }
+        }
+        capture("chat_with_history")
     }
 }
