@@ -42,7 +42,7 @@ app/src/main/java/com/aistudio/mcpchat/
 │   └── tool/            # Built-in tools, LocalFallbackHandler
 ├── di/                  # Hilt AppModule (timeout config, client injection)
 ├── ui/
-│   ├── screens/         # Feature composables (ChatScreen 1300 lines etc.)
+│   ├── screens/         # Feature screens (ChatScreen + ChatMessageItem/ChatEmptyState/ChatStreamingWidgets, etc.)
 │   ├── theme/           # Material 3 theme
 │   └── viewmodel/       # ViewModels (ChatViewModel, etc.)
 ├── McpChatApplication.kt

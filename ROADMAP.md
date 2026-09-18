@@ -128,6 +128,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 
 ### 6.4 ProGuard / R8 [x]
 - `isMinifyEnabled=true` `app/build.gradle.kts:52` + `proguard-rules.pro` for OkHttp/Room/Coroutines/Compose/Hilt [x]; stale blocks removed per 10.4
+- Release build verified end-to-end: `-dontwarn com.google.errorprone.annotations.**` for Tink (EncryptedSharedPreferences) fixed `minifyReleaseWithR8`; `assembleRelease` green and APK signed (v1.1.0) [x]
 
 ---
 

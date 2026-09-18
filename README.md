@@ -9,6 +9,7 @@ Native Android chat application powered by pluggable AI providers (Google Gemini
 - **MCP Server Management** — connect to JSON-RPC or SSE servers, enable/disable dynamically
 - **Inspector Panel** — view and invoke MCP tools with custom parameters
 - **Activity Logs** — full request/response history with filtering
+- **Streaming responses** — live token preview with stop, regenerate, and throughput indicator
 - **Material 3 Dynamic Colors** — adaptive theming on Android 12+
 
 ## Architecture
@@ -107,14 +108,20 @@ STORE_PASSWORD=... KEY_PASSWORD=... \
 
 ```bash
 ./gradlew testDebugUnitTest        # Unit + Robolectric tests (fast; skips snapshot tests)
-./gradlew testDebugUnitTest -PscreenshotTests=true   # include Roborazzi snapshot tests (CI runs this)
+./gradlew testDebugUnitTest -PscreenshotTests=true   # include snapshot tests (no-op captures)
+./gradlew :app:verifyRoborazziDebug -PscreenshotTests=true  # real snapshot gate (23 goldens)
+./gradlew :app:recordRoborazziDebug -PscreenshotTests=true  # re-record goldens after UI changes
 ./gradlew connectedDebugAndroidTest # Instrumented tests
-./gradlew detekt                  # Static analysis
+./gradlew detekt                  # Static analysis (0 issues allowed)
 ./gradlew spotlessCheck           # Code formatting check
+./gradlew lintDebug               # Android lint
+./gradlew koverVerify             # Coverage gate (60% minBound)
 ```
 
-Snapshot tests are skipped by default because they render real pixels via
-Robolectric and are the slowest part of the suite.
+Snapshot pixel comparison only engages through the `verify/recordRoborazziDebug`
+tasks (plain `testDebugUnitTest` runs snapshot tests without comparing).
+Robolectric renders real pixels, so the snapshot tasks are the slowest part
+of the suite.
 
 ## Project Structure
 
