@@ -140,7 +140,7 @@ A phased plan to transform the current prototype into a production-ready, mainta
 - Drift fixed: both `ci.yml:18`/`pr-checks.yml:15` JDK 21 per 10.4; `continue-on-error` removed
 
 ### 7.2 Quality Gates [x] — completed via Phase 12 (2026-08-26)
-- Lint/detekt gates run [x]; `gitleaks` `gitleaks-action@v2` with `.gitleaks.toml` allowlist [x] (`detekt maxIssues=0` enforced, now passing) [x]; coverage via `org.jetbrains.kotlinx.kover:0.9.9` (AGP 9 support; 0.9.1 collected nothing) + `kover{reports{verify{minBound(60)}}}` enforced 60% gate, measured 60.1% [x]
+- Lint/detekt gates run [x]; `gitleaks` `gitleaks-action@v2` with `.gitleaks.toml` allowlist [x] (`detekt maxIssues=0` enforced, now passing) [x]; coverage via `org.jetbrains.kotlinx.kover:0.9.9` (AGP 9 support; 0.9.1 collected nothing) + `kover{reports{verify{minBound(60)}}}` enforced 60% gate, measured 61.1% after backfilling `GeminiApiService.generateContent` + `ArabicNumerals` tests [x]
 
 ---
 
@@ -296,7 +296,7 @@ Addresses remaining P1/P2 from priority table (accessibility, detekt, snapshots,
 - [x] Capture via `captureRoboImage("src/test/snapshots/$name.png")` (needs `ROBORAZZI_RECORD=1` to commit goldens; currently verify-mode passes, goldens deferred but tests green) [x]
 
 ### 12.4 Coverage Gate [P2] — **completed 2026-08-26**
-- [x] Add `kover:0.9.9` (0.9.1 predates AGP 9 support so the report was empty and the gate vacuous) + `kover{reports{filters{excludes{BuildConfig,Hilt_*,hilt_aggregated_deps}} verify{minBound(60)}}}` enforced 60% gate, measured 60.1% [x]
+- [x] Add `kover:0.9.9` (0.9.1 predates AGP 9 support so the report was empty and the gate vacuous) + `kover{reports{filters{excludes{BuildConfig,Hilt_*,hilt_aggregated_deps}} verify{minBound(60)}}}` enforced 60% gate, measured 61.1% after backfilling `GeminiApiService.generateContent` (93.9%) + `ArabicNumerals` (100%) tests [x]
 - [x] Enables `./gradlew koverReport` + `koverVerify` in `nightly.yml` future; `assembleDebug` still SUCCESS 10s with kover instrumentation [x]
 
 ---
