@@ -29,3 +29,6 @@
 -keep class dagger.hilt.** { *; }
 -keep class * extends dagger.hilt.android.lifecycle.HiltViewModel
 -keep class * extends androidx.lifecycle.ViewModel
+
+# EncryptedSharedPreferences (Tink references error-prone annotations only in signatures)
+-dontwarn com.google.errorprone.annotations.**
