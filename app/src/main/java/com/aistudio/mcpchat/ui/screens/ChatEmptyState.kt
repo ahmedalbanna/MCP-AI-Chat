@@ -215,7 +215,7 @@ fun QuickActionChip(label: String, icon: ImageVector? = null, onClick: () -> Uni
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(Dimens.iconSizeSm),
                 )
                 Spacer(modifier = Modifier.width(Spacing.xs))

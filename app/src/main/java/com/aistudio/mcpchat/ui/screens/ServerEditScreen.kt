@@ -58,6 +58,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.model.McpHeaderCodec
 import com.aistudio.mcpchat.data.repository.McpRepository
+import com.aistudio.mcpchat.ui.theme.AmberWarning
 import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.McpServersViewModel
@@ -402,9 +403,9 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
 
                 if (isInsecureInput) {
                     Surface(
-                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f),
                         shape = RoundedCornerShape(Dimens.cornerRadiusMd),
-                        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f)),
+                        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Row(
@@ -414,7 +415,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                             Icon(
                                 imageVector = Icons.Default.Warning,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.tertiary,
+                                tint = AmberWarning,
                                 modifier = Modifier.size(Dimens.iconSizeMd),
                             )
                             Spacer(modifier = Modifier.width(Spacing.sm))

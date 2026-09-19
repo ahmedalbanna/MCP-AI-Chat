@@ -74,33 +74,29 @@ import org.json.JSONObject
 
 @Composable
 fun ServerStatusBadge(status: ServerStatus, latencyMs: Long = 0, modifier: Modifier = Modifier) {
-    val (bgColor, textColor, label) = when (status) {
-        ServerStatus.CONNECTED -> Triple(
-            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+    val (textColor, label) = when (status) {
+        ServerStatus.CONNECTED -> Pair(
             MaterialTheme.colorScheme.tertiary,
             if (latencyMs > 0) "${latencyMs}ms" else "Online",
         )
-        ServerStatus.CONNECTING -> Triple(
-            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+        ServerStatus.CONNECTING -> Pair(
             MaterialTheme.colorScheme.secondary,
             "Connecting...",
         )
-        ServerStatus.ERROR -> Triple(
-            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+        ServerStatus.ERROR -> Pair(
             MaterialTheme.colorScheme.error,
             "Offline",
         )
-        ServerStatus.DISCONNECTED -> Triple(
-            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f),
+        ServerStatus.DISCONNECTED -> Pair(
             MaterialTheme.colorScheme.onSurfaceVariant,
             "Disabled",
         )
     }
 
     Surface(
-        color = bgColor,
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
         shape = RoundedCornerShape(Dimens.cornerRadiusMd),
-        border = BorderStroke(Dimens.borderWidth, textColor.copy(alpha = 0.3f)),
+        border = BorderStroke(Dimens.borderWidth, textColor.copy(alpha = 0.25f)),
         modifier = modifier,
     ) {
         Row(
@@ -354,7 +350,7 @@ fun CodeBlock(code: String, language: String = "", modifier: Modifier = Modifier
                 ) {
                     Text(
                         text = language.uppercase(),
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                         fontFamily = FontFamily.Monospace,
                     )
                     IconButton(
@@ -400,7 +396,7 @@ fun CodeBlock(code: String, language: String = "", modifier: Modifier = Modifier
 
 @Composable
 fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
-    val codeBackground = MaterialTheme.colorScheme.surfaceVariant
+    val codeBackground = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f)
     val accent = MaterialTheme.colorScheme.primary
     val lines = remember(text) { text.split("\n") }
     Column(modifier = modifier) {
@@ -428,22 +424,22 @@ fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
                 if (line.startsWith("### ")) {
                     Text(
                         text = line.removePrefix("### "),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs),
                     )
                 } else if (line.startsWith("## ")) {
                     Text(
                         text = line.removePrefix("## "),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(top = Spacing.cardPadding, bottom = Spacing.xs),
                     )
                 } else if (line.startsWith("# ")) {
                     Text(
                         text = line.removePrefix("# "),
-                        style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Black),
-                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.sm),
                     )
                 } else if (line.trimStart().startsWith("- ") || line.trimStart().startsWith("* ")) {
@@ -479,8 +475,8 @@ private fun MarkdownBullet(bulletText: String, codeBackground: Color, accent: Co
     Row(modifier = modifier.padding(vertical = Spacing.xxs)) {
         Text(
             text = "•",
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.secondary,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(end = Spacing.sm),
         )
         val annotated = remember(bulletText, codeBackground, accent) {

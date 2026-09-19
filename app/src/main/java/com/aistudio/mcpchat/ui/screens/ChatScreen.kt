@@ -62,7 +62,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -237,7 +236,7 @@ fun ChatScreen(
                             Spacer(modifier = Modifier.width(Spacing.sm))
                             Surface(
                                 onClick = onNavigateToProviders,
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
                                 shape = RoundedCornerShape(Dimens.cornerRadiusFull),
                                 border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant),
                                 modifier = Modifier
@@ -441,7 +440,7 @@ fun ChatScreen(
                         },
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primary,
-                        shadowElevation = Dimens.elevationLg,
+                        shadowElevation = Dimens.elevationMd,
                         modifier = Modifier.size(Dimens.touchTargetMin),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -723,8 +722,7 @@ fun ChatScreen(
                     Column {
                         Text(
                             text = "Active MCP Servers",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                         )
                         Text(
                             text = "Toggle servers enabled for AI tool discovery",
@@ -751,8 +749,9 @@ fun ChatScreen(
                 ) {
                     items(servers, key = { it.id }) { server ->
                         Surface(
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
                             shape = RoundedCornerShape(Dimens.cornerRadiusLg),
+                            border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Row(
@@ -770,13 +769,13 @@ fun ChatScreen(
                                         if (server.isPreset) {
                                             Spacer(modifier = Modifier.width(Spacing.sm))
                                             Surface(
-                                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                                                shape = RoundedCornerShape(Dimens.cornerRadiusSm),
+                                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                                                shape = RoundedCornerShape(Dimens.cornerRadiusFull),
                                             ) {
                                                 Text(
                                                     text = "PRESET",
-                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                                    color = MaterialTheme.colorScheme.secondary,
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                                                     modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs),
                                                 )
                                             }
@@ -795,10 +794,6 @@ fun ChatScreen(
                                     onCheckedChange = { checked ->
                                         viewModel.toggleServer(server.id, checked)
                                     },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                                    ),
                                     modifier = Modifier
                                         .semantics {
                                             contentDescription = "${server.name} ${if (server.isEnabled) "enabled" else "disabled"}"
@@ -845,8 +840,7 @@ fun ChatScreen(
                 ) {
                     Text(
                         text = "Conversations",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                     )
                     FilledTonalButton(
                         onClick = {
@@ -883,7 +877,7 @@ fun ChatScreen(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
-                    shape = RoundedCornerShape(Dimens.cornerRadiusXl),
+                    shape = RoundedCornerShape(Dimens.chatInputRadius),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("message_search_field"),
@@ -943,7 +937,7 @@ fun ChatScreen(
                             color = sessionSurfaceColor(isSelected),
                             shape = RoundedCornerShape(Dimens.cornerRadiusLg),
                             border = if (isSelected) {
-                                BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary)
+                                BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant)
                             } else {
                                 null
                             },
@@ -966,8 +960,7 @@ fun ChatScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = session.title,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                                     )
                                     Text(
                                         text = sessionDateFormatter.format(Date(session.updatedAt)),

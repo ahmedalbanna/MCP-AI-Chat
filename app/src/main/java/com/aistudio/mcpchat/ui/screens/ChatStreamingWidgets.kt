@@ -95,9 +95,9 @@ fun PulsingDots(modifier: Modifier = Modifier) {
 
 @Composable
 internal fun sessionSurfaceColor(isSelected: Boolean): Color = if (isSelected) {
-    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+    MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f)
 } else {
-    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
 }
 
 /**
@@ -310,7 +310,7 @@ fun PendingAttachmentsBar(
                 modifier = Modifier
                     .size(Dimens.attachmentThumb)
                     .clip(RoundedCornerShape(Dimens.cornerRadiusSm))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f))
                     .testTag("add_attachment_tile"),
             ) {
                 Icon(
