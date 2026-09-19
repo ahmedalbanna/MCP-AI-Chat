@@ -35,7 +35,9 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -63,6 +65,7 @@ fun ProvidersScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var pendingDelete by remember { mutableStateOf<AiProviderConfig?>(null) }
 
     LaunchedEffect(uiState.feedback) {
         val feedback = uiState.feedback ?: return@LaunchedEffect
@@ -115,7 +118,7 @@ fun ProvidersScreen(
                     isActive = config.id == uiState.activeId,
                     onSelect = { viewModel.selectActive(config.id) },
                     onEdit = { onEditProvider(config.id) },
-                    onDelete = { viewModel.delete(config.id) },
+                    onDelete = { pendingDelete = config },
                 )
                 if (index < uiState.configs.lastIndex) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -143,6 +146,26 @@ fun ProvidersScreen(
                 Spacer(Modifier.height(Spacing.xl))
             }
         }
+        pendingDelete?.let { toDelete ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { pendingDelete = null },
+                title = { Text("Delete provider?") },
+                text = { Text("Delete \"${toDelete.name}\"? This cannot be undone.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.delete(toDelete.id)
+                            pendingDelete = null
+                        },
+                    ) {
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+                },
+            )
+        }
     }
 }
 
@@ -164,8 +187,7 @@ private fun ProviderRow(config: AiProviderConfig, isActive: Boolean, onSelect: (
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = config.name.ifBlank { "Unnamed" } + if (isActive) "  •  active" else "",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                 )
                 Text(
                     text = "${config.model} — ${config.baseUrl}",

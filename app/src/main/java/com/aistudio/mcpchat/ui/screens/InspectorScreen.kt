@@ -87,11 +87,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.model.McpLogItem
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.repository.ResourceSummary
-import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.Dimens
-import com.aistudio.mcpchat.ui.theme.EmeraldTertiary
-import com.aistudio.mcpchat.ui.theme.IndigoPrimary
-import com.aistudio.mcpchat.ui.theme.RoseError
 import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.McpInspectorViewModel
 import org.json.JSONObject
@@ -158,7 +154,7 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = IndigoPrimary,
+                contentColor = MaterialTheme.colorScheme.primary,
             ) {
                 Tab(
                     selected = selectedTabIndex == 0,
@@ -247,16 +243,16 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                     )
                                     Spacer(modifier = Modifier.height(Spacing.xxs))
-                                    Text(
-                                        text = "Go to MCP Servers tab",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = IndigoPrimary,
-                                        modifier = Modifier
-                                            .clickable { onNavigateToServers?.invoke() }
-                                            .semantics { role = Role.Button }
-                                            .padding(Spacing.xs),
-                                    )
+                                    TextButton(
+                                        onClick = { onNavigateToServers?.invoke() },
+                                        modifier = Modifier.minimumInteractiveComponentSize(),
+                                    ) {
+                                        Text(
+                                            text = "Go to MCP Servers tab",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
                                 }
                             }
                         } else {
@@ -317,14 +313,14 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                         text = "RAW JSON-RPC TELEMETRY",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = CyanSecondary,
+                                        color = MaterialTheme.colorScheme.secondary,
                                         fontFamily = FontFamily.Monospace,
                                     )
 
                                     if (logs.isNotEmpty()) {
                                         TextButton(
                                             onClick = { showClearConfirm = true },
-                                            colors = ButtonDefaults.textButtonColors(contentColor = RoseError),
+                                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                                         ) {
                                             Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeMd))
                                             Spacer(modifier = Modifier.width(Spacing.xs))
@@ -368,7 +364,7 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                                 text = "$successCount success",
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.SemiBold,
-                                                color = EmeraldTertiary,
+                                                color = MaterialTheme.colorScheme.tertiary,
                                                 fontFamily = FontFamily.Monospace,
                                             )
                                             Text(
@@ -381,7 +377,7 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                                 text = "$failCount failed",
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.SemiBold,
-                                                color = RoseError,
+                                                color = MaterialTheme.colorScheme.error,
                                                 fontFamily = FontFamily.Monospace,
                                             )
                                             Text(
@@ -439,31 +435,29 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                 }
                             }
                         }
-                        if (showClearConfirm) {
-                            androidx.compose.material3.AlertDialog(
-                                onDismissRequest = { showClearConfirm = false },
-                                title = { Text("Clear audit logs?") },
-                                text = { Text("This will delete all ${logs.size} log entries.") },
-                                confirmButton = {
-                                    TextButton(
-                                        onClick = {
-                                            viewModel.clearLogs()
-                                            showClearConfirm = false
-                                        },
-                                        colors = ButtonDefaults.textButtonColors(contentColor = RoseError),
-                                    ) { Text("Clear") }
-                                },
-                                dismissButton = {
-                                    TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
-                                },
-                            )
-                        } else {
-                            Unit
-                        }
                     }
                     2 -> ResourcesTab(viewModel = viewModel, onNavigateToServers = onNavigateToServers)
                 }
             }
+        }
+        if (showClearConfirm) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showClearConfirm = false },
+                title = { Text("Clear audit logs?") },
+                text = { Text("This will delete all ${logs.size} log entries.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.clearLogs()
+                            showClearConfirm = false
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text("Clear") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
+                },
+            )
         }
     }
 }
@@ -505,7 +499,7 @@ fun ResourcesTab(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier
                     text = "MCP RESOURCES",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = CyanSecondary,
+                    color = MaterialTheme.colorScheme.secondary,
                     fontFamily = FontFamily.Monospace,
                 )
                 Text(
@@ -540,16 +534,16 @@ fun ResourcesTab(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text(
-                            text = "Go to MCP Servers tab",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = IndigoPrimary,
-                            modifier = Modifier
-                                .clickable { onNavigateToServers?.invoke() }
-                                .semantics { role = Role.Button }
-                                .padding(Spacing.xs),
-                        )
+                        TextButton(
+                            onClick = { onNavigateToServers?.invoke() },
+                            modifier = Modifier.minimumInteractiveComponentSize(),
+                        ) {
+                            Text(
+                                text = "Go to MCP Servers tab",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
                 }
             }
@@ -563,9 +557,14 @@ fun ResourcesTab(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier
                 ) {
                     enabledServers.forEach { server ->
                         val selected = server.id == selectedServerId
+                        val chipColor = if (selected) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        }
                         Surface(
                             onClick = { viewModel.selectResourceServer(server.id) },
-                            color = if (selected) IndigoPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            color = chipColor,
                             shape = RoundedCornerShape(Dimens.cornerRadiusXl),
                             modifier = Modifier
                                 .testTag("resource_server_chip_${server.id}")
@@ -575,7 +574,7 @@ fun ResourcesTab(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier
                                 text = server.name,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) IndigoPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
                             )
                         }
@@ -634,9 +633,9 @@ private fun ResourceItemCard(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        color = if (isViewed) IndigoPrimary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = if (isViewed) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-        border = if (isViewed) BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.5f)) else null,
+        border = if (isViewed) BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)) else null,
         modifier = modifier
             .fillMaxWidth()
             .testTag("resource_item")
@@ -672,7 +671,7 @@ private fun ResourceItemCard(
                 Icon(
                     imageVector = if (isSubscribed) Icons.Default.Notifications else Icons.Default.NotificationsNone,
                     contentDescription = if (isSubscribed) "Unsubscribe from ${summary.resource.name}" else "Subscribe to ${summary.resource.name}",
-                    tint = if (isSubscribed) EmeraldTertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (isSubscribed) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(Dimens.iconSizeSm),
                 )
             }
@@ -695,7 +694,7 @@ private fun ResourceContentCard(title: String, uri: String, mimeType: String?, c
                 Icon(
                     imageVector = Icons.Default.Description,
                     contentDescription = null,
-                    tint = IndigoPrimary,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(Dimens.iconSizeSm),
                 )
                 Spacer(modifier = Modifier.width(Spacing.xs))
@@ -711,7 +710,7 @@ private fun ResourceContentCard(title: String, uri: String, mimeType: String?, c
                     Text(
                         text = mimeType,
                         style = MaterialTheme.typography.bodySmall,
-                        color = CyanSecondary,
+                        color = MaterialTheme.colorScheme.secondary,
                         fontFamily = FontFamily.Monospace,
                     )
                 }
@@ -781,7 +780,7 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
                 text = "TARGET MCP TOOL:",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = CyanSecondary,
+                color = MaterialTheme.colorScheme.secondary,
                 fontFamily = FontFamily.Monospace,
             )
             Spacer(modifier = Modifier.height(Spacing.sm))
@@ -904,12 +903,32 @@ fun ParametersCard(
                 text = "INVOCATION PARAMETERS:",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = CyanSecondary,
+                color = MaterialTheme.colorScheme.secondary,
                 fontFamily = FontFamily.Monospace,
             )
 
             Spacer(modifier = Modifier.height(Spacing.md))
 
+            val requiredKeys = remember(tool.inputSchemaJson) {
+                try {
+                    val arr = JSONObject(tool.inputSchemaJson).optJSONArray("required")
+                    (0 until (arr?.length() ?: 0)).map { i -> arr!!.getString(i) }.toSet()
+                } catch (_: Exception) {
+                    emptySet()
+                }
+            }
+            val propTypes = remember(tool.inputSchemaJson) {
+                try {
+                    val props = JSONObject(tool.inputSchemaJson).optJSONObject("properties")
+                    buildMap {
+                        props?.keys()?.forEach { k ->
+                            put(k, props.optJSONObject(k)?.optString("type")?.lowercase())
+                        }
+                    }
+                } catch (_: Exception) {
+                    emptyMap()
+                }
+            }
             if (parameterInputs.isEmpty()) {
                 Text(
                     text = "No parameters required for this tool.",
@@ -917,46 +936,35 @@ fun ParametersCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                val requiredKeys = remember(tool.inputSchemaJson) {
-                    try {
-                        val arr = JSONObject(tool.inputSchemaJson).optJSONArray("required")
-                        (0 until (arr?.length() ?: 0)).map { i -> arr!!.getString(i) }.toSet()
-                    } catch (_: Exception) {
-                        emptySet()
-                    }
-                }
-                val propTypes = remember(tool.inputSchemaJson) {
-                    try {
-                        val props = JSONObject(tool.inputSchemaJson).optJSONObject("properties")
-                        buildMap {
-                            props?.keys()?.forEach { k ->
-                                put(k, props.optJSONObject(k)?.optString("type")?.lowercase())
-                            }
-                        }
-                    } catch (_: Exception) {
-                        emptyMap()
-                    }
-                }
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     for ((key, value) in parameterInputs) {
-                        val isError = value.isBlank() && requiredKeys.contains(key)
+                        val isMissingRequired = value.isBlank() && requiredKeys.contains(key)
                         val helperText = when (propTypes[key]) {
                             "integer" -> if (value.isNotBlank() && value.toIntOrNull() == null) "Must be an integer" else null
                             "number" -> if (value.isNotBlank() && value.toDoubleOrNull() == null) "Must be a number" else null
-                            "boolean" -> if (value.isNotBlank() && value.lowercase() !in setOf("true", "false")) "Must be true or false" else null
+                            "boolean" -> if (value.isNotBlank() && value.lowercase() !in setOf("true", "false")) {
+                                "Must be true or false"
+                            } else {
+                                null
+                            }
                             else -> null
                         }
+                        val errorText = helperText ?: if (isMissingRequired) "Required" else null
                         OutlinedTextField(
                             value = value,
                             onValueChange = { onParameterChange(key, it) },
                             label = { Text(key, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium) },
-                            isError = isError || helperText != null,
-                            supportingText = helperText?.let { msg ->
-                                { Text(msg, style = MaterialTheme.typography.labelSmall, color = RoseError) }
+                            isError = errorText != null,
+                            supportingText = errorText?.let { msg ->
+                                { Text(msg, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
                             },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = if (isError || helperText != null) RoseError else IndigoPrimary,
+                                focusedBorderColor = if (errorText != null) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                },
                                 unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
                             ),
                             modifier = Modifier
@@ -969,10 +977,19 @@ fun ParametersCard(
 
             Spacer(modifier = Modifier.height(Spacing.cardPadding))
 
+            val hasValidationError = parameterInputs.any { (key, value) ->
+                val missing = value.isBlank() && requiredKeys.contains(key)
+                missing || when (propTypes[key]) {
+                    "integer" -> value.isNotBlank() && value.toIntOrNull() == null
+                    "number" -> value.isNotBlank() && value.toDoubleOrNull() == null
+                    "boolean" -> value.isNotBlank() && value.lowercase() !in setOf("true", "false")
+                    else -> false
+                }
+            }
             Button(
                 onClick = onInvoke,
-                enabled = !isInvoking,
-                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                enabled = !isInvoking && !hasValidationError,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(Dimens.cornerRadiusMd),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -999,10 +1016,15 @@ fun ParametersCard(
 
 @Composable
 fun ExecutionResultCard(result: String, latencyMs: Long, isSuccess: Boolean, modifier: Modifier = Modifier) {
+    val borderColor = if (isSuccess) {
+        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f)
+    } else {
+        MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+    }
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-        border = BorderStroke(Dimens.borderWidth, if (isSuccess) EmeraldTertiary.copy(alpha = 0.5f) else RoseError.copy(alpha = 0.5f)),
+        border = BorderStroke(Dimens.borderWidth, borderColor),
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(Spacing.cardPadding)) {
@@ -1015,7 +1037,7 @@ fun ExecutionResultCard(result: String, latencyMs: Long, isSuccess: Boolean, mod
                     Icon(
                         imageVector = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
                         contentDescription = if (isSuccess) "Success" else "Error",
-                        tint = if (isSuccess) EmeraldTertiary else RoseError,
+                        tint = if (isSuccess) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(Dimens.iconSizeMd),
                     )
                     Spacer(modifier = Modifier.width(Spacing.sm))
@@ -1023,7 +1045,7 @@ fun ExecutionResultCard(result: String, latencyMs: Long, isSuccess: Boolean, mod
                         text = if (isSuccess) "EXECUTION SUCCESS" else "EXECUTION ERROR",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (isSuccess) EmeraldTertiary else RoseError,
+                        color = if (isSuccess) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
                         fontFamily = FontFamily.Monospace,
                     )
                 }
@@ -1035,7 +1057,7 @@ fun ExecutionResultCard(result: String, latencyMs: Long, isSuccess: Boolean, mod
                     Text(
                         text = "${latencyMs}ms",
                         style = MaterialTheme.typography.labelSmall,
-                        color = EmeraldTertiary,
+                        color = MaterialTheme.colorScheme.tertiary,
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs),
                     )
@@ -1060,11 +1082,16 @@ fun LogItemCard(
     modifier: Modifier = Modifier,
 ) {
     var isExpanded by remember { mutableStateOf(false) }
+    val logBorderColor = if (logItem.isSuccess) {
+        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)
+    } else {
+        MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
+    }
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(Dimens.borderWidth, if (logItem.isSuccess) EmeraldTertiary.copy(alpha = 0.3f) else RoseError.copy(alpha = 0.3f)),
+        border = BorderStroke(Dimens.borderWidth, logBorderColor),
         modifier = modifier
             .fillMaxWidth()
             .semantics {
@@ -1083,7 +1110,7 @@ fun LogItemCard(
                     Icon(
                         imageVector = if (logItem.isSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
                         contentDescription = if (logItem.isSuccess) "Success" else "Error",
-                        tint = if (logItem.isSuccess) EmeraldTertiary else RoseError,
+                        tint = if (logItem.isSuccess) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(Dimens.iconSizeSm),
                     )
                     Spacer(modifier = Modifier.width(Spacing.sm))
@@ -1100,7 +1127,7 @@ fun LogItemCard(
                     Text(
                         text = "${logItem.latencyMs}ms",
                         style = MaterialTheme.typography.bodySmall,
-                        color = EmeraldTertiary,
+                        color = MaterialTheme.colorScheme.tertiary,
                         fontFamily = FontFamily.Monospace,
                     )
                     Spacer(modifier = Modifier.width(Spacing.md))
@@ -1123,7 +1150,7 @@ fun LogItemCard(
                     Text(
                         text = "REQUEST JSON-RPC:",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = CyanSecondary,
+                        color = MaterialTheme.colorScheme.secondary,
                         fontFamily = FontFamily.Monospace,
                     )
                     Spacer(modifier = Modifier.height(Spacing.xxs))
@@ -1134,7 +1161,7 @@ fun LogItemCard(
                     Text(
                         text = "RESPONSE PAYLOAD:",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = if (logItem.isSuccess) EmeraldTertiary else RoseError,
+                        color = if (logItem.isSuccess) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
                         fontFamily = FontFamily.Monospace,
                     )
                     Spacer(modifier = Modifier.height(Spacing.xxs))

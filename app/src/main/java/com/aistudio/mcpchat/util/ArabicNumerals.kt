@@ -22,4 +22,8 @@ object ArabicNumerals {
         val formatted = String.format(Locale.US, "%,d", number)
         return convert(formatted)
     }
+
+    fun convertIfArabic(input: String): String {
+        return if (Locale.getDefault().language == "ar") convert(input) else input
+    }
 }

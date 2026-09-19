@@ -25,6 +25,7 @@ data class ProviderDraft(
 
 data class AiProviderUiState(
     val configs: List<AiProviderConfig> = emptyList(),
+    val configsLoaded: Boolean = false,
     val activeId: String = "",
     val draft: ProviderDraft? = null,
     val feedback: com.aistudio.mcpchat.ui.viewmodel.FeedbackMessage? = null,
@@ -46,6 +47,7 @@ class AiProviderSettingsViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = _uiState.value.copy(
                 configs = settings.getAll(),
+                configsLoaded = true,
                 activeId = settings.getActiveId(),
             )
         }
@@ -116,6 +118,7 @@ class AiProviderSettingsViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         draft = null,
                         configs = settings.getAll(),
+                        configsLoaded = true,
                         feedback = FeedbackMessage("Saved ${config.name}"),
                     )
                 }
@@ -134,6 +137,7 @@ class AiProviderSettingsViewModel @Inject constructor(
             settings.delete(id)
             _uiState.value = _uiState.value.copy(
                 configs = settings.getAll(),
+                configsLoaded = true,
                 feedback = FeedbackMessage("Provider removed"),
             )
         }

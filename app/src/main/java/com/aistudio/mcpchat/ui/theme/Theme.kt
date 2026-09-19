@@ -3,7 +3,9 @@ package com.aistudio.mcpchat.ui.theme
 import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -15,41 +17,62 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+val AppShapes = Shapes(
+    extraSmall = RoundedCornerShape(Dimens.cornerRadiusSm),
+    small = RoundedCornerShape(Dimens.cornerRadiusMd),
+    medium = RoundedCornerShape(Dimens.cornerRadiusLg),
+    large = RoundedCornerShape(Dimens.cornerRadiusXl),
+    extraLarge = RoundedCornerShape(Dimens.cornerRadiusXl),
+)
+
 private val amoledDarkColorScheme = darkColorScheme(
     primary = IndigoPrimaryLight,
-    onPrimary = SlateSurfaceDark,
+    onPrimary = SlateSurfaceContainerLowDark,
     primaryContainer = IndigoContainerDark,
     onPrimaryContainer = IndigoPrimaryLight,
     secondary = CyanSecondaryLight,
-    onSecondary = SlateSurfaceDark,
+    onSecondary = SlateSurfaceContainerLowDark,
     secondaryContainer = CyanContainerDark,
     onSecondaryContainer = CyanSecondaryLight,
     tertiary = EmeraldTertiaryLight,
-    onTertiary = SlateSurfaceDark,
+    onTertiary = SlateSurfaceContainerLowDark,
     tertiaryContainer = EmeraldContainerDark,
     onTertiaryContainer = EmeraldTertiaryLight,
     background = Color.Black,
     onBackground = SlateTextPrimaryDark,
     surface = Color.Black,
     onSurface = SlateTextPrimaryDark,
-    surfaceVariant = Color(0xFF111827),
+    surfaceVariant = SlateSurfaceContainerDark,
     onSurfaceVariant = SlateTextSecondaryDark,
+    surfaceContainerLowest = Color.Black,
+    surfaceContainerLow = SlateSurfaceContainerLowestDark,
+    surfaceContainer = SlateSurfaceContainerDark,
+    surfaceContainerHigh = SlateSurfaceContainerHighDark,
+    surfaceContainerHighest = SlateSurfaceHighlightDark,
+    surfaceTint = IndigoPrimaryLight,
+    inverseSurface = SlateTextPrimaryDark,
+    inverseOnSurface = SlateSurfaceContainerLowDark,
+    inversePrimary = IndigoPrimaryDark,
     outline = SlateBorderDark,
+    outlineVariant = SlateBorderVariantDark,
+    scrim = Color.Black,
     error = RoseError,
-    errorContainer = RoseErrorContainer,
+    onError = SlateSurfaceContainerLowDark,
+    errorContainer = RoseErrorContainerDark,
+    onErrorContainer = RoseErrorContainerLight,
 )
 
 private val darkColorScheme = darkColorScheme(
     primary = IndigoPrimaryLight,
-    onPrimary = SlateSurfaceDark,
+    onPrimary = SlateSurfaceContainerLowDark,
     primaryContainer = IndigoContainerDark,
     onPrimaryContainer = IndigoPrimaryLight,
     secondary = CyanSecondaryLight,
-    onSecondary = SlateSurfaceDark,
+    onSecondary = SlateSurfaceContainerLowDark,
     secondaryContainer = CyanContainerDark,
     onSecondaryContainer = CyanSecondaryLight,
     tertiary = EmeraldTertiaryLight,
-    onTertiary = SlateSurfaceDark,
+    onTertiary = SlateSurfaceContainerLowDark,
     tertiaryContainer = EmeraldContainerDark,
     onTertiaryContainer = EmeraldTertiaryLight,
     background = SlateBackgroundDark,
@@ -58,33 +81,59 @@ private val darkColorScheme = darkColorScheme(
     onSurface = SlateTextPrimaryDark,
     surfaceVariant = SlateSurfaceVariantDark,
     onSurfaceVariant = SlateTextSecondaryDark,
+    surfaceContainerLowest = SlateSurfaceContainerLowestDark,
+    surfaceContainerLow = SlateSurfaceContainerLowDark,
+    surfaceContainer = SlateSurfaceContainerDark,
+    surfaceContainerHigh = SlateSurfaceContainerHighDark,
+    surfaceContainerHighest = SlateSurfaceHighlightDark,
+    surfaceTint = IndigoPrimaryLight,
+    inverseSurface = SlateTextPrimaryDark,
+    inverseOnSurface = SlateSurfaceContainerLowDark,
+    inversePrimary = IndigoPrimaryDark,
     outline = SlateBorderDark,
+    outlineVariant = SlateBorderVariantDark,
+    scrim = Color.Black,
     error = RoseError,
-    errorContainer = RoseErrorContainer,
+    onError = SlateSurfaceContainerLowDark,
+    errorContainer = RoseErrorContainerDark,
+    onErrorContainer = RoseErrorContainerLight,
 )
 
 private val lightColorScheme = lightColorScheme(
-    primary = IndigoPrimary,
+    primary = IndigoPrimaryDark,
     onPrimary = SlateSurfaceLight,
     primaryContainer = IndigoContainerLight,
     onPrimaryContainer = IndigoPrimaryDark,
-    secondary = CyanSecondary,
+    secondary = CyanTextOnLight,
     onSecondary = SlateSurfaceLight,
     secondaryContainer = CyanContainerLight,
-    onSecondaryContainer = CyanSecondary,
-    tertiary = EmeraldTertiary,
+    onSecondaryContainer = CyanTextOnLight,
+    tertiary = EmeraldTextOnLight,
     onTertiary = SlateSurfaceLight,
     tertiaryContainer = EmeraldContainerLight,
-    onTertiaryContainer = EmeraldTertiary,
+    onTertiaryContainer = EmeraldTextOnLight,
     background = SlateBackgroundLight,
     onBackground = SlateTextPrimaryLight,
     surface = SlateSurfaceLight,
     onSurface = SlateTextPrimaryLight,
     surfaceVariant = SlateSurfaceVariantLight,
     onSurfaceVariant = SlateTextSecondaryLight,
+    surfaceContainerLowest = SlateSurfaceContainerLowestLight,
+    surfaceContainerLow = SlateSurfaceContainerLowLight,
+    surfaceContainer = SlateSurfaceContainerLight,
+    surfaceContainerHigh = SlateSurfaceContainerHighLight,
+    surfaceContainerHighest = SlateSurfaceContainerHighestLight,
+    surfaceTint = IndigoPrimaryDark,
+    inverseSurface = SlateTextPrimaryLight,
+    inverseOnSurface = SlateSurfaceContainerLowLight,
+    inversePrimary = IndigoPrimaryLight,
     outline = SlateBorderLight,
-    error = RoseError,
-    errorContainer = RoseErrorContainer,
+    outlineVariant = SlateBorderVariantLight,
+    scrim = Color.Black,
+    error = RoseErrorOnLight,
+    onError = SlateSurfaceLight,
+    errorContainer = RoseErrorContainerLight,
+    onErrorContainer = RoseErrorContainerDark,
 )
 
 @Composable
@@ -108,13 +157,16 @@ fun MyApplicationTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val viewContext = view.context as? Activity ?: return@SideEffect
-            WindowCompat.getInsetsController(viewContext.window, view).isAppearanceLightStatusBars = !darkTheme
+            val controller = WindowCompat.getInsetsController(viewContext.window, view)
+            controller.isAppearanceLightStatusBars = !darkTheme
+            controller.isAppearanceLightNavigationBars = !darkTheme
         }
     }
 
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = AppShapes,
         content = content,
     )
 }

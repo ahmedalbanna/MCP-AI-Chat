@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -34,6 +35,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -50,16 +52,12 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.aistudio.mcpchat.data.local.ChatMessageEntity
 import com.aistudio.mcpchat.data.model.ImageAttachment
-import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.Dimens
-import com.aistudio.mcpchat.ui.theme.IndigoPrimary
-import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
-import com.aistudio.mcpchat.ui.theme.RoseError
 import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.StreamProgress
 import com.aistudio.mcpchat.ui.viewmodel.formatRemainingMs
@@ -73,21 +71,26 @@ fun TypingIndicator(modifier: Modifier = Modifier) {
         modifier = modifier
             .background(
                 MaterialTheme.colorScheme.surfaceVariant,
-                RoundedCornerShape(Dimens.cornerRadiusXl, Dimens.cornerRadiusXl, Dimens.cornerRadiusXl, Dimens.cornerRadiusSm),
+                RoundedCornerShape(
+                    topStart = Dimens.cornerRadiusXl,
+                    topEnd = Dimens.cornerRadiusXl,
+                    bottomStart = Dimens.cornerRadiusSm,
+                    bottomEnd = Dimens.cornerRadiusXl,
+                ),
             )
             .padding(horizontal = Spacing.cardPadding, vertical = Spacing.sm),
     ) {
         Surface(
-            color = IndigoPrimary.copy(alpha = 0.2f),
+            color = MaterialTheme.colorScheme.primaryContainer,
             shape = CircleShape,
-            border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.4f)),
+            border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
             modifier = Modifier.size(Spacing.xxl),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.AutoAwesome,
                     contentDescription = "AI is typing",
-                    tint = IndigoPrimaryLight,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(Dimens.iconSizeSm),
                 )
             }
@@ -113,7 +116,10 @@ fun PulsingDots(modifier: Modifier = Modifier) {
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-        modifier = modifier,
+        modifier = modifier.semantics {
+            contentDescription = "AI is generating a response"
+            liveRegion = LiveRegionMode.Polite
+        },
     ) {
         repeat(3) {
             Box(
@@ -128,7 +134,7 @@ fun PulsingDots(modifier: Modifier = Modifier) {
 
 @Composable
 internal fun sessionSurfaceColor(isSelected: Boolean): Color = if (isSelected) {
-    IndigoPrimary.copy(alpha = 0.15f)
+    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
 } else {
     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
 }
@@ -192,9 +198,9 @@ fun StreamingMessageBubble(text: String, progress: StreamProgress? = null, modif
             },
     ) {
         Surface(
-            color = IndigoPrimary.copy(alpha = 0.2f),
+            color = MaterialTheme.colorScheme.primaryContainer,
             shape = CircleShape,
-            border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.4f)),
+            border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
             modifier = Modifier
                 .size(Spacing.xxl)
                 .padding(top = Spacing.xxs),
@@ -202,8 +208,8 @@ fun StreamingMessageBubble(text: String, progress: StreamProgress? = null, modif
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = "AI",
-                    tint = IndigoPrimaryLight,
+                    contentDescription = "AI assistant avatar",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(Dimens.iconSizeSm),
                 )
             }
@@ -220,10 +226,18 @@ fun StreamingMessageBubble(text: String, progress: StreamProgress? = null, modif
                 bottomEnd = Dimens.cornerRadiusXl,
             ),
             border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-            modifier = Modifier.fillMaxWidth(Dimens.CHAT_BUBBLE_MAX_WIDTH),
+            modifier = Modifier
+                .fillMaxWidth(Dimens.CHAT_BUBBLE_MAX_WIDTH)
+                .widthIn(max = Dimens.chatBubbleMaxWidthDp),
         ) {
             Column(modifier = Modifier.padding(horizontal = Spacing.cardPadding, vertical = Spacing.sm)) {
-                MarkdownFormattedText(text = text)
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        textDirection = TextDirection.Content,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 StreamProgressIndicator(
                     progress = progress,
                     modifier = Modifier.padding(top = Spacing.xxs),
@@ -284,25 +298,25 @@ fun RegenerateAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
         border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
         onClick = onClick,
         modifier = modifier
+            .minimumInteractiveComponentSize()
             .testTag("regenerate_action")
             .semantics { role = Role.Button },
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.xxs),
-            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.sm),
         ) {
             Icon(
                 imageVector = Icons.Default.Refresh,
                 contentDescription = null,
-                tint = CyanSecondary,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(Dimens.iconSizeSm),
             )
             Text(
                 text = "Regenerate",
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.SemiBold,
-                color = CyanSecondary,
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary,
             )
         }
     }
@@ -330,7 +344,7 @@ fun PendingAttachmentsBar(
                     contentDescription = "Attached image",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(Dimens.attachmentThumb)
                         .clip(RoundedCornerShape(Dimens.cornerRadiusSm)),
                 )
                 Surface(
@@ -343,6 +357,7 @@ fun PendingAttachmentsBar(
                     IconButton(
                         onClick = { onRemove(attachment) },
                         modifier = Modifier
+                            .minimumInteractiveComponentSize()
                             .testTag("remove_attachment_button")
                             .semantics {
                                 contentDescription = "Remove attachment"
@@ -352,7 +367,7 @@ fun PendingAttachmentsBar(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = null,
-                            tint = RoseError,
+                            tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(Dimens.iconSizeSm),
                         )
                     }
@@ -363,7 +378,7 @@ fun PendingAttachmentsBar(
             IconButton(
                 onClick = onAddMore,
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(Dimens.attachmentThumb)
                     .clip(RoundedCornerShape(Dimens.cornerRadiusSm))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                     .testTag("add_attachment_tile"),

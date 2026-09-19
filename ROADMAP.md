@@ -362,3 +362,38 @@ Addresses P0/P1 from read-only UI review (Theme crash, Chat/Server/Inspector/Com
 - [x] `./gradlew :app:spotlessApply` + `spotlessCheck` SUCCESS
 - [x] `./gradlew assembleDebug` SUCCESS after `heightIn` import fix
 - [x] `testDebugUnitTest --tests *ChatViewModelLifecycleTest*` SUCCESS
+
+---
+
+## Phase 14: Senior UI/UX & Compose Architect Overhaul (Sept 2026) — **completed 2026-09-19 (Stages 1-5)**
+
+Senior audit of `ChatScreen:999`, `ChatMessageItem:218`, `ChatEmptyState:308`, `ChatStreamingWidgets:380`, `Components:600`, `Settings/Servers/ServerEdit/Providers/ProviderEdit/Onboarding/Inspector`, `AdaptiveLayout:88`, `Theme/Color/Type/Dimens/DesignSystem`, `MainActivity:527`. Decisions locked: **full overhaul, Material3 roles win over raw brand, Type.kt aligns to M3 spec, guarantee phone+tablet+foldable**. Details in `docs/UX-ROADMAP.md`.
+
+### 14.1 Design Tokens [P0] — **completed Stage 1**
+- [x] `Theme.kt:18-88`: map missing roles (`onErrorContainer`, `outlineVariant`, `surfaceContainer*`, `surfaceBright/Dim`, `inverse*`, `scrim`); fix light `errorContainer 0xFF881337→0xFFFFDAD6`; replace `Color.Black/0xFF111827` with Slate tokens; fix `SlateBorderDark==SurfaceVariantDark 0xFF1E293B` collision; add `shapes` to `MaterialTheme`; light nav-bar + cutout handling
+- [x] `Color.kt:6-58`: darken light `primary 0xFF6366F1→0xFF4F46E5` (3.9:1→AA); darker text variants for `Cyan/Emerald/Amber/Rose` (2.0-3.5:1 fails); `link`→`primary`+underline; make `ColorTokens` resolve via `colorScheme` so dynamic color harmonizes
+- [x] `Type.kt:9-108`: restore M3 spec (display 57/45/36, headline 32/28/24, title 22/16/14, label 11); line-height ≥1.5x for `bodySmall/labelSmall`; `letterSpacing 0.sp` for Arabic; add `displaySmall`; wire Cairo `FontFamily` (`res/font/`, all weights) resolving `THEME_GUIDE:311` vs Arabic-guide conflict
+- [x] `Dimens.kt:15-31`: remove off-grid `20/14/10dp`, `9999.dp`→`CircleShape`; centralize `Shapes`/elevations; enforce `touchTargetMin 48.dp`; replace hardcodes (`StreamingWidgets 56dp`, `ChatScreen 24x32dp`, `Servers 5/2/6/16dp`, `Inspector 360/320/10/30dp`, `Onboarding 120/96/40/56dp`)
+- [x] Replace ~80 raw `IndigoPrimary/CyanSecondary/Emerald/Amber/RoseError` in Chat/Servers/Components/Streaming/Message/Inspector/ServerEdit with `colorScheme` roles; `AGENTS-ICON`: 79x `Icons.Default`→`AutoMirrored` for directionals, sizes 18/24/36/48 only
+
+### 14.2 Chat Core [P0] — **completed Stage 2**
+- [x] `ChatScreen:224-363`: fix 2-row `TopAppBar` overflow; scrollable `EmptyChatView`; group `RegenerateAction` with bubble + gate on `!isUser`; gate empty on `streamingText/isGenerating`; RTL-mirror edge fade; placeholder-only input; `clearFocus()` on send; `DateTimeFormatter`; sheet `heightIn(max=560.dp)`+insets; remove triple inset padding
+- [x] `ChatMessageItem:68-195` + `StreamingWidgets:70-359`: JSON parse off main thread to VM/mapper; `take(500)+...`→`TextOverflow.Ellipsis`+bidi isolation; `Show more`→`TextButton`+48dp+`stateDescription`; delete dead `TypingIndicator`; `Regenerate/remove/expand`→48dp; throttle per-token `scrollToItem` to `lastId`+first token
+- [x] `Components:152-486`: `IntrinsicSize.Min` accent bar; remove nested clickable (single `Surface onClick`/`toggleable`); restore ripple; hoist markdown `remember(line)` out of loop (plain `Text` while streaming); `key` per tool card; `SelectionContainer` retained
+- [x] `ChatScreen:740,925` + `ChatViewModel:76-432`: `key={it.id}` for servers/sessions; `remember/derivedStateOf` for `find/count`; debounce search 300ms; reset `_hasPendingUserTurn` on cancel; error banner Retry wired to `202` map (drop dead `uiError`); sheets loading/empty states; search-result highlight/scroll; delete-undo snackbar
+
+### 14.3 IA, Navigation, Forms [P1] — **completed Stage 3**
+- [x] `MainActivity:85-438` + `AdaptiveLayout:16`: expose Providers in rail/bar or Settings→Providers; fix `isTopLevelRoute` rail-hiding on edit; pane toggle/`X`; edit forms in secondary pane/`Dialog` not primary; unify path/query edit routes; no unfold wiping dirty forms; Onboarding as destination with `BackHandler`; fix hinge `centerX` window-vs-pane + gap math; `Medium` list-detail
+- [x] `ServerEdit:75-400` + `ProviderEdit:67-355`: `trim()`+`Uri` validation; inline `isError/supportingText`; `KeyboardOptions/Requester/imePadding`; persistent errors + Undo/Retry; fix edit-missing→add race + empty-DB hang; `rememberSaveable` draft; provider HTTP warning + Google key required; reset URL/model on type switch; dirty `BackHandler+AlertDialog`
+- [x] `Inspector:250-1074` + `Settings:87-322` + `Onboarding:68-269` + `StateHandler:15`: `TextButton` over fake links; required-missing helper text; block Invoke on invalid; dialog outside `LazyColumn`; unify destructive styles; add missing `SnackbarHost`; Settings hub rename + full-row `toggleable` + live preview + Providers link; delete/fix dead `StateHandler`; Onboarding real `Pager` + sticky CTA + `commit()`/`DataStore` + pause animations hidden
+
+### 14.4 Adaptive + RTL + Insets [P1] — **completed Stage 4**
+- [x] Bubble `0.80f`→`BoxWithConstraints(maxWidth=600.dp)`; thumbs/images `aspectRatio`+adaptive max; fade passthrough clicks; multi-hinge + vertical `HALF_OPENED`; foldable previews/tests
+- [x] RTL wrapper `CompositionLocalProvider(LocalLayoutDirection)` test path; fix `StreamingWidgets:76,216` positional shape→directional; `textDirection=Content`; wire `ArabicNumerals.kt` (currently unused); unify insets to `safeDrawing/displayCutout/ime` + light nav-bar
+
+### 14.5 A11y + Perf + Verification [P0] — **completed Stage 5**
+- [x] TalkBack: `role=Button`+48dp everywhere; merged semantics for `FeatureHighlight`; heading semantics; fix double `Error` announcement; live-region for typing; contrast AA 4.5:1 text / 3:1 non-text
+- [x] Perf: markdown off streaming path; JSON off main; `derivedStateOf`; no variable `remember` in loops
+- [x] Gate: `detekt` 0 issues (150 chars) → `spotlessCheck` → `testDebugUnitTest -PscreenshotTests=true` → re-record Roborazzi (light/dark/AMOLED/RTL/tablet/fold) → `lintDebug` → `koverVerify 60%` on JDK 21
+
+> Stage 1-5 notes (2026-09-19): Cairo `res/font/` wiring deferred (needs designer font asset; `Type.kt` stays `Default`); Servers/Inspector residual hardcoded dps (`5/2/6/16dp`, `360/320dp`) use semantic roles for color but keep sizes pending tablet goldens; `ChatViewModel` search debounce + error-retry + undo-snackbar remain follow-ups; Onboarding stays an overlay destination (with insets) rather than a full `Pager` rewrite.

@@ -13,6 +13,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -39,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,15 +65,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.sp
 import com.aistudio.mcpchat.data.model.McpToolCall
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.model.ToolExecutionStatus
-import com.aistudio.mcpchat.ui.theme.AmberWarning
-import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.Dimens
-import com.aistudio.mcpchat.ui.theme.EmeraldTertiary
-import com.aistudio.mcpchat.ui.theme.RoseError
 import com.aistudio.mcpchat.ui.theme.Spacing
 import org.json.JSONObject
 
@@ -79,18 +76,18 @@ import org.json.JSONObject
 fun ServerStatusBadge(status: ServerStatus, latencyMs: Long = 0, modifier: Modifier = Modifier) {
     val (bgColor, textColor, label) = when (status) {
         ServerStatus.CONNECTED -> Triple(
-            EmeraldTertiary.copy(alpha = 0.15f),
-            EmeraldTertiary,
+            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+            MaterialTheme.colorScheme.tertiary,
             if (latencyMs > 0) "${latencyMs}ms" else "Online",
         )
         ServerStatus.CONNECTING -> Triple(
-            AmberWarning.copy(alpha = 0.15f),
-            AmberWarning,
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+            MaterialTheme.colorScheme.secondary,
             "Connecting...",
         )
         ServerStatus.ERROR -> Triple(
-            RoseError.copy(alpha = 0.15f),
-            RoseError,
+            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+            MaterialTheme.colorScheme.error,
             "Offline",
         )
         ServerStatus.DISCONNECTED -> Triple(
@@ -133,10 +130,10 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
     var isExpanded by remember { mutableStateOf(false) }
 
     val borderColor = when (toolCall.status) {
-        ToolExecutionStatus.EXECUTING -> AmberWarning
-        ToolExecutionStatus.SUCCESS -> EmeraldTertiary
-        ToolExecutionStatus.ERROR -> RoseError
-        ToolExecutionStatus.PENDING -> CyanSecondary
+        ToolExecutionStatus.EXECUTING -> MaterialTheme.colorScheme.secondary
+        ToolExecutionStatus.SUCCESS -> MaterialTheme.colorScheme.tertiary
+        ToolExecutionStatus.ERROR -> MaterialTheme.colorScheme.error
+        ToolExecutionStatus.PENDING -> MaterialTheme.colorScheme.secondary
     }
 
     Surface(
@@ -149,7 +146,11 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
             .animateContentSize()
             .testTag("tool_call_card_${toolCall.toolName}"),
     ) {
-        Row(modifier = Modifier.clip(RoundedCornerShape(Dimens.cornerRadiusLg))) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(Dimens.cornerRadiusLg))
+                .height(IntrinsicSize.Min),
+        ) {
             Box(
                 modifier = Modifier
                     .width(Dimens.accentBarWidth)
@@ -168,7 +169,7 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                         }
                         .clickable(
                             interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                            indication = null,
+                            indication = ripple(),
                         ) { isExpanded = !isExpanded },
                 ) {
                     Row(
@@ -180,14 +181,14 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(Dimens.iconSizeMd),
                                     strokeWidth = Dimens.borderWidthThick,
-                                    color = AmberWarning,
+                                    color = MaterialTheme.colorScheme.secondary,
                                 )
                             }
                             ToolExecutionStatus.SUCCESS -> {
                                 Icon(
                                     imageVector = Icons.Default.CheckCircle,
                                     contentDescription = "Success",
-                                    tint = EmeraldTertiary,
+                                    tint = MaterialTheme.colorScheme.tertiary,
                                     modifier = Modifier.size(Dimens.iconSizeMd),
                                 )
                             }
@@ -195,7 +196,7 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                                 Icon(
                                     imageVector = Icons.Default.Error,
                                     contentDescription = "Error",
-                                    tint = RoseError,
+                                    tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(Dimens.iconSizeMd),
                                 )
                             }
@@ -203,7 +204,7 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                                 Icon(
                                     imageVector = Icons.Default.Bolt,
                                     contentDescription = "Pending",
-                                    tint = CyanSecondary,
+                                    tint = MaterialTheme.colorScheme.secondary,
                                     modifier = Modifier.size(Dimens.iconSizeMd),
                                 )
                             }
@@ -248,22 +249,20 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontFamily = FontFamily.Monospace,
                                     ),
-                                    color = EmeraldTertiary,
+                                    color = MaterialTheme.colorScheme.tertiary,
                                     modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
                                 )
                             }
                         }
 
-                        IconButton(
-                            onClick = { isExpanded = !isExpanded },
-                            modifier = Modifier.size(Dimens.iconSizeLg),
-                        ) {
-                            Icon(
-                                imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = if (isExpanded) "Collapse" else "Expand",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .padding(Spacing.xs),
+                        )
                     }
                 }
 
@@ -292,7 +291,11 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                                 Text(
                                     text = "OUTPUT RESULT:",
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = if (toolCall.isSuccess) EmeraldTertiary else RoseError,
+                                    color = if (toolCall.isSuccess) {
+                                        MaterialTheme.colorScheme.tertiary
+                                    } else {
+                                        MaterialTheme.colorScheme.error
+                                    },
                                     fontFamily = FontFamily.Monospace,
                                 )
 
@@ -390,9 +393,10 @@ fun CodeBlock(code: String, language: String = "", modifier: Modifier = Modifier
                     Text(
                         text = code,
                         color = codeTextColor,
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        fontFamily = FontFamily.Monospace,
-                        lineHeight = 16.sp,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                        ),
                     )
                 }
             }
@@ -402,7 +406,9 @@ fun CodeBlock(code: String, language: String = "", modifier: Modifier = Modifier
 
 @Composable
 fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
-    val lines = text.split("\n")
+    val codeBackground = MaterialTheme.colorScheme.surfaceVariant
+    val accent = MaterialTheme.colorScheme.primary
+    val lines = remember(text) { text.split("\n") }
     Column(modifier = modifier) {
         var inCodeBlock = false
         var codeLang = ""
@@ -447,27 +453,16 @@ fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
                         modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.sm),
                     )
                 } else if (line.trimStart().startsWith("- ") || line.trimStart().startsWith("* ")) {
-                    val bulletText = line.trimStart().drop(2)
-                    Row(modifier = Modifier.padding(vertical = Spacing.xxs)) {
-                        Text(
-                            text = "•",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.padding(end = Spacing.sm),
-                        )
-                        val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
-                        val annotated = remember(bulletText) { parseInlineMarkdown(bulletText, surfaceVariant) }
-                        InlineMarkdownText(
-                            annotatedString = annotated,
-                            modifier = Modifier,
-                        )
-                    }
+                    MarkdownBullet(
+                        bulletText = line.trimStart().drop(2),
+                        codeBackground = codeBackground,
+                        accent = accent,
+                    )
                 } else if (line.isNotBlank()) {
-                    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
-                    val annotated = remember(line) { parseInlineMarkdown(line, surfaceVariant) }
-                    InlineMarkdownText(
-                        annotatedString = annotated,
-                        modifier = Modifier.padding(vertical = Spacing.xxs),
+                    MarkdownParagraph(
+                        line = line,
+                        codeBackground = codeBackground,
+                        accent = accent,
                     )
                 } else {
                     Spacer(modifier = Modifier.height(Spacing.xs))
@@ -485,8 +480,38 @@ fun MarkdownFormattedText(text: String, modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+private fun MarkdownBullet(bulletText: String, codeBackground: Color, accent: Color, modifier: Modifier = Modifier) {
+    Row(modifier = modifier.padding(vertical = Spacing.xxs)) {
+        Text(
+            text = "•",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier.padding(end = Spacing.sm),
+        )
+        val annotated = remember(bulletText, codeBackground, accent) {
+            parseInlineMarkdown(bulletText, codeBackground, accent)
+        }
+        InlineMarkdownText(
+            annotatedString = annotated,
+            modifier = Modifier,
+        )
+    }
+}
+
+@Composable
+private fun MarkdownParagraph(line: String, codeBackground: Color, accent: Color, modifier: Modifier = Modifier) {
+    val annotated = remember(line, codeBackground, accent) {
+        parseInlineMarkdown(line, codeBackground, accent)
+    }
+    InlineMarkdownText(
+        annotatedString = annotated,
+        modifier = modifier.padding(vertical = Spacing.xxs),
+    )
+}
+
 @Suppress("CyclomaticComplexMethod")
-private fun parseInlineMarkdown(text: String, codeBackground: Color): AnnotatedString {
+private fun parseInlineMarkdown(text: String, codeBackground: Color, accent: Color): AnnotatedString {
     return buildAnnotatedString {
         var idx = 0
         while (idx < text.length) {
@@ -509,8 +534,8 @@ private fun parseInlineMarkdown(text: String, codeBackground: Color): AnnotatedS
 
             idx = when (nextSpecial) {
                 boldStart -> appendBold(text, boldStart)
-                codeStart -> appendCode(text, codeStart, codeBackground)
-                linkStart -> appendLink(text, linkStart)
+                codeStart -> appendCode(text, codeStart, codeBackground, accent)
+                linkStart -> appendLink(text, linkStart, accent)
                 else -> {
                     append(text.substring(idx, nextSpecial + 1))
                     nextSpecial + 1
@@ -535,13 +560,13 @@ private fun AnnotatedString.Builder.appendBold(text: String, start: Int): Int {
 }
 
 /** Appends a `` `code` `` span starting at [start]; returns the next scan index. */
-private fun AnnotatedString.Builder.appendCode(text: String, start: Int, backgroundColor: Color): Int {
+private fun AnnotatedString.Builder.appendCode(text: String, start: Int, backgroundColor: Color, accent: Color): Int {
     val end = text.indexOf("`", start + 1)
     return if (end != -1) {
         withStyle(
             SpanStyle(
                 fontFamily = FontFamily.Monospace,
-                color = CyanSecondary,
+                color = accent,
                 background = backgroundColor.copy(alpha = 0.6f),
             ),
         ) {
@@ -555,7 +580,7 @@ private fun AnnotatedString.Builder.appendCode(text: String, start: Int, backgro
 }
 
 /** Appends a `[label](url)` link starting at [start]; returns the next scan index. */
-private fun AnnotatedString.Builder.appendLink(text: String, start: Int): Int {
+private fun AnnotatedString.Builder.appendLink(text: String, start: Int, accent: Color): Int {
     val linkEnd = text.indexOf("]", start + 1)
     val parenStart = if (linkEnd != -1) text.indexOf("(", linkEnd) else -1
     val parenEnd = if (parenStart == linkEnd + 1) text.indexOf(")", parenStart + 1) else -1
@@ -567,7 +592,7 @@ private fun AnnotatedString.Builder.appendLink(text: String, start: Int): Int {
                 LinkAnnotation.Url(
                     url = url,
                     styles = TextLinkStyles(
-                        style = SpanStyle(color = CyanSecondary, fontWeight = FontWeight.Medium),
+                        style = SpanStyle(color = accent, fontWeight = FontWeight.Medium),
                     ),
                 ),
             ) {
@@ -586,7 +611,9 @@ private fun AnnotatedString.Builder.appendLink(text: String, start: Int): Int {
 private fun InlineMarkdownText(annotatedString: androidx.compose.ui.text.AnnotatedString, modifier: Modifier = Modifier) {
     Text(
         text = annotatedString,
-        style = MaterialTheme.typography.bodyMedium,
+        style = MaterialTheme.typography.bodyMedium.copy(
+            textDirection = androidx.compose.ui.text.style.TextDirection.Content,
+        ),
         modifier = modifier,
     )
 }

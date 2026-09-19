@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -32,7 +33,6 @@ import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -46,10 +46,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.aistudio.mcpchat.ui.theme.Dimens
-import com.aistudio.mcpchat.ui.theme.IndigoPrimary
-import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
 import com.aistudio.mcpchat.ui.theme.Spacing
 
 internal const val ONBOARDING_PREFS = "mcp_chat_onboarding"
@@ -91,7 +88,11 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.background,
         modifier = modifier.fillMaxSize(),
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding(),
+        ) {
             TextButton(
                 onClick = onDismiss,
                 modifier = Modifier
@@ -113,21 +114,21 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
 
                 Box(contentAlignment = Alignment.Center) {
                     Surface(
-                        color = IndigoPrimary.copy(alpha = glowAlpha * 0.15f),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = glowAlpha * 0.15f),
                         shape = CircleShape,
                         modifier = Modifier.size(120.dp * pulseScale),
                     ) {}
                     Surface(
-                        color = IndigoPrimary.copy(alpha = 0.15f),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
                         shape = CircleShape,
-                        border = BorderStroke(Dimens.borderWidthThick, IndigoPrimary.copy(alpha = 0.4f)),
+                        border = BorderStroke(Dimens.borderWidthThick, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
                         modifier = Modifier.size(96.dp),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.AutoAwesome,
                                 contentDescription = null,
-                                tint = IndigoPrimaryLight,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(Dimens.touchTargetMin),
                             )
                         }
@@ -156,13 +157,14 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
 
                 Text(
                     text = "AI-powered chat with Model Context Protocol.\nConnect to remote servers, invoke tools,\nand explore the Inspector.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight,
+                    ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
-                    lineHeight = 22.sp,
                 )
 
-                Spacer(modifier = Modifier.height(40.dp))
+                Spacer(modifier = Modifier.height(Spacing.xxl))
 
                 OnboardingFeatureRow(
                     icon = Icons.AutoMirrored.Default.Chat,
@@ -199,7 +201,11 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                             modifier = Modifier
                                 .size(if (index == 0) Dimens.iconSizeLg else Spacing.sm)
                                 .background(
-                                    color = if (index == 0) IndigoPrimary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                    color = if (index == 0) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    },
                                     shape = CircleShape,
                                 ),
                         )
@@ -210,11 +216,10 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
 
                 Button(
                     onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
                     shape = RoundedCornerShape(Dimens.cornerRadiusXl),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
+                        .height(Dimens.touchTargetMin),
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeLg))
                     Spacer(modifier = Modifier.width(Spacing.sm))
@@ -234,16 +239,16 @@ private fun OnboardingFeatureRow(icon: ImageVector, title: String, description: 
         modifier = Modifier.fillMaxWidth(),
     ) {
         Surface(
-            color = IndigoPrimary.copy(alpha = 0.12f),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
             shape = RoundedCornerShape(Dimens.cornerRadiusMd),
-            border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.3f)),
+            border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
             modifier = Modifier.size(Dimens.touchTargetMin),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = IndigoPrimaryLight,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(Dimens.iconSizeLg),
                 )
             }
@@ -254,15 +259,13 @@ private fun OnboardingFeatureRow(icon: ImageVector, title: String, description: 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 16.sp,
             )
         }
     }

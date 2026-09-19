@@ -1,5 +1,6 @@
 package com.aistudio.mcpchat.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -23,7 +26,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,16 +49,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.model.McpHeaderCodec
 import com.aistudio.mcpchat.data.repository.McpRepository
-import com.aistudio.mcpchat.ui.theme.AmberWarning
 import com.aistudio.mcpchat.ui.theme.Dimens
-import com.aistudio.mcpchat.ui.theme.IndigoPrimary
-import com.aistudio.mcpchat.ui.theme.RoseError
 import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.McpServersViewModel
 
@@ -87,7 +89,26 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
         mutableStateOf(McpHeaderCodec.decode(initial?.authHeader ?: "").map { (key, value) -> HeaderEntry(key, value) })
     }
     var showInsecureConfirm by remember { mutableStateOf(false) }
-    val isInsecureInput = McpRepository.isInsecureEndpoint(endpointUrl)
+    var showDiscardConfirm by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    val trimmedUrl = endpointUrl.trim()
+    val isInsecureInput = McpRepository.isInsecureEndpoint(trimmedUrl)
+    val urlError = trimmedUrl.isNotBlank() &&
+        !(trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://"))
+    val nameError = name.isBlank()
+    val duplicateHeader = headerEntries
+        .map { it.key.trim() }
+        .filter { it.isNotEmpty() }
+        .groupingBy { it }
+        .eachCount()
+        .any { it.value > 1 }
+    val emptyHeaderKey = headerEntries.any { it.key.isBlank() && it.value.isNotBlank() }
+    val isDirty = name != (initial?.name ?: "") ||
+        description != (initial?.description ?: "") ||
+        endpointUrl != (initial?.endpointUrl ?: "") ||
+        headerEntries != McpHeaderCodec.decode(initial?.authHeader ?: "").map { (key, value) -> HeaderEntry(key, value) }
+
+    BackHandler(enabled = isDirty) { showDiscardConfirm = true }
 
     // Success pops back to the servers list; errors stay here as a snackbar.
     LaunchedEffect(feedback) {
@@ -104,12 +125,24 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
     fun submit() {
         // Key/value rows → the JSON multi-header form stored in authHeader.
         val authHeader = McpHeaderCodec.encode(
-            headerEntries.associate { it.key.trim() to it.value.trim() },
+            headerEntries
+                .filter { it.key.trim().isNotEmpty() }
+                .associate { it.key.trim() to it.value.trim() },
         )
+        val cleanName = name.trim()
+        val cleanDescription = description.trim()
         if (isEdit && initial != null) {
-            viewModel.updateServer(initial, name, description, endpointUrl, authHeader)
+            viewModel.updateServer(initial, cleanName, cleanDescription, trimmedUrl, authHeader)
+        } else if (!isEdit) {
+            viewModel.addCustomServer(cleanName, cleanDescription, trimmedUrl, authHeader)
+        }
+    }
+
+    fun requestBack() {
+        if (isDirty) {
+            showDiscardConfirm = true
         } else {
-            viewModel.addCustomServer(name, description, endpointUrl, authHeader)
+            onNavigateBack()
         }
     }
 
@@ -128,7 +161,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = ::requestBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Navigate back",
@@ -141,7 +174,18 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
         modifier = modifier.fillMaxSize().testTag("server_edit_screen"),
     ) { padding ->
         // Edit target vanished (e.g. deleted on another screen) — nothing to edit.
-        if (isEdit && initial == null && servers.isNotEmpty()) {
+        // While the list is still loading show a placeholder instead of a blank
+        // add-form so a stale id can never silently create a duplicate.
+        if (isEdit && servers.isEmpty()) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxSize().padding(padding),
+            ) {
+                Text("Loading server…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            return@Scaffold
+        }
+        if (isEdit && initial == null) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.fillMaxSize().padding(padding),
@@ -190,14 +234,14 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     QuickActionChip("Local (10.0.2.2:3000)") {
-                        name = "Localhost Dev MCP"
-                        description = "Local node / python MCP server"
-                        endpointUrl = "http://10.0.2.2:3000/mcp"
+                        if (name.isBlank()) name = "Localhost Dev MCP"
+                        if (description.isBlank()) description = "Local node / python MCP server"
+                        if (endpointUrl.isBlank()) endpointUrl = "http://10.0.2.2:3000/mcp"
                     }
                     QuickActionChip("FastMCP SSE") {
-                        name = "FastMCP Remote"
-                        description = "FastMCP Python cloud runner"
-                        endpointUrl = "https://fastmcp-runner.fly.dev/sse"
+                        if (name.isBlank()) name = "FastMCP Remote"
+                        if (description.isBlank()) description = "FastMCP Python cloud runner"
+                        if (endpointUrl.isBlank()) endpointUrl = "https://fastmcp-runner.fly.dev/sse"
                     }
                 }
 
@@ -211,6 +255,16 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                     label = { Text("Server Name") },
                     placeholder = { Text("e.g. Production Database MCP") },
                     singleLine = true,
+                    isError = nameError,
+                    supportingText = if (nameError) {
+                        { Text("Server name is required") }
+                    } else {
+                        null
+                    },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                    ),
                     modifier = Modifier.fillMaxWidth().testTag("server_name_field"),
                 )
 
@@ -220,10 +274,13 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                     label = { Text("Description") },
                     placeholder = { Text("e.g. Query production read replica") },
                     maxLines = 2,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                    ),
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                val urlError = endpointUrl.isNotBlank() && !endpointUrl.startsWith("http")
                 OutlinedTextField(
                     value = endpointUrl,
                     onValueChange = { endpointUrl = it },
@@ -232,10 +289,19 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                     singleLine = true,
                     isError = urlError,
                     supportingText = if (urlError) {
-                        { Text("Must start with http:// or https://", color = RoseError) }
+                        { Text("Must start with http:// or https://", color = MaterialTheme.colorScheme.error) }
+                    } else if (trimmedUrl.isBlank()) {
+                        { Text("Endpoint URL is required") }
                     } else {
                         null
                     },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Next,
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                    ),
                     modifier = Modifier.fillMaxWidth().testTag("server_url_field"),
                 )
 
@@ -246,6 +312,18 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+
+                if (duplicateHeader || emptyHeaderKey) {
+                    Text(
+                        text = if (duplicateHeader) {
+                            "Duplicate header names will overwrite each other"
+                        } else {
+                            "Header name is required when a value is set"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
 
                 headerEntries.forEachIndexed { index, entry ->
                     Row(
@@ -263,7 +341,13 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                             label = { Text("Name") },
                             placeholder = { Text("Authorization") },
                             singleLine = true,
-                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Right) },
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("header_key_$index"),
                         )
                         OutlinedTextField(
                             value = entry.value,
@@ -275,7 +359,13 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                             label = { Text("Value") },
                             placeholder = { Text("Bearer sk-mcp-token-xyz") },
                             singleLine = true,
-                            modifier = Modifier.weight(1.4f),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(
+                                onDone = { focusManager.clearFocus() },
+                            ),
+                            modifier = Modifier
+                                .weight(1.4f)
+                                .testTag("header_value_$index"),
                         )
                         IconButton(
                             onClick = {
@@ -288,7 +378,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Remove header",
-                                tint = RoseError,
+                                tint = MaterialTheme.colorScheme.error,
                             )
                         }
                     }
@@ -300,7 +390,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                         headerEntries = headerEntries +
                             HeaderEntry(key = if (headerEntries.isEmpty()) "Authorization" else "")
                     },
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.xs),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
@@ -313,9 +403,9 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
 
                 if (isInsecureInput) {
                     Surface(
-                        color = AmberWarning.copy(alpha = 0.12f),
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(Dimens.cornerRadiusMd),
-                        border = BorderStroke(Dimens.borderWidth, AmberWarning.copy(alpha = 0.4f)),
+                        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f)),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Row(
@@ -325,16 +415,15 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                             Icon(
                                 imageVector = Icons.Default.Warning,
                                 contentDescription = null,
-                                tint = AmberWarning,
+                                tint = MaterialTheme.colorScheme.tertiary,
                                 modifier = Modifier.size(Dimens.iconSizeMd),
                             )
                             Spacer(modifier = Modifier.width(Spacing.sm))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Not Secure MCP",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = AmberWarning,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.tertiary,
                                 )
                                 Text(
                                     text = "This server uses plain HTTP. Tokens and tool data can be intercepted. " +
@@ -350,9 +439,10 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
 
             Spacer(modifier = Modifier.height(Spacing.xl))
 
+            val canSubmit = name.trim().isNotBlank() && trimmedUrl.isNotBlank() && !urlError && !duplicateHeader && !emptyHeaderKey
             Button(
                 onClick = {
-                    if (name.isNotBlank() && endpointUrl.isNotBlank()) {
+                    if (canSubmit) {
                         if (isInsecureInput) {
                             showInsecureConfirm = true
                         } else {
@@ -360,23 +450,52 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                         }
                     }
                 },
-                enabled = name.isNotBlank() && endpointUrl.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                enabled = canSubmit,
                 modifier = Modifier.fillMaxWidth().height(Dimens.touchTargetMin).testTag("submit_server_button"),
             ) {
                 Text(if (isEdit) "Save Changes" else "Connect & Sync")
             }
 
+            if (!canSubmit) {
+                Text(
+                    text = "Enter a server name and a valid http(s) URL to continue",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Spacing.xs),
+                )
+            }
+
             Spacer(modifier = Modifier.height(Spacing.xl))
+
+            if (showDiscardConfirm) {
+                AlertDialog(
+                    onDismissRequest = { showDiscardConfirm = false },
+                    title = { Text("Discard changes?") },
+                    text = { Text("You have unsaved changes. Discard them and go back?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showDiscardConfirm = false
+                                onNavigateBack()
+                            },
+                        ) {
+                            Text("Discard", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDiscardConfirm = false }) { Text("Keep editing") }
+                    },
+                )
+            }
 
             if (showInsecureConfirm) {
                 AlertDialog(
                     onDismissRequest = { showInsecureConfirm = false },
-                    icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = AmberWarning) },
+                    icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
                     title = { Text("Not Secure MCP — Continue?") },
                     text = {
                         Text(
-                            "You are about to connect to \"$endpointUrl\" over plain HTTP.\n\n" +
+                            "You are about to connect to \"$trimmedUrl\" over plain HTTP.\n\n" +
                                 "Auth headers and tool payloads will be sent without encryption and can be intercepted on the network. " +
                                 "Only proceed if you trust this server and network.",
                         )
@@ -387,7 +506,6 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                                 showInsecureConfirm = false
                                 submit()
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = AmberWarning),
                         ) { Text("Accept & Connect") }
                     },
                     dismissButton = {

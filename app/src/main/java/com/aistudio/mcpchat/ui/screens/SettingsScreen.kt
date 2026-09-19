@@ -2,6 +2,8 @@ package com.aistudio.mcpchat.ui.screens
 
 import android.os.Build
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,10 +18,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,7 +50,6 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.local.ThemeMode
 import com.aistudio.mcpchat.ui.theme.Dimens
@@ -54,13 +57,14 @@ import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.ThemeViewModel
 
 @Composable
-fun SettingsScreen(viewModel: ThemeViewModel, modifier: Modifier = Modifier) {
+fun SettingsScreen(viewModel: ThemeViewModel, onNavigateToProviders: () -> Unit = {}, modifier: Modifier = Modifier) {
     val prefs by viewModel.uiState.collectAsStateWithLifecycle()
     SettingsScreenContent(
         prefs = prefs,
         onSelectMode = viewModel::setThemeMode,
         onAmoledChange = viewModel::setUseAmoledDark,
         onDynamicChange = viewModel::setUseDynamicColor,
+        onNavigateToProviders = onNavigateToProviders,
         modifier = modifier,
     )
 }
@@ -72,6 +76,7 @@ fun SettingsScreenContent(
     onSelectMode: (ThemeMode) -> Unit,
     onAmoledChange: (Boolean) -> Unit,
     onDynamicChange: (Boolean) -> Unit,
+    onNavigateToProviders: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -213,8 +218,7 @@ fun SettingsScreenContent(
                 Column(modifier = Modifier.padding(Spacing.cardPadding)) {
                     Text(
                         text = "Preview",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.semantics { heading() },
                     )
@@ -227,6 +231,46 @@ fun SettingsScreenContent(
                     CodeBlock(
                         code = """{"tool": "weather", "args": {"location": "Tokyo"}}""",
                         language = "json",
+                    )
+                }
+            }
+
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                ),
+                shape = RoundedCornerShape(Dimens.cornerRadiusLg),
+                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                onClick = onNavigateToProviders,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(Spacing.cardPadding),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SmartToy,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(Dimens.iconSizeLg),
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "AI Providers",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                        )
+                        Text(
+                            text = "Manage chat backends and API keys",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "Open AI providers",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(Dimens.iconSizeMd),
                     )
                 }
             }
@@ -274,20 +318,23 @@ private fun SettingSwitchRow(
             .semantics(mergeDescendants = true) {
                 contentDescription = title
                 stateDescription = if (checked) "On" else "Off"
-            },
+            }
+            .clickable(
+                interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() },
+                indication = null,
+                enabled = enabled,
+            ) { onCheckedChange(!checked) },
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                 color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 14.sp,
             )
         }
         Spacer(modifier = Modifier.width(Spacing.md))

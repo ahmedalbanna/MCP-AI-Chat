@@ -12,9 +12,9 @@ object Spacing {
     val xxl = 32.dp
     val xxxl = 48.dp
 
-    val sheetPadding = 20.dp
-    val cardPadding = 14.dp
-    val sectionGap = 10.dp
+    val sheetPadding = 16.dp
+    val cardPadding = 12.dp
+    val sectionGap = 12.dp
 }
 
 object Dimens {
@@ -38,5 +38,7 @@ object Dimens {
     val minWidthButton = 64.dp
     val minHeightInput = 48.dp
     const val CHAT_BUBBLE_MAX_WIDTH = 0.80f
+    val chatBubbleMaxWidthDp = 600.dp
     val accentBarWidth = 4.dp
+    val attachmentThumb = 56.dp
 }

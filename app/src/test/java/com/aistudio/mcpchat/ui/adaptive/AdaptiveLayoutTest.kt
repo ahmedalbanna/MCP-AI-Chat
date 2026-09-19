@@ -68,6 +68,20 @@ class AdaptiveLayoutTest {
         assertEquals(0.5f, twoPaneSplitFraction(0f, fold))
     }
 
+    // ---- paneSplitFraction (window-coords hinge vs narrower pane area) ----
+
+    @Test
+    fun `pane split subtracts the rail inset`() {
+        val fold = hinge(isVertical = true, left = 380, right = 384)
+        assertEquals(0.3f, paneSplitFraction(1000f, fold, leadingInsetPx = 82f), 0.001f)
+    }
+
+    @Test
+    fun `pane split falls back when adjusted center leaves the pane`() {
+        val fold = hinge(isVertical = true, left = 20, right = 40)
+        assertEquals(0.5f, paneSplitFraction(1000f, fold, leadingInsetPx = 82f))
+    }
+
     // ---- horizontalHingeInsetPx ----
 
     @Test

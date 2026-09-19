@@ -6,7 +6,6 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +19,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,6 +28,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,19 +45,18 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.aistudio.mcpchat.data.local.ChatMessageEntity
 import com.aistudio.mcpchat.data.model.parseImageAttachments
-import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.Dimens
-import com.aistudio.mcpchat.ui.theme.IndigoPrimary
-import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
 import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.ChatViewModel
+import com.aistudio.mcpchat.util.ArabicNumerals
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -88,10 +89,9 @@ fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifi
                     .padding(bottom = Spacing.sm),
             ) {
                 Text(
-                    text = "MCP Invocations (${toolCalls.size}):",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = CyanSecondary,
+                    text = ArabicNumerals.convertIfArabic("MCP Invocations (${toolCalls.size}):"),
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.secondary,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(bottom = Spacing.xxs),
                 )
@@ -107,9 +107,9 @@ fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifi
         ) {
             if (!isUser) {
                 Surface(
-                    color = IndigoPrimary.copy(alpha = 0.2f),
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     shape = CircleShape,
-                    border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.4f)),
+                    border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
                     modifier = Modifier
                         .size(Spacing.xxl)
                         .padding(top = Spacing.xxs),
@@ -117,8 +117,8 @@ fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifi
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = "AI",
-                            tint = IndigoPrimaryLight,
+                            contentDescription = "AI assistant avatar",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.size(Dimens.iconSizeSm),
                         )
                     }
@@ -127,7 +127,7 @@ fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifi
             }
 
             Surface(
-                color = if (isUser) IndigoPrimary else MaterialTheme.colorScheme.surfaceVariant,
+                color = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                 tonalElevation = if (!isUser) Dimens.elevationSm else 0.dp,
                 shape = RoundedCornerShape(
                     topStart = Dimens.cornerRadiusXl,
@@ -138,6 +138,7 @@ fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifi
                 border = if (isUser) null else BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
                 modifier = Modifier
                     .fillMaxWidth(Dimens.CHAT_BUBBLE_MAX_WIDTH)
+                    .widthIn(max = Dimens.chatBubbleMaxWidthDp)
                     .combinedClickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(),
@@ -172,13 +173,14 @@ fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifi
                             Text(
                                 text = message.content,
                                 color = MaterialTheme.colorScheme.onPrimary,
-                                style = MaterialTheme.typography.bodyMedium,
-                                lineHeight = 20.sp,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    textDirection = TextDirection.Content,
+                                ),
                             )
                         }
                     } else {
                         val displayText = if (shouldTruncate && !isExpanded) {
-                            message.content.take(500) + "..."
+                            message.content.take(500)
                         } else {
                             message.content
                         }
@@ -186,13 +188,21 @@ fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifi
 
                         if (shouldTruncate) {
                             Spacer(modifier = Modifier.height(Spacing.xs))
-                            Text(
-                                text = if (isExpanded) "Show less" else "Show more",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = CyanSecondary,
-                                modifier = Modifier.clickable { isExpanded = !isExpanded },
-                            )
+                            TextButton(
+                                onClick = { isExpanded = !isExpanded },
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .semantics {
+                                        stateDescription = if (isExpanded) "Expanded" else "Collapsed"
+                                    },
+                            ) {
+                                Text(
+                                    text = if (isExpanded) "Show less" else "Show more",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                )
+                            }
                         }
                     }
 
@@ -204,9 +214,9 @@ fun ChatMessageItem(message: ChatMessageEntity, viewModel: ChatViewModel, modifi
                                 .padding(top = Spacing.xs),
                         ) {
                             Text(
-                                text = "${message.latencyMs}ms",
+                                text = ArabicNumerals.convertIfArabic("${message.latencyMs}ms"),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontFamily = FontFamily.Monospace,
                             )
                         }

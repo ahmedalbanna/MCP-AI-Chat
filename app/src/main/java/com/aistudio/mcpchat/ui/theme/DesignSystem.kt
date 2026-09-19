@@ -25,8 +25,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -37,10 +35,10 @@ private fun DesignSystemPreview() {
             .fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.xl),
     ) {
-        Text("Design System", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text("Design System", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold))
 
         // Color Swatches
-        Text("Colors", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("Colors", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             listOf(
                 "Primary" to IndigoPrimary,
@@ -55,19 +53,19 @@ private fun DesignSystemPreview() {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(Dimens.iconSizeXl)
                             .clip(RoundedCornerShape(Dimens.cornerRadiusMd))
                             .background(color),
                     )
                     Spacer(modifier = Modifier.height(Spacing.xs))
-                    Text(name, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(modifier = Modifier.width(Spacing.sm))
             }
         }
 
         // Spacing Scale
-        Text("Spacing", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("Spacing", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             listOf(
                 "xxs (2dp)" to Spacing.xxs,
@@ -87,37 +85,51 @@ private fun DesignSystemPreview() {
                             .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(Spacing.xxs)),
                     )
                     Spacer(modifier = Modifier.width(Spacing.sm))
-                    Text(name, fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
 
         // Corner Radii
-        Text("Corner Radii", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("Corner Radii", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             listOf(
                 "Sm" to Dimens.cornerRadiusSm,
                 "Md" to Dimens.cornerRadiusMd,
                 "Lg" to Dimens.cornerRadiusLg,
                 "Xl" to Dimens.cornerRadiusXl,
-                "Full" to Dimens.cornerRadiusFull,
             ).forEach { (name, radius) ->
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(Dimens.iconSizeXl)
                             .clip(RoundedCornerShape(radius))
                             .border(Dimens.borderWidth, MaterialTheme.colorScheme.outline, RoundedCornerShape(radius))
                             .background(MaterialTheme.colorScheme.primaryContainer),
                     )
                     Spacer(modifier = Modifier.height(Spacing.xs))
-                    Text(name, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .size(Dimens.iconSizeXl)
+                        .clip(CircleShape)
+                        .border(Dimens.borderWidth, MaterialTheme.colorScheme.outline, CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                )
+                Spacer(modifier = Modifier.height(Spacing.xs))
+                Text("Full", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
         // Touch Targets
-        Text("Touch Targets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("Touch Targets", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
@@ -125,14 +137,18 @@ private fun DesignSystemPreview() {
                     .border(Dimens.borderWidthThick, MaterialTheme.colorScheme.primary, RoundedCornerShape(Dimens.cornerRadiusMd)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("48dp", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                Text("48dp", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
             Spacer(modifier = Modifier.width(Spacing.sm))
-            Text("Minimum touch target size", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "Minimum touch target size",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         // Icon Sizes
-        Text("Icon Sizes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("Icon Sizes", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
             listOf(
                 "Sm" to Dimens.iconSizeSm,
@@ -146,7 +162,7 @@ private fun DesignSystemPreview() {
                             .background(MaterialTheme.colorScheme.primary, CircleShape),
                     )
                     Spacer(modifier = Modifier.height(Spacing.xs))
-                    Text(name, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

@@ -46,12 +46,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.Dimens
-import com.aistudio.mcpchat.ui.theme.IndigoPrimary
-import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
 import com.aistudio.mcpchat.ui.theme.Spacing
 
 @Composable
@@ -75,16 +71,16 @@ fun EmptyChatView(onPromptSelected: (String) -> Unit, modifier: Modifier = Modif
             .padding(Spacing.xl),
     ) {
         Surface(
-            color = IndigoPrimary.copy(alpha = 0.12f),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
             shape = RoundedCornerShape(Dimens.cornerRadiusXl),
-            border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.3f)),
+            border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
             modifier = Modifier.size(Spacing.xxxl),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.Hub,
                     contentDescription = null,
-                    tint = IndigoPrimaryLight,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier
                         .size(Dimens.iconSizeXl)
                         .graphicsLayer {
@@ -141,10 +137,8 @@ fun EmptyChatView(onPromptSelected: (String) -> Unit, modifier: Modifier = Modif
 
         Text(
             text = "TRY ASKING:",
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Bold,
-            color = CyanSecondary,
-            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.secondary,
             modifier = Modifier.align(Alignment.Start),
         )
 
@@ -193,14 +187,13 @@ private fun FeatureHighlightItem(icon: ImageVector, label: String, modifier: Mod
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = IndigoPrimaryLight,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(Dimens.iconSizeLg),
             )
             Spacer(modifier = Modifier.height(Spacing.xs))
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -231,7 +224,7 @@ fun PromptSuggestionCard(icon: ImageVector, title: String, prompt: String, onPro
             modifier = Modifier.padding(Spacing.md),
         ) {
             Surface(
-                color = IndigoPrimary.copy(alpha = 0.15f),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(Dimens.cornerRadiusMd),
                 modifier = Modifier.size(Dimens.iconSizeXl),
             ) {
@@ -239,7 +232,7 @@ fun PromptSuggestionCard(icon: ImageVector, title: String, prompt: String, onPro
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = IndigoPrimaryLight,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(Dimens.iconSizeMd),
                     )
                 }
@@ -250,8 +243,7 @@ fun PromptSuggestionCard(icon: ImageVector, title: String, prompt: String, onPro
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
@@ -292,15 +284,14 @@ fun QuickActionChip(label: String, icon: ImageVector? = null, onClick: () -> Uni
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = IndigoPrimaryLight,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(Dimens.iconSizeSm),
                 )
                 Spacer(modifier = Modifier.width(Spacing.xs))
             }
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

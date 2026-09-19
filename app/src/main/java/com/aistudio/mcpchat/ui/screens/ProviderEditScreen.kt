@@ -9,15 +9,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -44,15 +49,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.AiProviderType
-import com.aistudio.mcpchat.ui.theme.IndigoPrimary
+import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.AiProviderSettingsViewModel
 
@@ -74,13 +82,13 @@ fun ProviderEditScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var draftInitialized by remember { mutableStateOf(false) }
-    var providerMissing by remember { mutableStateOf(false) }
-    var saveAttempted by remember { mutableStateOf(false) }
+    var draftInitialized by rememberSaveable { mutableStateOf(false) }
+    var providerMissing by rememberSaveable { mutableStateOf(false) }
+    var saveAttempted by rememberSaveable { mutableStateOf(false) }
 
     // Seed the shared draft once route args + configs are available.
-    LaunchedEffect(uiState.configs) {
-        if (draftInitialized) return@LaunchedEffect
+    LaunchedEffect(uiState.configs, uiState.configsLoaded) {
+        if (draftInitialized || providerMissing) return@LaunchedEffect
         val existing = configId?.let { id -> uiState.configs.find { it.id == id } }
         when {
             existing != null -> {
@@ -98,7 +106,7 @@ fun ProviderEditScreen(
                 draftInitialized = true
             }
 
-            uiState.configs.isNotEmpty() -> providerMissing = true
+            uiState.configsLoaded -> providerMissing = true
         }
     }
 
@@ -175,11 +183,15 @@ fun ProviderEditScreen(
         }
 
         val draft = uiState.draft
-        if (draft == null) {
+        if (draft == null && !providerMissing) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.fillMaxSize().padding(padding),
             ) { Text("Loading provider…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            return@Scaffold
+        }
+
+        if (draft == null) {
             return@Scaffold
         }
 
@@ -211,6 +223,14 @@ private fun ProviderDraftForm(
     modifier: Modifier = Modifier,
 ) {
     val isGoogle = draft.typeLabel == AiProviderType.GOOGLE.name
+    val focusManager = LocalFocusManager.current
+    val trimmedName = draft.name.trim()
+    val trimmedUrl = draft.baseUrl.trim()
+    val trimmedModel = draft.model.trim()
+    val trimmedKey = draft.apiKey.trim()
+    val urlError = trimmedUrl.isNotBlank() && !(trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://"))
+    val googleKeyError = isGoogle && trimmedKey.isBlank()
+    val insecureHttp = trimmedUrl.startsWith("http://")
 
     Column(
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
@@ -232,6 +252,16 @@ private fun ProviderDraftForm(
             },
             label = { Text("Display name") },
             singleLine = true,
+            isError = trimmedName.isBlank(),
+            supportingText = if (trimmedName.isBlank()) {
+                { Text("Display name is required") }
+            } else {
+                null
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            keyboardActions = KeyboardActions(
+                onNext = { focusManager.moveFocus(FocusDirection.Down) },
+            ),
             modifier = Modifier.fillMaxWidth().testTag("provider_name_field"),
         )
 
@@ -253,7 +283,8 @@ private fun ProviderDraftForm(
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeMenuExpanded) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .testTag("provider_protocol_field"),
             )
             ExposedDropdownMenu(
                 expanded = typeMenuExpanded,
@@ -263,9 +294,21 @@ private fun ProviderDraftForm(
                     DropdownMenuItem(
                         text = { Text(option) },
                         onClick = {
-                            onChange { current -> current.copy(typeLabel = option) }
+                            val preset = when (option) {
+                                AiProviderType.GOOGLE.name -> AiProviderConfig.google()
+                                AiProviderType.ANTHROPIC.name -> AiProviderConfig.anthropic()
+                                else -> AiProviderConfig.custom()
+                            }
+                            onChange { current ->
+                                current.copy(
+                                    typeLabel = option,
+                                    baseUrl = preset.baseUrl,
+                                    model = preset.model,
+                                )
+                            }
                             typeMenuExpanded = false
                         },
+                        modifier = Modifier.testTag("provider_protocol_option_$option"),
                     )
                 }
             }
@@ -279,14 +322,50 @@ private fun ProviderDraftForm(
             label = { Text("Endpoint base URL") },
             placeholder = { Text("https://api.openai.com/v1") },
             singleLine = true,
-            isError = draft.baseUrl.isNotBlank() && !draft.baseUrl.startsWith("http"),
-            supportingText = if (draft.baseUrl.isNotBlank() && !draft.baseUrl.startsWith("http")) {
+            isError = urlError,
+            supportingText = if (urlError) {
                 { Text("Must start with http:// or https://", color = MaterialTheme.colorScheme.error) }
+            } else if (trimmedUrl.isBlank()) {
+                { Text("Endpoint URL is required") }
             } else {
                 null
             },
-            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Uri,
+                imeAction = ImeAction.Next,
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { focusManager.moveFocus(FocusDirection.Down) },
+            ),
+            modifier = Modifier.fillMaxWidth().testTag("provider_url_field"),
         )
+
+        if (insecureHttp && !urlError) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(Spacing.sm),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(Dimens.iconSizeMd),
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Text(
+                        text = "Plain HTTP sends API keys without encryption. Prefer HTTPS.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
 
         var apiKeyVisible by rememberSaveable { mutableStateOf(false) }
         OutlinedTextField(
@@ -296,8 +375,20 @@ private fun ProviderDraftForm(
             },
             label = { Text(if (isGoogle) "API key" else "API key (blank ok for local runtimes)") },
             visualTransformation = if (apiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Next,
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { focusManager.moveFocus(FocusDirection.Down) },
+            ),
             singleLine = true,
+            isError = googleKeyError,
+            supportingText = if (googleKeyError) {
+                { Text("Google providers require an API key", color = MaterialTheme.colorScheme.error) }
+            } else {
+                null
+            },
             trailingIcon = {
                 IconButton(
                     onClick = { apiKeyVisible = !apiKeyVisible },
@@ -311,7 +402,7 @@ private fun ProviderDraftForm(
                     )
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("provider_key_field"),
         )
 
         OutlinedTextField(
@@ -322,13 +413,32 @@ private fun ProviderDraftForm(
             label = { Text("Model") },
             placeholder = { Text("gpt-4o-mini / claude-sonnet-4-5 / gemini-3.6-flash") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            isError = trimmedModel.isBlank(),
+            supportingText = if (trimmedModel.isBlank()) {
+                { Text("Model is required") }
+            } else {
+                null
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(
+                onDone = { focusManager.clearFocus() },
+            ),
+            modifier = Modifier.fillMaxWidth().testTag("provider_model_field"),
         )
 
-        val isDraftValid = draft.name.isNotBlank() &&
-            draft.baseUrl.isNotBlank() &&
-            draft.baseUrl.startsWith("http") &&
-            draft.model.isNotBlank()
+        val isDraftValid = trimmedName.isNotBlank() &&
+            trimmedUrl.isNotBlank() &&
+            !urlError &&
+            trimmedModel.isNotBlank() &&
+            !googleKeyError
+
+        if (!isDraftValid) {
+            Text(
+                text = "Fill the required fields above to enable saving",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -343,7 +453,6 @@ private fun ProviderDraftForm(
             Button(
                 onClick = onSave,
                 enabled = isDraftValid,
-                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
                 modifier = Modifier.weight(1f).testTag("save_provider_button"),
             ) {
                 Text(if (isEdit) "Save Changes" else "Save Provider")

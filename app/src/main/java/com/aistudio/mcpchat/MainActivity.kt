@@ -64,8 +64,8 @@ import com.aistudio.mcpchat.data.local.ThemeMode
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.ui.adaptive.SecondaryPane
 import com.aistudio.mcpchat.ui.adaptive.horizontalHingeInsetPx
+import com.aistudio.mcpchat.ui.adaptive.paneSplitFraction
 import com.aistudio.mcpchat.ui.adaptive.rememberHingeInfo
-import com.aistudio.mcpchat.ui.adaptive.twoPaneSplitFraction
 import com.aistudio.mcpchat.ui.screens.ChatScreen
 import com.aistudio.mcpchat.ui.screens.InspectorScreen
 import com.aistudio.mcpchat.ui.screens.OnboardingScreen
@@ -76,7 +76,7 @@ import com.aistudio.mcpchat.ui.screens.ServersScreen
 import com.aistudio.mcpchat.ui.screens.SettingsScreen
 import com.aistudio.mcpchat.ui.screens.hasSeenOnboarding
 import com.aistudio.mcpchat.ui.screens.markOnboardingSeen
-import com.aistudio.mcpchat.ui.theme.IndigoPrimary
+import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.MyApplicationTheme
 import com.aistudio.mcpchat.ui.viewmodel.AiProviderSettingsViewModel
 import com.aistudio.mcpchat.ui.viewmodel.ThemeViewModel
@@ -248,12 +248,19 @@ fun MainApp() {
             BoxWithConstraints(modifier = Modifier.weight(1f)) {
                 val paneAreaWidthPx = constraints.maxWidth.toFloat()
                 val paneAreaHeightPx = constraints.maxHeight.toFloat()
+                val density = LocalDensity.current
+                // Hinge bounds arrive in window coordinates; the rail sits
+                // outside this pane area, so offset the center by its width.
+                val railInsetPx = if (useRail) {
+                    with(density) { 80.dp.toPx() }
+                } else {
+                    0f
+                }
                 val splitFraction = if (isTwoPane && secondaryPane != SecondaryPane.NONE) {
-                    twoPaneSplitFraction(paneAreaWidthPx, hinge)
+                    paneSplitFraction(paneAreaWidthPx, hinge, railInsetPx)
                 } else {
                     1f
                 }
-                val density = LocalDensity.current
                 val hingeGap = if (hinge != null && hinge.isVertical) {
                     with(density) { hinge.widthPx.toDp() / 2 }
                 } else {
@@ -294,6 +301,7 @@ fun MainApp() {
                                 onAddServer = { navController.navigate(SERVER_ADD_ROUTE) },
                                 onEditServer = { server -> navController.navigate(serverEditRoute(server.id)) },
                                 onOpenServers = openServers,
+                                onOpenProviders = { navController.navigate(PROVIDERS_ROUTE) },
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .padding(start = hingeGap),
@@ -332,8 +340,8 @@ private fun navigateTopLevel(navController: NavController, route: String) {
 @Composable
 private fun navItemColors() = NavigationBarItemDefaults.colors(
     selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-    selectedTextColor = IndigoPrimary,
-    indicatorColor = IndigoPrimary,
+    selectedTextColor = MaterialTheme.colorScheme.primary,
+    indicatorColor = MaterialTheme.colorScheme.primary,
     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
 )
@@ -341,8 +349,8 @@ private fun navItemColors() = NavigationBarItemDefaults.colors(
 @Composable
 private fun railItemColors() = NavigationRailItemDefaults.colors(
     selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-    selectedTextColor = IndigoPrimary,
-    indicatorColor = IndigoPrimary,
+    selectedTextColor = MaterialTheme.colorScheme.primary,
+    indicatorColor = MaterialTheme.colorScheme.primary,
     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
 )
@@ -351,7 +359,7 @@ private fun railItemColors() = NavigationRailItemDefaults.colors(
 private fun AppBottomBar(items: List<Screen>, currentRoute: String?, onNavigate: (Screen) -> Unit) {
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp,
+        tonalElevation = Dimens.elevationLg,
         modifier = Modifier.testTag("bottom_navigation_bar"),
     ) {
         items.forEach { screen ->
@@ -409,6 +417,7 @@ private fun SecondaryPaneContent(
     onAddServer: () -> Unit,
     onEditServer: (McpServer) -> Unit,
     onOpenServers: () -> Unit,
+    onOpenProviders: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (pane) {
@@ -432,7 +441,11 @@ private fun SecondaryPaneContent(
         }
         SecondaryPane.SETTINGS -> {
             val themeViewModel: ThemeViewModel = hiltViewModel()
-            SettingsScreen(viewModel = themeViewModel, modifier = modifier)
+            SettingsScreen(
+                viewModel = themeViewModel,
+                onNavigateToProviders = onOpenProviders,
+                modifier = modifier,
+            )
         }
     }
 }
@@ -492,8 +505,11 @@ private fun AppNavGraph(
             )
         }
         composable(Screen.Settings.route) {
-            val themeViewModel: com.aistudio.mcpchat.ui.viewmodel.ThemeViewModel = hiltViewModel()
-            SettingsScreen(viewModel = themeViewModel)
+            val themeViewModel: ThemeViewModel = hiltViewModel()
+            SettingsScreen(
+                viewModel = themeViewModel,
+                onNavigateToProviders = { navController.navigate(PROVIDERS_ROUTE) },
+            )
         }
         composable(PROVIDERS_ROUTE) {
             ProvidersScreen(

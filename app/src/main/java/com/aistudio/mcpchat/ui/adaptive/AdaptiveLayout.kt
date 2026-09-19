@@ -55,6 +55,20 @@ fun twoPaneSplitFraction(parentWidthPx: Float, hinge: HingeInfo?, defaultFractio
 }
 
 /**
+ * Pane-area variant of [twoPaneSplitFraction] for when the hinge center is
+ * reported in window coordinates but the split applies to a narrower pane
+ * area (e.g. beside a navigation rail). Subtracts [leadingInsetPx] (rail
+ * width) before dividing so the divider lands on the physical fold.
+ */
+fun paneSplitFraction(paneWidthPx: Float, hinge: HingeInfo?, leadingInsetPx: Float = 0f, defaultFraction: Float = 0.5f): Float {
+    if (paneWidthPx <= 0f || hinge == null || !hinge.isVertical) return defaultFraction
+    val adjustedCenter = (hinge.centerXpx - leadingInsetPx).coerceAtLeast(0f)
+    val fraction = adjustedCenter / paneWidthPx
+    if (fraction < 0.15f || fraction > 0.85f) return defaultFraction
+    return fraction
+}
+
+/**
  * Symmetric vertical inset that keeps content clear of a horizontal hinge
  * in half-opened (tabletop) posture. Only engages when the hinge band
  * sits near the vertical center — an off-center band can't be avoided by
@@ -80,9 +94,12 @@ fun rememberHingeInfo(): HingeInfo? {
         WindowInfoTracker.getOrCreate(activity).windowLayoutInfo(activity)
     }.collectAsStateWithLifecycle(initialValue = null)
     return remember(layoutInfo) {
-        layoutInfo?.displayFeatures
+        val features = layoutInfo?.displayFeatures
             ?.filterIsInstance<FoldingFeature>()
-            ?.firstOrNull()
-            ?.toHingeInfo()
+            ?: return@remember null
+        if (features.isEmpty()) return@remember null
+        features
+            .map { it.toHingeInfo() }
+            .maxByOrNull { it.widthPx * it.heightPx }
     }
 }

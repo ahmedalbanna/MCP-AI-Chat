@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -71,6 +70,7 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -82,6 +82,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -95,14 +96,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.aistudio.mcpchat.ui.theme.AmberWarning
-import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.Dimens
-import com.aistudio.mcpchat.ui.theme.EmeraldTertiary
-import com.aistudio.mcpchat.ui.theme.IndigoPrimary
-import com.aistudio.mcpchat.ui.theme.RoseError
 import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.ChatViewModel
 import kotlinx.coroutines.FlowPreview
@@ -161,8 +157,12 @@ fun ChatScreen(
         )
     }
 
-    val currentSession = sessions.find { it.id == currentSessionId }
-    val enabledServersCount = servers.count { it.isEnabled }
+    val currentSession by remember(sessions, currentSessionId) {
+        derivedStateOf { sessions.find { it.id == currentSessionId } }
+    }
+    val enabledServersCount by remember(servers) {
+        derivedStateOf { servers.count { it.isEnabled } }
+    }
     val lastMessageId = messages.lastOrNull()?.id
 
     // Keep the session's model compatible whenever the active provider changes
@@ -186,10 +186,13 @@ fun ChatScreen(
 
     var userHasScrolledUp by remember { mutableStateOf(false) }
 
-    // Key on the LAST message identity, not the list size: growing the
-    // history window prepends items and must not yank the user to the
-    // bottom, while a genuinely new message should.
-    LaunchedEffect(messages.lastOrNull()?.id, inProgressToolCalls.size, streamingText?.length) {
+    val isStreaming = streamingText != null
+    val isEmptyChat by remember(messages, inProgressToolCalls, isStreaming, isGenerating) {
+        derivedStateOf {
+            messages.isEmpty() && inProgressToolCalls.isEmpty() && !isStreaming && !isGenerating
+        }
+    }
+    LaunchedEffect(messages.lastOrNull()?.id, inProgressToolCalls.size, isStreaming) {
         if (!userHasScrolledUp && messages.isNotEmpty()) {
             val count = listState.layoutInfo.totalItemsCount
             if (count > 0) listState.scrollToItem(count - 1)
@@ -226,8 +229,7 @@ fun ChatScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "MCP AI Chat",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                             )
                             Spacer(modifier = Modifier.width(Spacing.sm))
                             Surface(
@@ -282,14 +284,13 @@ fun ChatScreen(
                                 modifier = Modifier
                                     .size(Spacing.xs)
                                     .clip(CircleShape)
-                                    .background(EmeraldTertiary),
+                                    .background(MaterialTheme.colorScheme.tertiary),
                             )
                             Spacer(modifier = Modifier.width(Spacing.xs))
                             Text(
                                 text = "$enabledServersCount Remote MCP Servers Active",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = EmeraldTertiary,
-                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.tertiary,
                             )
                         }
                     }
@@ -333,7 +334,7 @@ fun ChatScreen(
                 .padding(padding),
         ) {
             Box(modifier = Modifier.weight(1f)) {
-                if (messages.isEmpty() && inProgressToolCalls.isEmpty()) {
+                if (isEmptyChat) {
                     EmptyChatView(
                         onPromptSelected = { prompt ->
                             viewModel.sendMessage(prompt)
@@ -354,7 +355,7 @@ fun ChatScreen(
                                 message = msg,
                                 viewModel = viewModel,
                             )
-                            if (msg.id == lastMessageId && !isGenerating) {
+                            if (msg.id == lastMessageId && !isGenerating && msg.role != "user") {
                                 RegenerateAction(
                                     onClick = { viewModel.regenerate() },
                                     modifier = Modifier.padding(start = Spacing.xxl),
@@ -376,14 +377,13 @@ fun ChatScreen(
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(Dimens.iconSizeSm),
                                             strokeWidth = Dimens.borderWidthThick,
-                                            color = AmberWarning,
+                                            color = MaterialTheme.colorScheme.secondary,
                                         )
                                         Spacer(modifier = Modifier.width(Spacing.sm))
                                         Text(
                                             text = "Executing Remote MCP Tool Calls...",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = AmberWarning,
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                            color = MaterialTheme.colorScheme.secondary,
                                             fontFamily = FontFamily.Monospace,
                                         )
                                     }
@@ -455,8 +455,8 @@ fun ChatScreen(
 
             if (errorMessage != null) {
                 Surface(
-                    color = RoseError.copy(alpha = 0.15f),
-                    border = BorderStroke(Dimens.borderWidth, RoseError.copy(alpha = 0.4f)),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                    border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
                     shape = RoundedCornerShape(Dimens.cornerRadiusMd),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -473,14 +473,14 @@ fun ChatScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Error,
-                            contentDescription = "Error",
-                            tint = RoseError,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(Dimens.iconSizeSm),
                         )
                         Text(
                             text = errorMessage ?: "",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = RoseError,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
                             modifier = Modifier.weight(1f),
                         )
                         IconButton(
@@ -491,7 +491,7 @@ fun ChatScreen(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Dismiss error",
-                                tint = RoseError,
+                                tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(Dimens.iconSizeSm),
                             )
                         }
@@ -507,9 +507,7 @@ fun ChatScreen(
             Surface(
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = Dimens.elevationMd,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding(),
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
                     Box(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
@@ -550,19 +548,31 @@ fun ChatScreen(
                                 viewModel.sendMessage("Calculate sqrt(1024) + (45 * 12) / 3.5 and convert 150 km to miles.")
                             }
                         }
-                        // Gradient fade hint — only when chips can scroll forward
+                        // Gradient fade hint — only when chips can scroll forward.
+                        // Mirrored for RTL via LocalLayoutDirection; the overlay
+                        // is deliberately non-interactive so chip taps pass through.
                         if (chipsScrollState.canScrollForward) {
+                            val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+                            val fadeColors = if (isRtl) {
+                                listOf(
+                                    MaterialTheme.colorScheme.surface,
+                                    Color.Transparent,
+                                )
+                            } else {
+                                listOf(
+                                    Color.Transparent,
+                                    MaterialTheme.colorScheme.surface,
+                                )
+                            }
                             Box(
                                 modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .width(24.dp)
-                                    .height(32.dp)
+                                    .align(if (isRtl) Alignment.CenterStart else Alignment.CenterEnd)
+                                    .width(Spacing.xl)
+                                    .height(Spacing.xxl)
+                                    .clickable(enabled = false) { }
                                     .background(
                                         androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                MaterialTheme.colorScheme.surface,
-                                            ),
+                                            colors = fadeColors,
                                         ),
                                     ),
                             )
@@ -614,7 +624,6 @@ fun ChatScreen(
                         OutlinedTextField(
                             value = inputText,
                             onValueChange = { inputText = it },
-                            label = { Text("Message") },
                             placeholder = {
                                 Text(
                                     text = "Ask anything with remote MCP tools...",
@@ -629,7 +638,7 @@ fun ChatScreen(
                             ),
                             shape = RoundedCornerShape(Dimens.cornerRadiusXl),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = IndigoPrimary,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                                 focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
@@ -655,8 +664,8 @@ fun ChatScreen(
                                 .clip(CircleShape)
                                 .background(
                                     when {
-                                        isGenerating -> RoseError
-                                        canSend -> IndigoPrimary
+                                        isGenerating -> MaterialTheme.colorScheme.error
+                                        canSend -> MaterialTheme.colorScheme.primary
                                         else -> MaterialTheme.colorScheme.surfaceVariant
                                     },
                                 )
@@ -737,7 +746,7 @@ fun ChatScreen(
                     verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    items(servers) { server ->
+                    items(servers, key = { it.id }) { server ->
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                             shape = RoundedCornerShape(Dimens.cornerRadiusLg),
@@ -758,14 +767,13 @@ fun ChatScreen(
                                         if (server.isPreset) {
                                             Spacer(modifier = Modifier.width(Spacing.sm))
                                             Surface(
-                                                color = CyanSecondary.copy(alpha = 0.15f),
+                                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
                                                 shape = RoundedCornerShape(Dimens.cornerRadiusSm),
                                             ) {
                                                 Text(
                                                     text = "PRESET",
                                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = CyanSecondary,
+                                                    color = MaterialTheme.colorScheme.secondary,
                                                     modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs),
                                                 )
                                             }
@@ -785,8 +793,8 @@ fun ChatScreen(
                                         viewModel.toggleServer(server.id, checked)
                                     },
                                     colors = SwitchDefaults.colors(
-                                        checkedThumbColor = IndigoPrimary,
-                                        checkedTrackColor = IndigoPrimary.copy(alpha = 0.3f),
+                                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
                                     ),
                                     modifier = Modifier
                                         .semantics {
@@ -861,6 +869,10 @@ fun ChatScreen(
                         Text(text = "Search conversations and messages…", style = MaterialTheme.typography.bodyMedium)
                     },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = { keyboardController?.hide() },
+                    ),
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Search,
@@ -922,12 +934,16 @@ fun ChatScreen(
                             }
                         }
                     }
-                    items(visibleSessions) { session ->
+                    items(visibleSessions, key = { it.id }) { session ->
                         val isSelected = session.id == currentSessionId
                         Surface(
                             color = sessionSurfaceColor(isSelected),
                             shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-                            border = if (isSelected) BorderStroke(Dimens.borderWidth, IndigoPrimary) else null,
+                            border = if (isSelected) {
+                                BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary)
+                            } else {
+                                null
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .semantics {
@@ -965,7 +981,7 @@ fun ChatScreen(
                                     Icon(
                                         imageVector = Icons.Default.Delete,
                                         contentDescription = "Delete ${session.title}",
-                                        tint = RoseError.copy(alpha = 0.7f),
+                                        tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(Dimens.iconSizeSm),
                                     )
                                 }
@@ -986,7 +1002,9 @@ fun ChatScreen(
                                 viewModel.deleteSession(toDelete.id)
                                 sessionToDelete = null
                             },
-                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = RoseError),
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                            ),
                         ) { androidx.compose.material3.Text("Delete") }
                     },
                     dismissButton = {
