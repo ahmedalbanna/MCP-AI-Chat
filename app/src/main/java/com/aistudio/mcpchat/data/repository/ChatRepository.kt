@@ -331,6 +331,15 @@ class ChatRepository(
         }
 
         val totalLatency = System.currentTimeMillis() - startTime
+        val (cleanText, parsedSuggestions) = SuggestionParser.splitResponse(finalResponseText)
+        finalResponseText = cleanText
+        val suggestions = if (isError || failureException != null) {
+            emptyList()
+        } else {
+            parsedSuggestions.ifEmpty {
+                SuggestionFallbacks.forConversation(accumulatedToolCalls.map { it.toolName })
+            }
+        }
         val persisted = persistAssistantTurn(
             effectiveSessionId,
             session,
@@ -342,7 +351,7 @@ class ChatRepository(
         )
         // The Room flow emits the persisted message asynchronously; this
         // tells collectors the preview bubble can be swapped for the real one.
-        _streamEvents.tryEmit(ChatStreamEvent.StreamFinished(effectiveSessionId))
+        _streamEvents.tryEmit(ChatStreamEvent.StreamFinished(effectiveSessionId, suggestions))
         persisted
     }
 

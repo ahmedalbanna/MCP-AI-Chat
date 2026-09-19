@@ -800,4 +800,50 @@ class ChatRepositoryTest {
         assertEquals(2, responses.size)
         assertTrue(responses.all { it.response["result"] == "Empty response" })
     }
+
+    @Test
+    fun `sendMessage strips suggestions marker and emits parsed suggestions`() = runTest {
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList(any()) } returns emptyList()
+        coEvery { geminiService.streamContent(any(), any(), any(), any(), any(), any()) } returns
+            com.aistudio.mcpchat.data.model.GeminiResponse(
+                text = "Sunny in Tokyo.\n\n---SUGGESTIONS---\n1. Show the extended forecast\n2. Compare with London",
+            )
+
+        createRepository()
+        val events = mutableListOf<ChatStreamEvent>()
+        val collectJob = launch { repository.streamEvents.collect { events.add(it) } }
+        advanceUntilIdle()
+
+        val result = repository.sendMessage(sessionId = "s1", userPrompt = "Weather?")
+        advanceUntilIdle()
+        collectJob.cancel()
+
+        assertTrue(result.isSuccess)
+        coVerify { chatDao.insertMessage(match { it.role == "assistant" && it.content == "Sunny in Tokyo." }) }
+        val finished = events.filterIsInstance<ChatStreamEvent.StreamFinished>().lastOrNull()
+        assertNotNull(finished)
+        assertEquals(listOf("Show the extended forecast", "Compare with London"), finished!!.suggestions)
+    }
+
+    @Test
+    fun `sendMessage falls back to generic suggestions without marker`() = runTest {
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList(any()) } returns emptyList()
+        coEvery { geminiService.streamContent(any(), any(), any(), any(), any(), any()) } returns
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "Plain answer")
+
+        createRepository()
+        val events = mutableListOf<ChatStreamEvent>()
+        val collectJob = launch { repository.streamEvents.collect { events.add(it) } }
+        advanceUntilIdle()
+
+        repository.sendMessage(sessionId = "s1", userPrompt = "Hi")
+        advanceUntilIdle()
+        collectJob.cancel()
+
+        val finished = events.filterIsInstance<ChatStreamEvent.StreamFinished>().lastOrNull()
+        assertNotNull(finished)
+        assertEquals(3, finished!!.suggestions.size)
+    }
 }

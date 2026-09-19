@@ -234,6 +234,25 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `suggestedPrompts update on StreamFinished and clear on session switch`() = runTest {
+        createViewModel()
+        viewModel.selectSession("s1")
+        advanceUntilIdle()
+
+        streamEventsFlow.tryEmit(ChatStreamEvent.StreamFinished("s1", listOf("Ask more", "Summarize")))
+        advanceUntilIdle()
+        assertEquals(listOf("Ask more", "Summarize"), viewModel.suggestedPrompts.value)
+
+        streamEventsFlow.tryEmit(ChatStreamEvent.StreamFinished("other", listOf("Leaked")))
+        advanceUntilIdle()
+        assertEquals(listOf("Ask more", "Summarize"), viewModel.suggestedPrompts.value)
+
+        viewModel.selectSession("s2")
+        advanceUntilIdle()
+        assertTrue(viewModel.suggestedPrompts.value.isEmpty())
+    }
+
+    @Test
     fun `selectSession updates currentSessionId`() = runTest {
         createViewModel()
 

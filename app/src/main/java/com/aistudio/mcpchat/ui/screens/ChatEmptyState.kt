@@ -190,12 +190,12 @@ fun PromptSuggestionCard(icon: ImageVector, title: String, prompt: String, onPro
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun QuickActionChip(label: String, icon: ImageVector? = null, onClick: () -> Unit) {
+fun QuickActionChip(label: String, icon: ImageVector? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.6f),
         shape = RoundedCornerShape(Dimens.cornerRadiusFull),
         border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-        modifier = Modifier
+        modifier = modifier
             .minimumInteractiveComponentSize()
             .semantics {
                 role = Role.Button

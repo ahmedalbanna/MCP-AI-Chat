@@ -19,6 +19,11 @@ class SystemPromptBuilder {
             "Provide concise, well-formatted markdown responses. Synthesize tool results seamlessly into " +
                 "natural, helpful answers with proper formatting, bullet points, and tables when helpful.\n",
         )
+        builder.append(
+            "\nEnd every final answer with exactly 3 short follow-up prompts the user may want next, " +
+                "formatted as:\n---SUGGESTIONS---\n1. <follow-up>\n2. <follow-up>\n3. <follow-up>\n" +
+                "Keep each under 80 characters. Never add the block after a tool call, only after the final text.\n",
+        )
 
         if (tools.isNotEmpty()) {
             // Names only — full descriptions/schemas already travel in the

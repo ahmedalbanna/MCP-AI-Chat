@@ -19,5 +19,5 @@ sealed interface ChatStreamEvent {
     data class TokenDelta(override val sessionId: String, val delta: String) : ChatStreamEvent
 
     /** The generation finished and the assistant message was persisted. */
-    data class StreamFinished(override val sessionId: String) : ChatStreamEvent
+    data class StreamFinished(override val sessionId: String, val suggestions: List<String> = emptyList()) : ChatStreamEvent
 }

@@ -38,18 +38,13 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.CurrencyBitcoin
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -128,6 +123,7 @@ fun ChatScreen(
     val streamingText by viewModel.streamingText.collectAsStateWithLifecycle()
     val streamProgress by viewModel.streamProgress.collectAsStateWithLifecycle()
     val pendingAttachments by viewModel.pendingAttachments.collectAsStateWithLifecycle()
+    val suggestedPrompts by viewModel.suggestedPrompts.collectAsStateWithLifecycle()
 
     var inputText by remember { mutableStateOf("") }
     var showServersSheet by remember { mutableStateOf(false) }
@@ -340,7 +336,7 @@ fun ChatScreen(
                 if (isEmptyChat) {
                     EmptyChatView(
                         onPromptSelected = { prompt ->
-                            viewModel.sendMessage(prompt)
+                            inputText = prompt
                         },
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -512,72 +508,52 @@ fun ChatScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
-                    Box(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(chipsScrollState),
-                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                        ) {
-                            QuickActionChip(
-                                label = "Tokyo Weather",
-                                icon = Icons.Default.WbSunny,
-                            ) {
-                                viewModel.sendMessage("Get the live weather in Tokyo and describe current conditions.")
-                            }
-                            QuickActionChip(
-                                label = "Kotlin Repos",
-                                icon = Icons.Default.Code,
-                            ) {
-                                viewModel.sendMessage("Search GitHub for trending Kotlin Jetpack Compose repositories.")
-                            }
-                            QuickActionChip(
-                                label = "BTC & EUR",
-                                icon = Icons.Default.CurrencyBitcoin,
-                            ) {
-                                viewModel.sendMessage("Get the live price of Bitcoin and convert 1500 USD to EUR.")
-                            }
-                            QuickActionChip(
-                                label = "World Time",
-                                icon = Icons.Default.Schedule,
-                            ) {
-                                viewModel.sendMessage("What is the current time in Tokyo, London, and New York?")
-                            }
-                            QuickActionChip(
-                                label = "Math Engine",
-                                icon = Icons.Default.Speed,
-                            ) {
-                                viewModel.sendMessage("Calculate sqrt(1024) + (45 * 12) / 3.5 and convert 150 km to miles.")
-                            }
-                        }
-                        // Gradient fade hint — only when chips can scroll forward.
-                        // Mirrored for RTL via LocalLayoutDirection; the overlay
-                        // is deliberately non-interactive so chip taps pass through.
-                        if (chipsScrollState.canScrollForward) {
-                            val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-                            val fadeColors = if (isRtl) {
-                                listOf(
-                                    MaterialTheme.colorScheme.surface,
-                                    Color.Transparent,
-                                )
-                            } else {
-                                listOf(
-                                    Color.Transparent,
-                                    MaterialTheme.colorScheme.surface,
-                                )
-                            }
-                            Box(
+                    if (!isEmptyChat && suggestedPrompts.isNotEmpty()) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
+                            Row(
                                 modifier = Modifier
-                                    .align(if (isRtl) Alignment.CenterStart else Alignment.CenterEnd)
-                                    .width(Spacing.xl)
-                                    .height(Spacing.xxl)
-                                    .clickable(enabled = false) { }
-                                    .background(
-                                        androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                            colors = fadeColors,
+                                    .fillMaxWidth()
+                                    .horizontalScroll(chipsScrollState),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                            ) {
+                                for ((index, suggestion) in suggestedPrompts.withIndex()) {
+                                    QuickActionChip(
+                                        label = suggestion,
+                                        modifier = Modifier.testTag("suggestion_chip_$index"),
+                                    ) {
+                                        inputText = suggestion
+                                    }
+                                }
+                            }
+                            // Gradient fade hint — only when chips can scroll forward.
+                            // Mirrored for RTL via LocalLayoutDirection; the overlay
+                            // is deliberately non-interactive so chip taps pass through.
+                            if (chipsScrollState.canScrollForward) {
+                                val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+                                val fadeColors = if (isRtl) {
+                                    listOf(
+                                        MaterialTheme.colorScheme.surface,
+                                        Color.Transparent,
+                                    )
+                                } else {
+                                    listOf(
+                                        Color.Transparent,
+                                        MaterialTheme.colorScheme.surface,
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .align(if (isRtl) Alignment.CenterStart else Alignment.CenterEnd)
+                                        .width(Spacing.xl)
+                                        .height(Spacing.xxl)
+                                        .clickable(enabled = false) { }
+                                        .background(
+                                            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                                colors = fadeColors,
+                                            ),
                                         ),
-                                    ),
-                            )
+                                )
+                            }
                         }
                     }
 

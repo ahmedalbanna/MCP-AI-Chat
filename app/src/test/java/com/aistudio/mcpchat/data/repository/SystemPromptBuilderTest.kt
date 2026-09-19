@@ -81,6 +81,13 @@ class SystemPromptBuilderTest {
     }
 
     @Test
+    fun `buildSystemPrompt requests follow-up suggestions block`() {
+        val result = builder.buildSystemPrompt("", emptyList())
+
+        assertTrue(result.contains("---SUGGESTIONS---"))
+    }
+
+    @Test
     fun `buildSystemPrompt combines tools and user instructions`() {
         val tools = listOf(
             McpTool(

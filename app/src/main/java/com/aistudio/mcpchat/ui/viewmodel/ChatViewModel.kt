@@ -95,6 +95,14 @@ class ChatViewModel @Inject constructor(
     val streamProgress: StateFlow<StreamProgress?> = _streamProgress.asStateFlow()
 
     /**
+     * Dynamic follow-up prompts for the latest assistant turn. LLM-generated
+     * when the model emits the suggestions block, heuristic fallback
+     * otherwise. Empty while generating or when the chat is empty.
+     */
+    private val _suggestedPrompts = MutableStateFlow<List<String>>(emptyList())
+    val suggestedPrompts: StateFlow<List<String>> = _suggestedPrompts.asStateFlow()
+
+    /**
      * Images staged in the input bar, sent with the next message. URIs come
      * from the photo picker; bytes are read at request time.
      */
@@ -251,6 +259,7 @@ class ChatViewModel @Inject constructor(
             is ChatStreamEvent.StreamFinished -> {
                 _streamingText.value = null
                 _streamProgress.value = null
+                _suggestedPrompts.value = event.suggestions
             }
         }
     }
@@ -259,6 +268,7 @@ class ChatViewModel @Inject constructor(
         updateCurrentSessionId(sessionId)
         _streamingText.value = null
         _streamProgress.value = null
+        _suggestedPrompts.value = emptyList()
         _inProgressToolCalls.value = emptyList()
         _errorMessage.value = null
         _uiError.value = null
@@ -273,6 +283,7 @@ class ChatViewModel @Inject constructor(
             updateCurrentSessionId(session.id)
             _streamingText.value = null
             _streamProgress.value = null
+            _suggestedPrompts.value = emptyList()
             _inProgressToolCalls.value = emptyList()
             _errorMessage.value = null
             _uiError.value = null
@@ -327,6 +338,7 @@ class ChatViewModel @Inject constructor(
             _uiError.value = null
             _streamingText.value = null
             _streamProgress.value = null
+            _suggestedPrompts.value = emptyList()
             _inProgressToolCalls.value = emptyList()
             _pendingAttachments.value = emptyList()
 
@@ -372,6 +384,7 @@ class ChatViewModel @Inject constructor(
             _uiError.value = null
             _streamingText.value = null
             _streamProgress.value = null
+            _suggestedPrompts.value = emptyList()
             _inProgressToolCalls.value = emptyList()
 
             try {
