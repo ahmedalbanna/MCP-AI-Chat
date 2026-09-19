@@ -90,12 +90,11 @@ fun SettingsScreenContent(
                     Column {
                         Text(
                             text = "Appearance",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                         )
                         Text(
                             text = "Customize chat theme & colors",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -114,10 +113,10 @@ fun SettingsScreenContent(
         ) {
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
                 ),
                 shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(Spacing.cardPadding)) {
@@ -125,14 +124,13 @@ fun SettingsScreenContent(
                         Icon(
                             imageVector = Icons.Default.Palette,
                             contentDescription = "Theme mode",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(Dimens.iconSizeLg),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(Dimens.iconSizeMd),
                         )
                         Spacer(modifier = Modifier.width(Spacing.sm))
                         Text(
                             text = "Theme mode",
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                             modifier = Modifier.semantics { heading() },
                         )
                     }
@@ -178,10 +176,10 @@ fun SettingsScreenContent(
 
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
                 ),
                 shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(Spacing.cardPadding)) {
@@ -210,16 +208,16 @@ fun SettingsScreenContent(
             }
 
             Surface(
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(Spacing.cardPadding)) {
                     Text(
                         text = "Preview",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.semantics { heading() },
                     )
                     Spacer(modifier = Modifier.height(Spacing.sm))
@@ -237,10 +235,10 @@ fun SettingsScreenContent(
 
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
                 ),
                 shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                 onClick = onNavigateToProviders,
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -251,8 +249,8 @@ fun SettingsScreenContent(
                     Icon(
                         imageVector = Icons.Default.SmartToy,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(Dimens.iconSizeLg),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(Dimens.iconSizeMd),
                     )
                     Spacer(modifier = Modifier.width(Spacing.sm))
                     Column(modifier = Modifier.weight(1f)) {
@@ -288,9 +286,9 @@ private fun ThemeModeChip(label: String, icon: ImageVector, selected: Boolean, o
             Icon(icon, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeSm))
         },
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.primary,
-            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-            selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
+            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            selectedLeadingIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
         ),
         modifier = modifier
             .testTag("theme_chip_${label.lowercase()}")
@@ -354,16 +352,25 @@ private fun SettingSwitchRow(
 
 @Composable
 private fun PreviewBubble(text: String, isUser: Boolean, modifier: Modifier = Modifier) {
-    Surface(
-        color = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-        modifier = modifier,
-    ) {
+    if (isUser) {
+        Surface(
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            shape = RoundedCornerShape(Dimens.chatUserBubbleRadius),
+            modifier = modifier,
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            )
+        }
+    } else {
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            color = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = modifier.padding(vertical = Spacing.sm),
         )
     }
 }

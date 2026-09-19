@@ -81,7 +81,7 @@ fun ProvidersScreen(
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
                 title = {
-                    Text(text = "AI Providers", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(text = "AI Providers", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold))
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -173,7 +173,7 @@ fun ProvidersScreen(
 private fun ProviderRow(config: AiProviderConfig, isActive: Boolean, onSelect: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
         ),
         modifier = Modifier
             .fillMaxWidth()
@@ -187,7 +187,7 @@ private fun ProviderRow(config: AiProviderConfig, isActive: Boolean, onSelect: (
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = config.name.ifBlank { "Unnamed" } + if (isActive) "  •  active" else "",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                 )
                 Text(
                     text = "${config.model} — ${config.baseUrl}",

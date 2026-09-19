@@ -137,9 +137,8 @@ fun ProviderEditScreen(
                 ),
                 title = {
                     Text(
-                        text = if (configId == null) "Add AI Provider" else "Edit AI Provider",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
+                        text = if (configId == null) "Add provider" else "Edit provider",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                     )
                 },
                 navigationIcon = {

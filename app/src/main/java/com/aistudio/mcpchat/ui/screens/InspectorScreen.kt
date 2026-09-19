@@ -130,15 +130,13 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                 title = {
                     Column {
                         Text(
-                            text = "MCP Inspector & Test Bench",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
+                            text = "Inspector",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                         )
                         Text(
-                            text = "Direct JSON-RPC tool invocation & telemetry logs",
-                            style = MaterialTheme.typography.labelSmall,
+                            text = "Direct tool invocation & telemetry logs",
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontFamily = FontFamily.Monospace,
                         )
                     }
                 },
@@ -310,10 +308,9 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text(
-                                        text = "RAW JSON-RPC TELEMETRY",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.secondary,
+                                        text = "Telemetry",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontFamily = FontFamily.Monospace,
                                     )
 
@@ -338,7 +335,7 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                                     val successRate = if (totalCount > 0) (successCount * 100) / totalCount else 0
 
                                     Surface(
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.4f),
                                         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
                                         modifier = Modifier.fillMaxWidth(),
                                     ) {
@@ -395,7 +392,7 @@ fun InspectorScreen(viewModel: McpInspectorViewModel, modifier: Modifier = Modif
                             if (logs.isEmpty()) {
                                 item {
                                     Surface(
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.4f),
                                         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -496,10 +493,9 @@ fun ResourcesTab(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier
         item {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Text(
-                    text = "MCP RESOURCES",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.secondary,
+                    text = "Resources",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontFamily = FontFamily.Monospace,
                 )
                 Text(
@@ -513,7 +509,7 @@ fun ResourcesTab(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier
         if (enabledServers.isEmpty()) {
             item {
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.4f),
                     shape = RoundedCornerShape(Dimens.cornerRadiusLg),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -558,23 +554,27 @@ fun ResourcesTab(viewModel: McpInspectorViewModel, modifier: Modifier = Modifier
                     enabledServers.forEach { server ->
                         val selected = server.id == selectedServerId
                         val chipColor = if (selected) {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                         } else {
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
                         }
                         Surface(
                             onClick = { viewModel.selectResourceServer(server.id) },
                             color = chipColor,
-                            shape = RoundedCornerShape(Dimens.cornerRadiusXl),
+                            shape = RoundedCornerShape(Dimens.cornerRadiusFull),
+                            border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                             modifier = Modifier
                                 .testTag("resource_server_chip_${server.id}")
                                 .semantics { role = Role.Button },
                         ) {
                             Text(
                                 text = server.name,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                                 modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
                             )
                         }
@@ -633,9 +633,13 @@ private fun ResourceItemCard(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        color = if (isViewed) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = if (isViewed) {
+            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
+        },
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-        border = if (isViewed) BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)) else null,
+        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
         modifier = modifier
             .fillMaxWidth()
             .testTag("resource_item")
@@ -684,7 +688,7 @@ private fun ResourceContentCard(title: String, uri: String, mimeType: String?, c
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
         modifier = modifier
             .fillMaxWidth()
             .testTag("resource_content_card"),
@@ -694,14 +698,13 @@ private fun ResourceContentCard(title: String, uri: String, mimeType: String?, c
                 Icon(
                     imageVector = Icons.Default.Description,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(Dimens.iconSizeSm),
                 )
                 Spacer(modifier = Modifier.width(Spacing.xs))
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -709,8 +712,8 @@ private fun ResourceContentCard(title: String, uri: String, mimeType: String?, c
                 if (mimeType != null) {
                     Text(
                         text = mimeType,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontFamily = FontFamily.Monospace,
                     )
                 }
@@ -770,17 +773,16 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
     }
 
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(Spacing.cardPadding)) {
             Text(
-                text = "TARGET MCP TOOL:",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.secondary,
+                text = "Target tool",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontFamily = FontFamily.Monospace,
             )
             Spacer(modifier = Modifier.height(Spacing.sm))
@@ -788,7 +790,7 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
             Surface(
                 color = MaterialTheme.colorScheme.background,
                 shape = RoundedCornerShape(Dimens.cornerRadiusMd),
-                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics {
@@ -805,10 +807,9 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = selectedTool?.name ?: "Select a Tool...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
+                            text = selectedTool?.name ?: "Select a tool…",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontFamily = FontFamily.Monospace,
                         )
                         if (selectedTool != null) {
@@ -850,7 +851,7 @@ fun ToolSelectorCard(tools: List<McpTool>, selectedTool: McpTool?, onToolSelecte
                         DropdownMenuItem(
                             text = {
                                 Column {
-                                    Text(t.name, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                    Text(t.name, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
                                     Text("${t.serverName} • ${t.description.take(50)}...", style = MaterialTheme.typography.bodySmall)
                                 }
                             },
@@ -893,17 +894,16 @@ fun ParametersCard(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(Spacing.cardPadding)) {
             Text(
-                text = "INVOCATION PARAMETERS:",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.secondary,
+                text = "Parameters",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontFamily = FontFamily.Monospace,
             )
 
@@ -965,7 +965,7 @@ fun ParametersCard(
                                 } else {
                                     MaterialTheme.colorScheme.primary
                                 },
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1003,11 +1003,11 @@ fun ParametersCard(
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
                     Spacer(modifier = Modifier.width(Spacing.md))
-                    Text("Invoking over JSON-RPC...", style = MaterialTheme.typography.bodyMedium)
+                    Text("Invoking…", style = MaterialTheme.typography.bodyMedium)
                 } else {
                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeMd))
                     Spacer(modifier = Modifier.width(Spacing.sm))
-                    Text("Invoke MCP Tool", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Text("Invoke tool", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
                 }
             }
         }
@@ -1017,12 +1017,12 @@ fun ParametersCard(
 @Composable
 fun ExecutionResultCard(result: String, latencyMs: Long, isSuccess: Boolean, modifier: Modifier = Modifier) {
     val borderColor = if (isSuccess) {
-        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f)
+        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.25f)
     } else {
-        MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+        MaterialTheme.colorScheme.error.copy(alpha = 0.25f)
     }
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
         border = BorderStroke(Dimens.borderWidth, borderColor),
         modifier = modifier.fillMaxWidth(),
@@ -1042,26 +1042,23 @@ fun ExecutionResultCard(result: String, latencyMs: Long, isSuccess: Boolean, mod
                     )
                     Spacer(modifier = Modifier.width(Spacing.sm))
                     Text(
-                        text = if (isSuccess) "EXECUTION SUCCESS" else "EXECUTION ERROR",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isSuccess) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
+                        text = if (isSuccess) "Success" else "Error",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        color = if (isSuccess) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
                         fontFamily = FontFamily.Monospace,
                     )
                 }
 
-                Surface(
-                    color = MaterialTheme.colorScheme.background,
-                    shape = RoundedCornerShape(Dimens.cornerRadiusSm),
-                ) {
-                    Text(
-                        text = "${latencyMs}ms",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.tertiary,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs),
-                    )
-                }
+                Text(
+                    text = "${latencyMs}ms",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    fontFamily = FontFamily.Monospace,
+                )
             }
 
             Spacer(modifier = Modifier.height(Spacing.sectionGap))
@@ -1083,14 +1080,14 @@ fun LogItemCard(
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     val logBorderColor = if (logItem.isSuccess) {
-        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)
+        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.25f)
     } else {
-        MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
+        MaterialTheme.colorScheme.error.copy(alpha = 0.25f)
     }
 
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(Dimens.cornerRadiusLg),
         border = BorderStroke(Dimens.borderWidth, logBorderColor),
         modifier = modifier
             .fillMaxWidth()
@@ -1116,18 +1113,17 @@ fun LogItemCard(
                     Spacer(modifier = Modifier.width(Spacing.sm))
                     Text(
                         text = logItem.toolName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                         fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "${logItem.latencyMs}ms",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         fontFamily = FontFamily.Monospace,
                     )
                     Spacer(modifier = Modifier.width(Spacing.md))
@@ -1148,9 +1144,9 @@ fun LogItemCard(
             AnimatedVisibility(visible = isExpanded) {
                 Column(modifier = Modifier.padding(top = Spacing.md)) {
                     Text(
-                        text = "REQUEST JSON-RPC:",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.secondary,
+                        text = "Request",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontFamily = FontFamily.Monospace,
                     )
                     Spacer(modifier = Modifier.height(Spacing.xxs))
@@ -1159,9 +1155,13 @@ fun LogItemCard(
                     Spacer(modifier = Modifier.height(Spacing.sm))
 
                     Text(
-                        text = "RESPONSE PAYLOAD:",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = if (logItem.isSuccess) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
+                        text = "Response",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        color = if (logItem.isSuccess) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
                         fontFamily = FontFamily.Monospace,
                     )
                     Spacer(modifier = Modifier.height(Spacing.xxs))
@@ -1182,7 +1182,7 @@ fun LogItemCard(
                             },
                             contentPadding = PaddingValues(horizontal = Spacing.sectionGap, vertical = Spacing.xs),
                             modifier = Modifier
-                                .height(30.dp)
+                                .height(Spacing.xxl)
                                 .minimumInteractiveComponentSize(),
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeSm))

@@ -1,14 +1,6 @@
 package com.aistudio.mcpchat.ui.screens
 
 import android.content.Context
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,14 +15,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Hub
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -45,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.Spacing
 
@@ -64,26 +52,6 @@ fun markOnboardingSeen(context: Context) {
 
 @Composable
 fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
-    val infiniteTransition = rememberInfiniteTransition(label = "onboarding")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "pulseScale",
-    )
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "glowAlpha",
-    )
-
     Surface(
         color = MaterialTheme.colorScheme.background,
         modifier = modifier.fillMaxSize(),
@@ -112,54 +80,35 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
             ) {
                 Spacer(modifier = Modifier.height(Spacing.xxl))
 
-                Box(contentAlignment = Alignment.Center) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = glowAlpha * 0.15f),
-                        shape = CircleShape,
-                        modifier = Modifier.size(120.dp * pulseScale),
-                    ) {}
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                        shape = CircleShape,
-                        border = BorderStroke(Dimens.borderWidthThick, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
-                        modifier = Modifier.size(96.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.AutoAwesome,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(Dimens.touchTargetMin),
-                            )
-                        }
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(Dimens.cornerRadiusLg),
+                    modifier = Modifier.size(Dimens.iconSizeXl * 2),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Hub,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(Dimens.iconSizeLg),
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(Spacing.xxl))
+                Spacer(modifier = Modifier.height(Spacing.lg))
 
                 Text(
-                    text = "Welcome to",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium,
-                )
-
-                Spacer(modifier = Modifier.height(Spacing.xs))
-
-                Text(
-                    text = "MCP AI Chat",
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
+                    text = "How can I help?",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
                 )
 
                 Spacer(modifier = Modifier.height(Spacing.md))
 
                 Text(
-                    text = "AI-powered chat with Model Context Protocol.\nConnect to remote servers, invoke tools,\nand explore the Inspector.",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight,
-                    ),
+                    text = "Ask anything — I can use your MCP servers when tools help.",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                 )
@@ -190,30 +139,6 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
 
                 Spacer(modifier = Modifier.height(Spacing.xl))
 
-                // Pagination dots
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = Spacing.sm),
-                ) {
-                    repeat(3) { index ->
-                        Box(
-                            modifier = Modifier
-                                .size(if (index == 0) Dimens.iconSizeLg else Spacing.sm)
-                                .background(
-                                    color = if (index == 0) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                                    },
-                                    shape = CircleShape,
-                                ),
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(Spacing.lg))
-
                 Button(
                     onClick = onDismiss,
                     shape = RoundedCornerShape(Dimens.cornerRadiusXl),
@@ -221,9 +146,7 @@ fun OnboardingScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                         .fillMaxWidth()
                         .height(Dimens.touchTargetMin),
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeLg))
-                    Spacer(modifier = Modifier.width(Spacing.sm))
-                    Text("Get Started", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
+                    Text("Get started", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
                 }
 
                 Spacer(modifier = Modifier.height(Spacing.lg))
@@ -238,28 +161,19 @@ private fun OnboardingFeatureRow(icon: ImageVector, title: String, description: 
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-            shape = RoundedCornerShape(Dimens.cornerRadiusMd),
-            border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
-            modifier = Modifier.size(Dimens.touchTargetMin),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(Dimens.iconSizeLg),
-                )
-            }
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(Dimens.iconSizeMd),
+        )
 
-        Spacer(modifier = Modifier.width(Spacing.lg))
+        Spacer(modifier = Modifier.width(Spacing.md))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(

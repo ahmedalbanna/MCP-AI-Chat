@@ -50,7 +50,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -73,19 +72,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.ServerStatus
 import com.aistudio.mcpchat.data.repository.McpRepository
 import com.aistudio.mcpchat.ui.theme.AmberWarning
-import com.aistudio.mcpchat.ui.theme.CyanSecondary
 import com.aistudio.mcpchat.ui.theme.Dimens
-import com.aistudio.mcpchat.ui.theme.EmeraldTertiary
-import com.aistudio.mcpchat.ui.theme.IndigoPrimary
-import com.aistudio.mcpchat.ui.theme.IndigoPrimaryLight
-import com.aistudio.mcpchat.ui.theme.RoseError
 import com.aistudio.mcpchat.ui.theme.Spacing
 import com.aistudio.mcpchat.ui.viewmodel.McpServersViewModel
 import kotlinx.coroutines.delay
@@ -139,15 +132,13 @@ fun ServersScreen(
                 title = {
                     Column {
                         Text(
-                            text = "MCP Remote Servers Hub",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
+                            text = "Servers",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                         )
                         Text(
-                            text = "Model Context Protocol (2024-11-05) Integrations",
+                            text = "Model Context Protocol (2024-11-05) integrations",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontFamily = FontFamily.Monospace,
                         )
                     }
                 },
@@ -156,8 +147,8 @@ fun ServersScreen(
         floatingActionButton = {
             SmallFloatingActionButton(
                 onClick = onAddServer,
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.testTag("add_custom_server_fab"),
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Remote MCP Server")
@@ -191,9 +182,9 @@ fun ServersScreen(
             ) {
                 item {
                     Surface(
-                        color = IndigoPrimary.copy(alpha = 0.12f),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-                        border = BorderStroke(Dimens.borderWidth, IndigoPrimary.copy(alpha = 0.3f)),
+                        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Row(
@@ -203,20 +194,19 @@ fun ServersScreen(
                             Icon(
                                 imageVector = Icons.Default.Hub,
                                 contentDescription = "Hub",
-                                tint = IndigoPrimaryLight,
-                                modifier = Modifier.size(Dimens.iconSizeLg),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(Dimens.iconSizeMd),
                             )
                             Spacer(modifier = Modifier.width(Spacing.md))
                             Column {
                                 Text(
-                                    text = "Dynamic Tool Discovery Active",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.primary,
+                                    text = "Tool discovery",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Text(
-                                    text = "Connected servers expose tools to Gemini via JSON-RPC. " +
-                                        "When enabled, tools are dynamically registered for conversational function calling.",
-                                    style = MaterialTheme.typography.labelMedium,
+                                    text = "Enabled servers expose tools for conversational function calling.",
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -236,12 +226,12 @@ fun ServersScreen(
                                 Icon(Icons.Default.Search, contentDescription = "Search servers", modifier = Modifier.size(Dimens.iconSizeMd))
                             },
                             singleLine = true,
-                            shape = RoundedCornerShape(Dimens.cornerRadiusLg),
+                            shape = RoundedCornerShape(Dimens.chatInputRadius),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = IndigoPrimary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                                focusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f),
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -291,7 +281,6 @@ fun ServersScreen(
                                 Spacer(modifier = Modifier.height(Spacing.md))
                                 Button(
                                     onClick = onAddServer,
-                                    colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
                                 ) { Text("Add Server") }
                             }
                         }
@@ -330,7 +319,7 @@ fun ServersScreen(
                             viewModel.deleteServer(server.id)
                             serverToDelete = null
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = RoseError),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     ) {
                         Text("Delete")
                     }
@@ -361,21 +350,21 @@ fun ServerCardItem(
     var isExpanded by remember { mutableStateOf(false) }
 
     val statusColor = when {
-        !server.isEnabled -> MaterialTheme.colorScheme.onSurfaceVariant
-        server.status == ServerStatus.CONNECTED -> EmeraldTertiary
-        server.status == ServerStatus.CONNECTING -> AmberWarning
-        else -> RoseError
+        !server.isEnabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+        server.status == ServerStatus.CONNECTED -> MaterialTheme.colorScheme.tertiary
+        server.status == ServerStatus.CONNECTING -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.error
     }
 
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
         border = BorderStroke(
             Dimens.borderWidth,
             if (server.isEnabled) {
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
             } else {
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
             },
         ),
         modifier = modifier
@@ -404,8 +393,7 @@ fun ServerCardItem(
                     ) {
                         Text(
                             text = server.name,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                             color = MaterialTheme.colorScheme.onSurface,
                         )
 
@@ -413,14 +401,14 @@ fun ServerCardItem(
 
                         if (server.isPreset) {
                             Surface(
-                                color = CyanSecondary.copy(alpha = 0.15f),
-                                shape = RoundedCornerShape(Dimens.cornerRadiusSm),
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(Dimens.cornerRadiusFull),
                             ) {
                                 Text(
                                     text = "PRESET",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = CyanSecondary,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs),
                                 )
                             }
                         }
@@ -429,10 +417,6 @@ fun ServerCardItem(
                     Switch(
                         checked = server.isEnabled,
                         onCheckedChange = onToggleEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = IndigoPrimary,
-                            checkedTrackColor = IndigoPrimary.copy(alpha = 0.3f),
-                        ),
                         modifier = Modifier
                             .semantics {
                                 contentDescription = "${server.name} ${if (server.isEnabled) "enabled" else "disabled"}"
@@ -476,14 +460,14 @@ fun ServerCardItem(
                 if (McpRepository.isInsecureEndpoint(server.endpointUrl)) {
                     Spacer(modifier = Modifier.height(Spacing.xs))
                     Surface(
-                        color = AmberWarning.copy(alpha = 0.14f),
-                        shape = RoundedCornerShape(Dimens.cornerRadiusSm),
-                        border = BorderStroke(Dimens.borderWidth, AmberWarning.copy(alpha = 0.35f)),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f),
+                        shape = RoundedCornerShape(Dimens.cornerRadiusMd),
+                        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Warning,
@@ -493,10 +477,9 @@ fun ServerCardItem(
                             )
                             Spacer(modifier = Modifier.width(Spacing.xs))
                             Text(
-                                text = "Not Secure â€” plain HTTP, data can be intercepted",
+                                text = "Not secure — plain HTTP, data can be intercepted",
                                 style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = AmberWarning,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -517,7 +500,7 @@ fun ServerCardItem(
                             modifier = Modifier.height(Spacing.xxl),
                         ) {
                             if (isTesting) {
-                                CircularProgressIndicator(modifier = Modifier.size(Dimens.iconSizeXs), strokeWidth = 2.dp)
+                                CircularProgressIndicator(modifier = Modifier.size(Dimens.iconSizeXs), strokeWidth = Dimens.borderWidthThick)
                             } else {
                                 Icon(Icons.Default.Speed, contentDescription = "Ping server", modifier = Modifier.size(Dimens.iconSizeSm))
                                 Spacer(modifier = Modifier.width(Spacing.xs))
@@ -539,14 +522,14 @@ fun ServerCardItem(
                         IconButton(
                             onClick = onEdit,
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(Spacing.xxl)
                                 .minimumInteractiveComponentSize()
                                 .testTag("edit_server_${server.id}"),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
                                 contentDescription = "Edit server",
-                                tint = IndigoPrimary,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(Dimens.iconSizeMd),
                             )
                         }
@@ -555,13 +538,13 @@ fun ServerCardItem(
                             IconButton(
                                 onClick = onDelete,
                                 modifier = Modifier
-                                    .size(32.dp)
+                                    .size(Spacing.xxl)
                                     .minimumInteractiveComponentSize(),
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = "Delete server",
-                                    tint = RoseError,
+                                    tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(Dimens.iconSizeMd),
                                 )
                             }
@@ -580,7 +563,7 @@ fun ServerCardItem(
                         Icon(
                             imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                             contentDescription = if (isExpanded) "Collapse tools" else "Expand tools",
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(Spacing.md),
                         )
                     }
                 }
@@ -592,10 +575,9 @@ fun ServerCardItem(
                             .padding(top = Spacing.sectionGap),
                     ) {
                         Text(
-                            text = "DISCOVERED MCP TOOLS:",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = CyanSecondary,
+                            text = "Tools",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontFamily = FontFamily.Monospace,
                             modifier = Modifier.padding(bottom = Spacing.sm),
                         )
@@ -610,9 +592,9 @@ fun ServerCardItem(
                             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                                 for (tool in tools) {
                                     Surface(
-                                        color = MaterialTheme.colorScheme.background,
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f),
                                         shape = RoundedCornerShape(Dimens.cornerRadiusMd),
-                                        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                                        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                                         modifier = Modifier.fillMaxWidth(),
                                     ) {
                                         Column(modifier = Modifier.padding(Spacing.sm)) {
@@ -625,15 +607,14 @@ fun ServerCardItem(
                                                     Icon(
                                                         imageVector = Icons.Default.Build,
                                                         contentDescription = "Tool",
-                                                        tint = IndigoPrimaryLight,
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         modifier = Modifier.size(Dimens.iconSizeSm),
                                                     )
                                                     Spacer(modifier = Modifier.width(Spacing.sm))
                                                     Text(
                                                         text = tool.name,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.primary,
+                                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                                        color = MaterialTheme.colorScheme.onSurface,
                                                         fontFamily = FontFamily.Monospace,
                                                     )
                                                 }
@@ -642,10 +623,6 @@ fun ServerCardItem(
                                                     Switch(
                                                         checked = tool.isEnabled,
                                                         onCheckedChange = { onToggleTool(tool.id, it) },
-                                                        colors = SwitchDefaults.colors(
-                                                            checkedThumbColor = CyanSecondary,
-                                                            checkedTrackColor = CyanSecondary.copy(alpha = 0.3f),
-                                                        ),
                                                         modifier = Modifier
                                                             .semantics {
                                                                 contentDescription = "${tool.name} ${if (tool.isEnabled) "enabled" else "disabled"}"

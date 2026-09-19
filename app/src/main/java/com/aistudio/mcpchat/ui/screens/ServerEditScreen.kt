@@ -155,9 +155,8 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                 ),
                 title = {
                     Text(
-                        text = if (isEdit) "Edit MCP Server" else "Add MCP Server",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
+                        text = if (isEdit) "Edit server" else "Add server",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                     )
                 },
                 navigationIcon = {
@@ -308,8 +307,8 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                 // Custom HTTP headers (key/value) sent with every request to
                 // this server — add as many as the server requires.
                 Text(
-                    text = "HTTP HEADERS",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    text = "HTTP headers",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
@@ -421,9 +420,9 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                             Spacer(modifier = Modifier.width(Spacing.sm))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Not Secure MCP",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.tertiary,
+                                    text = "Not secure",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Text(
                                     text = "This server uses plain HTTP. Tokens and tool data can be intercepted. " +

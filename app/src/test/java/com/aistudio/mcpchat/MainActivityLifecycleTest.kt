@@ -52,8 +52,8 @@ class MainActivityLifecycleTest {
             OnboardingScreen(onDismiss = {})
         }
 
-        composeTestRule.onNodeWithText("Welcome to").assertIsDisplayed()
-        composeTestRule.onNodeWithText("MCP AI Chat").assertIsDisplayed()
+        composeTestRule.onNodeWithText("How can I help?").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Get started").assertExists()
     }
 
     @Test
@@ -116,12 +116,10 @@ class MainActivityLifecycleTest {
             OnboardingScreen(onDismiss = {})
         }
 
-        // The screen runs an infinite pulse animation, which makes
-        // assertIsDisplayed flaky under Robolectric's frame clock — assert on
-        // existence of the key content instead.
-        composeTestRule.onNodeWithText("Welcome to").assertExists()
-        composeTestRule.onNodeWithText("MCP AI Chat").assertExists()
-        composeTestRule.onNodeWithText("Get Started").assertExists()
+        // Static content — assert on existence of the key nodes.
+        composeTestRule.onNodeWithText("How can I help?").assertExists()
+        composeTestRule.onNodeWithText("Chat with AI").assertExists()
+        composeTestRule.onNodeWithText("Get started").assertExists()
     }
 
     @Test
