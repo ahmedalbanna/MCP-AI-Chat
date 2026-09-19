@@ -1,11 +1,5 @@
 package com.aistudio.mcpchat.ui.screens
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -20,14 +14,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.CurrencyBitcoin
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,57 +32,40 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.Spacing
 
 @Composable
 fun EmptyChatView(onPromptSelected: (String) -> Unit, modifier: Modifier = Modifier) {
-    val infiniteTransition = rememberInfiniteTransition(label = "logo_pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.08f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "pulseScale",
-    )
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
         modifier = modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(Spacing.xl),
     ) {
+        Spacer(modifier = Modifier.height(Spacing.xl))
         Surface(
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-            shape = RoundedCornerShape(Dimens.cornerRadiusXl),
-            border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
-            modifier = Modifier.size(Spacing.xxxl),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            shape = RoundedCornerShape(Dimens.cornerRadiusLg),
+            modifier = Modifier.size(Dimens.iconSizeXl * 2),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.Hub,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier
-                        .size(Dimens.iconSizeXl)
-                        .graphicsLayer {
-                            scaleX = pulseScale
-                            scaleY = pulseScale
-                        },
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(Dimens.iconSizeLg),
                 )
             }
         }
@@ -94,51 +73,30 @@ fun EmptyChatView(onPromptSelected: (String) -> Unit, modifier: Modifier = Modif
         Spacer(modifier = Modifier.height(Spacing.lg))
 
         Text(
-            text = "Welcome to MCP AI Chat",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
+            text = "How can I help?",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
         )
 
         Spacer(modifier = Modifier.height(Spacing.xs))
 
         Text(
-            text = "Connected to remote MCP servers. Seamless tool calling over JSON-RPC & HTTP SSE.",
-            style = MaterialTheme.typography.bodyLarge,
+            text = "Ask anything — I can use your MCP servers when tools help.",
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier.padding(horizontal = Spacing.lg),
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .widthIn(max = Dimens.chatContentMaxWidth)
+                .padding(horizontal = Spacing.lg),
         )
-
-        Spacer(modifier = Modifier.height(Spacing.md))
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            FeatureHighlightItem(
-                icon = Icons.Default.AutoAwesome,
-                label = "Chat with AI",
-                modifier = Modifier.weight(1f),
-            )
-            FeatureHighlightItem(
-                icon = Icons.Default.Hub,
-                label = "MCP Tool Calling",
-                modifier = Modifier.weight(1f),
-            )
-            FeatureHighlightItem(
-                icon = Icons.Default.Speed,
-                label = "Inspector",
-                modifier = Modifier.weight(1f),
-            )
-        }
 
         Spacer(modifier = Modifier.height(Spacing.xl))
 
         Text(
-            text = "TRY ASKING:",
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.secondary,
+            text = "Suggestions",
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.align(Alignment.Start),
         )
 
@@ -173,40 +131,13 @@ fun EmptyChatView(onPromptSelected: (String) -> Unit, modifier: Modifier = Modif
     }
 }
 
-@Composable
-private fun FeatureHighlightItem(icon: ImageVector, label: String, modifier: Modifier = Modifier) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-        modifier = modifier,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(vertical = Spacing.sm),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(Dimens.iconSizeLg),
-            )
-            Spacer(modifier = Modifier.height(Spacing.xs))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PromptSuggestionCard(icon: ImageVector, title: String, prompt: String, onPromptSelected: (String) -> Unit, modifier: Modifier = Modifier) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.6f),
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
         modifier = modifier
             .fillMaxWidth()
             .semantics {
@@ -223,27 +154,19 @@ fun PromptSuggestionCard(icon: ImageVector, title: String, prompt: String, onPro
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(Spacing.md),
         ) {
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(Dimens.cornerRadiusMd),
-                modifier = Modifier.size(Dimens.iconSizeXl),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(Dimens.iconSizeMd),
-                    )
-                }
-            }
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(Dimens.iconSizeMd),
+            )
 
             Spacer(modifier = Modifier.width(Spacing.md))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
@@ -253,6 +176,14 @@ fun PromptSuggestionCard(icon: ImageVector, title: String, prompt: String, onPro
                     maxLines = 2,
                 )
             }
+
+            Spacer(modifier = Modifier.width(Spacing.sm))
+            Icon(
+                imageVector = Icons.AutoMirrored.Default.ArrowForward,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.size(Dimens.iconSizeSm),
+            )
         }
     }
 }
@@ -261,9 +192,9 @@ fun PromptSuggestionCard(icon: ImageVector, title: String, prompt: String, onPro
 @Composable
 fun QuickActionChip(label: String, icon: ImageVector? = null, onClick: () -> Unit) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(Dimens.cornerRadiusXl),
-        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.6f),
+        shape = RoundedCornerShape(Dimens.cornerRadiusFull),
+        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
         modifier = Modifier
             .minimumInteractiveComponentSize()
             .semantics {

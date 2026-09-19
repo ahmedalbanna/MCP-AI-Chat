@@ -137,9 +137,9 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
     }
 
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
         shape = RoundedCornerShape(Dimens.cornerRadiusLg),
-        border = BorderStroke(Dimens.borderWidth, borderColor.copy(alpha = 0.5f)),
+        border = BorderStroke(Dimens.borderWidth, borderColor.copy(alpha = 0.25f)),
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = Spacing.xs)
@@ -224,9 +224,9 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                                     text = toolCall.toolName,
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.SemiBold,
                                     ),
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                             }
                             Text(
@@ -239,20 +239,14 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (toolCall.executionTimeMs > 0) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.background,
-                                shape = RoundedCornerShape(Dimens.cornerRadiusSm),
+                            Text(
+                                text = "${toolCall.executionTimeMs}ms",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 modifier = Modifier.padding(end = Spacing.xs),
-                            ) {
-                                Text(
-                                    text = "${toolCall.executionTimeMs}ms",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontFamily = FontFamily.Monospace,
-                                    ),
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
-                                )
-                            }
+                            )
                         }
 
                         Icon(
@@ -269,9 +263,9 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                 AnimatedVisibility(visible = isExpanded) {
                     Column(modifier = Modifier.padding(top = Spacing.cardPadding)) {
                         Text(
-                            text = "INPUT PARAMETERS (JSON-RPC):",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.secondary,
+                            text = "Input",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontFamily = FontFamily.Monospace,
                         )
                         Spacer(modifier = Modifier.height(Spacing.xs))
@@ -289,10 +283,10 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Text(
-                                    text = "OUTPUT RESULT:",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    text = "Result",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                                     color = if (toolCall.isSuccess) {
-                                        MaterialTheme.colorScheme.tertiary
+                                        MaterialTheme.colorScheme.onSurfaceVariant
                                     } else {
                                         MaterialTheme.colorScheme.error
                                     },
@@ -336,9 +330,9 @@ fun ToolCallCard(toolCall: McpToolCall, modifier: Modifier = Modifier) {
 @Composable
 fun CodeBlock(code: String, language: String = "", modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val codeBgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-    val headerBgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    val borderColorCode = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+    val codeBgColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
+    val headerBgColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.3f)
+    val borderColorCode = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
     val codeTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val iconTintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
 

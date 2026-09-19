@@ -1,11 +1,5 @@
 package com.aistudio.mcpchat.ui.screens
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,14 +13,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
@@ -37,7 +29,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,54 +59,24 @@ import java.util.Date
 fun TypingIndicator(modifier: Modifier = Modifier) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .background(
-                MaterialTheme.colorScheme.surfaceVariant,
-                RoundedCornerShape(
-                    topStart = Dimens.cornerRadiusXl,
-                    topEnd = Dimens.cornerRadiusXl,
-                    bottomStart = Dimens.cornerRadiusSm,
-                    bottomEnd = Dimens.cornerRadiusXl,
-                ),
-            )
-            .padding(horizontal = Spacing.cardPadding, vertical = Spacing.sm),
+        modifier = modifier.padding(horizontal = Spacing.xs, vertical = Spacing.sm),
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = CircleShape,
-            border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
-            modifier = Modifier.size(Spacing.xxl),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = "AI is typing",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(Dimens.iconSizeSm),
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(Spacing.sm))
         PulsingDots()
+        Spacer(modifier = Modifier.width(Spacing.sm))
+        Text(
+            text = "Generating…",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
-/** Three pulsing dots signalling liveness; usable bare or inside a bubble. */
+/** Three quiet dots signalling liveness; usable bare or inside a bubble. */
 @Composable
 fun PulsingDots(modifier: Modifier = Modifier) {
-    val infiniteTransition = rememberInfiniteTransition(label = "typing")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "typingAlpha",
-    )
-
     Row(
         horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.semantics {
             contentDescription = "AI is generating a response"
             liveRegion = LiveRegionMode.Polite
@@ -124,9 +85,9 @@ fun PulsingDots(modifier: Modifier = Modifier) {
         repeat(3) {
             Box(
                 modifier = Modifier
-                    .size(Spacing.sm)
+                    .size(Spacing.xs)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)),
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
             )
         }
     }
@@ -189,61 +150,30 @@ fun MessageSearchResultItem(
  */
 @Composable
 fun StreamingMessageBubble(text: String, progress: StreamProgress? = null, modifier: Modifier = Modifier) {
-    Row(
-        horizontalArrangement = Arrangement.Start,
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .semantics {
                 liveRegion = LiveRegionMode.Polite
             },
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = CircleShape,
-            border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
-            modifier = Modifier
-                .size(Spacing.xxl)
-                .padding(top = Spacing.xxs),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = "AI assistant avatar",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(Dimens.iconSizeSm),
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(Spacing.sm))
-
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            tonalElevation = Dimens.elevationSm,
-            shape = RoundedCornerShape(
-                topStart = Dimens.cornerRadiusXl,
-                topEnd = Dimens.cornerRadiusXl,
-                bottomStart = Dimens.cornerRadiusSm,
-                bottomEnd = Dimens.cornerRadiusXl,
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                textDirection = TextDirection.Content,
             ),
-            border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-            modifier = Modifier
-                .fillMaxWidth(Dimens.CHAT_BUBBLE_MAX_WIDTH)
-                .widthIn(max = Dimens.chatBubbleMaxWidthDp),
-        ) {
-            Column(modifier = Modifier.padding(horizontal = Spacing.cardPadding, vertical = Spacing.sm)) {
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        textDirection = TextDirection.Content,
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                StreamProgressIndicator(
-                    progress = progress,
-                    modifier = Modifier.padding(top = Spacing.xxs),
-                )
-            }
-        }
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = "●",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(top = Spacing.xxs),
+        )
+        StreamProgressIndicator(
+            progress = progress,
+            modifier = Modifier.padding(top = Spacing.xxs),
+        )
     }
 }
 
@@ -293,9 +223,9 @@ fun StreamProgressIndicator(progress: StreamProgress?, modifier: Modifier = Modi
 @Composable
 fun RegenerateAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(Dimens.cornerRadiusMd),
-        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(Dimens.cornerRadiusFull),
+        border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
         onClick = onClick,
         modifier = modifier
             .minimumInteractiveComponentSize()
@@ -304,19 +234,19 @@ fun RegenerateAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xxs),
-            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
         ) {
             Icon(
                 imageVector = Icons.Default.Refresh,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(Dimens.iconSizeSm),
             )
             Text(
                 text = "Regenerate",
-                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

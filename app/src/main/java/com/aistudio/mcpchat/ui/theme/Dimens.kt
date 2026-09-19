@@ -39,6 +39,9 @@ object Dimens {
     val minHeightInput = 48.dp
     const val CHAT_BUBBLE_MAX_WIDTH = 0.80f
     val chatBubbleMaxWidthDp = 600.dp
-    val accentBarWidth = 4.dp
+    val accentBarWidth = 3.dp
     val attachmentThumb = 56.dp
+    val chatUserBubbleRadius = 20.dp
+    val chatInputRadius = 28.dp
+    val chatContentMaxWidth = 560.dp
 }

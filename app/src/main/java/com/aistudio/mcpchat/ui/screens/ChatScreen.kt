@@ -97,6 +97,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.Spacing
@@ -229,14 +230,16 @@ fun ChatScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "MCP AI Chat",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             Spacer(modifier = Modifier.width(Spacing.sm))
                             Surface(
                                 onClick = onNavigateToProviders,
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(Dimens.cornerRadiusSm),
-                                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                shape = RoundedCornerShape(Dimens.cornerRadiusFull),
+                                border = BorderStroke(Dimens.borderWidth, MaterialTheme.colorScheme.outlineVariant),
                                 modifier = Modifier
                                     .semantics {
                                         contentDescription = "Select AI provider and model"
@@ -254,9 +257,8 @@ fun ChatScreen(
                                         } else {
                                             "Select provider"
                                         },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f, fill = false),
@@ -264,7 +266,7 @@ fun ChatScreen(
                                     Icon(
                                         imageVector = Icons.Default.ArrowDropDown,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(Dimens.iconSizeSm),
                                     )
                                 }
@@ -284,13 +286,15 @@ fun ChatScreen(
                                 modifier = Modifier
                                     .size(Spacing.xs)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.tertiary),
+                                    .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.7f)),
                             )
                             Spacer(modifier = Modifier.width(Spacing.xs))
                             Text(
-                                text = "$enabledServersCount Remote MCP Servers Active",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.tertiary,
+                                text = "$enabledServersCount servers active",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -344,8 +348,8 @@ fun ChatScreen(
                 } else {
                     LazyColumn(
                         state = listState,
-                        contentPadding = PaddingValues(Spacing.lg),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                        contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                         modifier = Modifier
                             .fillMaxSize()
                             .testTag("chat_messages_list"),
@@ -358,7 +362,7 @@ fun ChatScreen(
                             if (msg.id == lastMessageId && !isGenerating && msg.role != "user") {
                                 RegenerateAction(
                                     onClick = { viewModel.regenerate() },
-                                    modifier = Modifier.padding(start = Spacing.xxl),
+                                    modifier = Modifier.padding(top = Spacing.xs),
                                 )
                             }
                         }
@@ -377,14 +381,13 @@ fun ChatScreen(
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(Dimens.iconSizeSm),
                                             strokeWidth = Dimens.borderWidthThick,
-                                            color = MaterialTheme.colorScheme.secondary,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                         Spacer(modifier = Modifier.width(Spacing.sm))
                                         Text(
-                                            text = "Executing Remote MCP Tool Calls...",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                            color = MaterialTheme.colorScheme.secondary,
-                                            fontFamily = FontFamily.Monospace,
+                                            text = "Using tools…",
+                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
 
@@ -506,7 +509,7 @@ fun ChatScreen(
 
             Surface(
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = Dimens.elevationMd,
+                tonalElevation = 0.dp,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
@@ -636,12 +639,12 @@ fun ChatScreen(
                             keyboardActions = KeyboardActions(
                                 onSend = { submitPrompt() },
                             ),
-                            shape = RoundedCornerShape(Dimens.cornerRadiusXl),
+                            shape = RoundedCornerShape(Dimens.chatInputRadius),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                focusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f),
                             ),
                             modifier = Modifier
                                 .weight(1f)
