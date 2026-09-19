@@ -13,6 +13,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -252,7 +253,7 @@ fun MainApp() {
                 // Hinge bounds arrive in window coordinates; the rail sits
                 // outside this pane area, so offset the center by its width.
                 val railInsetPx = if (useRail) {
-                    with(density) { 80.dp.toPx() }
+                    with(density) { Dimens.navigationRailWidth.toPx() }
                 } else {
                     0f
                 }
@@ -357,20 +358,26 @@ private fun railItemColors() = NavigationRailItemDefaults.colors(
 
 @Composable
 private fun AppBottomBar(items: List<Screen>, currentRoute: String?, onNavigate: (Screen) -> Unit) {
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = Dimens.elevationLg,
-        modifier = Modifier.testTag("bottom_navigation_bar"),
-    ) {
-        items.forEach { screen ->
-            NavigationBarItem(
-                icon = { Icon(screen.icon, contentDescription = screen.title) },
-                label = { Text(screen.title, style = MaterialTheme.typography.labelSmall) },
-                selected = currentRoute == screen.route,
-                colors = navItemColors(),
-                modifier = Modifier.testTag("nav_tab_${screen.route}"),
-                onClick = { onNavigate(screen) },
-            )
+    Column {
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+            thickness = Dimens.borderWidth,
+        )
+        NavigationBar(
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp,
+            modifier = Modifier.testTag("bottom_navigation_bar"),
+        ) {
+            items.forEach { screen ->
+                NavigationBarItem(
+                    icon = { Icon(screen.icon, contentDescription = screen.title) },
+                    label = { Text(screen.title, style = MaterialTheme.typography.labelSmall) },
+                    selected = currentRoute == screen.route,
+                    colors = navItemColors(),
+                    modifier = Modifier.testTag("nav_tab_${screen.route}"),
+                    onClick = { onNavigate(screen) },
+                )
+            }
         }
     }
 }

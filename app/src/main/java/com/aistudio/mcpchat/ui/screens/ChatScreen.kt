@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -316,7 +317,7 @@ fun ChatScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
-                            contentDescription = "New Chat",
+                            contentDescription = "New chat",
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
@@ -679,7 +680,7 @@ fun ChatScreen(
     }
 
     if (showServersSheet) {
-        val sheetState = rememberModalBottomSheetState()
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { showServersSheet = false },
             sheetState = sheetState,
@@ -688,6 +689,7 @@ fun ChatScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .navigationBarsPadding()
                     .padding(Spacing.sheetPadding),
             ) {
                 Row(
@@ -697,7 +699,7 @@ fun ChatScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Active MCP Servers",
+                            text = "Active servers",
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                         )
                         Text(
@@ -713,7 +715,7 @@ fun ChatScreen(
                             onNavigateToServers()
                         },
                     ) {
-                        Text("Manage Hub")
+                        Text("Manage hub")
                     }
                 }
 
@@ -787,7 +789,7 @@ fun ChatScreen(
     }
 
     if (showSessionsSheet) {
-        val sheetState = rememberModalBottomSheetState()
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         var sessionToDelete by remember { mutableStateOf<com.aistudio.mcpchat.data.local.ChatSessionEntity?>(null) }
         val sessionDateFormatter = remember { SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.getDefault()) }
         val searchResults by viewModel.messageSearchResults.collectAsStateWithLifecycle()
@@ -807,6 +809,7 @@ fun ChatScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .navigationBarsPadding()
                     .padding(Spacing.sheetPadding),
             ) {
                 Row(
@@ -826,7 +829,7 @@ fun ChatScreen(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeSm))
                         Spacer(modifier = Modifier.width(Spacing.xs))
-                        Text("New Chat")
+                        Text("New chat")
                     }
                 }
 
