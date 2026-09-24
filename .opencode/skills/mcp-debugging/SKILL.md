@@ -19,7 +19,7 @@ Initialize → `tools/list` → `tools/call` (JSON-RPC over HTTP; SSE `data:` fr
 ## Data path
 
 - `McpRepository`: URL validation (https except loopback), `syncServerTools` only wipes/inserts cached tools on `CONNECTED`, preserves cache on `ERROR`. Auth headers encrypted at rest (`CryptoManager`).
-- `ChatRepository`: provider-agnostic tool loop (`MAX_TOOL_HOPS=5`), sanitize→original tool-name map, unknown tools get a synthetic error `McpLogItem` without network call.
+- `ChatRepository`: provider-agnostic tool loop (`MAX_TOOL_HOPS=5`); `ProviderToolCatalog` owns provider-specific wire names and resolves responses to stable `McpTool.id` values. Unknown tools get a synthetic error `McpLogItem` without a network call.
 
 ## Debug playbook
 

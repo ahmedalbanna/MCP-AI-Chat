@@ -38,7 +38,8 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
         }
 
         try {
-            val body = buildRequestJson(config, modelName, history, tools, systemInstruction)
+            val toolCatalog = ProviderToolCatalog.create(tools, ProviderToolNamePolicy.OPENAI_COMPATIBLE)
+            val body = buildRequestJson(config, modelName, history, systemInstruction, toolCatalog)
             val request = Request.Builder()
                 .url(config.baseUrl.trimEnd('/') + "/chat/completions")
                 .post(body.toString().toRequestBody(jsonMediaType))
@@ -56,7 +57,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
                     Log.e(TAG, "OpenAI-compatible request failed (${response.code}): $responseBody")
                     return@use errorResponse(response.code, responseBody)
                 }
-                parseResponse(responseBody)
+                parseResponse(responseBody, toolCatalog)
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
@@ -93,7 +94,8 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
         }
 
         try {
-            val body = buildRequestJson(config, modelName, history, tools, systemInstruction)
+            val toolCatalog = ProviderToolCatalog.create(tools, ProviderToolNamePolicy.OPENAI_COMPATIBLE)
+            val body = buildRequestJson(config, modelName, history, systemInstruction, toolCatalog)
                 .put("stream", true)
             val request = Request.Builder()
                 .url(config.baseUrl.trimEnd('/') + "/chat/completions")
@@ -152,7 +154,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
 
                     is SseStreamEvent.PlainBody ->
                         terminalResponse =
-                            parseResponse(event.body).also { parsed -> parsed.text?.let(onTextDelta) }
+                            parseResponse(event.body, toolCatalog).also { parsed -> parsed.text?.let(onTextDelta) }
 
                     is SseStreamEvent.StreamRejected -> {
                         Log.w(TAG, "Provider rejected stream mode; retrying without it")
@@ -181,6 +183,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
                     val functionCalls = toolAccumulators.entries
                         .sortedBy { it.key }
                         .mapNotNull { it.value.build() }
+                        .map { call -> toolCatalog.functionCall(call.name, call.args) }
                     GeminiResponse(
                         text = textBuilder.toString().takeIf { it.isNotBlank() },
                         functionCalls = functionCalls,
@@ -215,8 +218,8 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
         @Suppress("UNUSED_PARAMETER") config: AiProviderConfig,
         modelName: String,
         history: List<GeminiMessage>,
-        tools: List<McpTool>,
         systemInstruction: String,
+        toolCatalog: ProviderToolCatalog,
     ): JSONObject {
         val messages = JSONArray()
         if (systemInstruction.isNotBlank()) {
@@ -233,7 +236,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
             when (message.role) {
                 "user" -> messages.put(buildUserMessage(message))
 
-                "model" -> messages.put(buildAssistantMessage(message, turnIndex))
+                "model" -> messages.put(buildAssistantMessage(message, turnIndex, toolCatalog))
 
                 // Gemini-style function responses -> one role:"tool" per call.
                 "tool" -> {
@@ -255,14 +258,14 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
             .put("model", modelName)
             .put("messages", messages)
 
-        if (tools.isNotEmpty()) {
+        if (toolCatalog.tools.isNotEmpty()) {
             val declarations = JSONArray()
-            tools.forEach { tool ->
+            toolCatalog.tools.forEach { tool ->
                 declarations.put(
                     JSONObject().put(
                         "function",
                         JSONObject()
-                            .put("name", sanitizeName(tool.name))
+                            .put("name", toolCatalog.wireName(tool.id, tool.name))
                             .put("description", tool.description.take(1024))
                             .put(
                                 "parameters",
@@ -315,7 +318,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
         return JSONObject().put("role", "user").put("content", contentArray)
     }
 
-    private fun buildAssistantMessage(message: GeminiMessage, turnIndex: Int): JSONObject {
+    private fun buildAssistantMessage(message: GeminiMessage, turnIndex: Int, toolCatalog: ProviderToolCatalog): JSONObject {
         val text = message.parts.filterIsInstance<GeminiPart.Text>().joinToString("\n") { it.text }
         val calls = message.parts.filterIsInstance<GeminiPart.FunctionCall>()
 
@@ -334,7 +337,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
                         .put(
                             "function",
                             JSONObject()
-                                .put("name", sanitizeName(call.name))
+                                .put("name", toolCatalog.wireName(call.toolId, call.name))
                                 .put("arguments", JSONObject(call.args).toString()),
                         ),
                 )
@@ -344,7 +347,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
         return assistant
     }
 
-    private fun parseResponse(body: String): GeminiResponse {
+    private fun parseResponse(body: String, toolCatalog: ProviderToolCatalog): GeminiResponse {
         val json = JSONObject(body)
         val choices = json.optJSONArray("choices")
         if (choices == null || choices.length() == 0) {
@@ -358,7 +361,7 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
             for (i in 0 until toolCalls.length()) {
                 val call = toolCalls.getJSONObject(i).getJSONObject("function")
                 val args = parseArgsMap(call.optString("arguments", "{}"))
-                functionCalls.add(GeminiPart.FunctionCall(call.getString("name"), args))
+                functionCalls.add(toolCatalog.functionCall(call.getString("name"), args))
             }
         }
 
@@ -380,8 +383,6 @@ class OpenAiCompatibleClient(private val client: OkHttpClient) {
         }
         return GeminiResponse(text = null, rawJson = body, error = message)
     }
-
-    private fun sanitizeName(name: String): String = name.replace(Regex("[^a-zA-Z0-9_-]"), "_").take(64)
 
     companion object {
         const val TAG = "OpenAiCompatClient"

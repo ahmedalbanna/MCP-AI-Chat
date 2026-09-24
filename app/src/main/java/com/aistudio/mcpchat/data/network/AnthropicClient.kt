@@ -36,7 +36,8 @@ class AnthropicClient(private val client: OkHttpClient) {
         }
 
         try {
-            val body = buildRequestJson(config, modelName, history, tools, systemInstruction)
+            val toolCatalog = ProviderToolCatalog.create(tools, ProviderToolNamePolicy.ANTHROPIC)
+            val body = buildRequestJson(config, modelName, history, systemInstruction, toolCatalog)
             // Tolerate base URLs that already carry the /v1 suffix (a common
             // habit from OpenAI-style endpoints) instead of building /v1/v1/messages.
             val base = config.baseUrl.trimEnd('/')
@@ -55,7 +56,7 @@ class AnthropicClient(private val client: OkHttpClient) {
                     Log.e(TAG, "Anthropic request failed (${response.code}): $responseBody")
                     return@use errorResponse(response.code, responseBody)
                 }
-                parseResponse(responseBody)
+                parseResponse(responseBody, toolCatalog)
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
@@ -89,7 +90,8 @@ class AnthropicClient(private val client: OkHttpClient) {
         }
 
         try {
-            val body = buildRequestJson(config, modelName, history, tools, systemInstruction)
+            val toolCatalog = ProviderToolCatalog.create(tools, ProviderToolNamePolicy.ANTHROPIC)
+            val body = buildRequestJson(config, modelName, history, systemInstruction, toolCatalog)
                 .put("stream", true)
             val base = config.baseUrl.trimEnd('/')
             val endpoint = if (base.endsWith("/v1")) "$base/messages" else "$base/v1/messages"
@@ -155,7 +157,7 @@ class AnthropicClient(private val client: OkHttpClient) {
 
                     is SseStreamEvent.PlainBody ->
                         terminalResponse =
-                            parseResponse(event.body).also { parsed -> parsed.text?.let(onTextDelta) }
+                            parseResponse(event.body, toolCatalog).also { parsed -> parsed.text?.let(onTextDelta) }
 
                     is SseStreamEvent.StreamRejected -> {
                         Log.w(TAG, "Anthropic endpoint rejected stream mode; retrying without it")
@@ -187,6 +189,7 @@ class AnthropicClient(private val client: OkHttpClient) {
                     val functionCalls = toolBlocks.entries
                         .sortedBy { it.key }
                         .mapNotNull { it.value.build() }
+                        .map { call -> toolCatalog.functionCall(call.name, call.args) }
                     GeminiResponse(
                         text = textBuilder.toString().takeIf { it.isNotBlank() },
                         functionCalls = functionCalls,
@@ -225,8 +228,8 @@ class AnthropicClient(private val client: OkHttpClient) {
         @Suppress("UNUSED_PARAMETER") config: AiProviderConfig,
         modelName: String,
         history: List<GeminiMessage>,
-        tools: List<McpTool>,
         systemInstruction: String,
+        toolCatalog: ProviderToolCatalog,
     ): JSONObject {
         val messages = JSONArray()
 
@@ -294,7 +297,7 @@ class AnthropicClient(private val client: OkHttpClient) {
                                     JSONObject()
                                         .put("type", "tool_use")
                                         .put("id", syntheticToolUseId(turnIndex, callsEmitted++))
-                                        .put("name", sanitizeName(part.name))
+                                        .put("name", toolCatalog.wireName(part.toolId, part.name))
                                         .put("input", JSONObject(part.args)),
                                 )
 
@@ -332,12 +335,12 @@ class AnthropicClient(private val client: OkHttpClient) {
             requestJson.put("system", systemInstruction)
         }
 
-        if (tools.isNotEmpty()) {
+        if (toolCatalog.tools.isNotEmpty()) {
             val declarations = JSONArray()
-            tools.forEach { tool ->
+            toolCatalog.tools.forEach { tool ->
                 declarations.put(
                     JSONObject()
-                        .put("name", sanitizeName(tool.name))
+                        .put("name", toolCatalog.wireName(tool.id, tool.name))
                         .put("description", tool.description.take(1024))
                         .put(
                             "input_schema",
@@ -355,7 +358,7 @@ class AnthropicClient(private val client: OkHttpClient) {
     }
 
     @Suppress("NestedBlockDepth")
-    private fun parseResponse(body: String): GeminiResponse {
+    private fun parseResponse(body: String, toolCatalog: ProviderToolCatalog): GeminiResponse {
         val json = JSONObject(body)
         val contentBlocks = json.optJSONArray("content")
 
@@ -371,7 +374,7 @@ class AnthropicClient(private val client: OkHttpClient) {
                         val inputObj = block.optJSONObject("input") ?: JSONObject()
                         val args = mutableMapOf<String, Any?>()
                         inputObj.keys().forEach { key -> args[key] = inputObj.get(key) }
-                        functionCalls.add(GeminiPart.FunctionCall(block.getString("name"), args))
+                        functionCalls.add(toolCatalog.functionCall(block.getString("name"), args))
                     }
                 }
             }
@@ -403,8 +406,6 @@ class AnthropicClient(private val client: OkHttpClient) {
         }
         return GeminiResponse(text = null, rawJson = body, error = message)
     }
-
-    private fun sanitizeName(name: String): String = name.replace(Regex("[^a-zA-Z0-9_-]"), "_").take(64)
 
     companion object {
         const val TAG = "AnthropicClient"

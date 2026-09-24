@@ -242,6 +242,27 @@ class GeminiApiServiceTest {
     }
 
     @Test
+    fun `generateContent resolves wire function names to original tool identity`() = runTest {
+        val tool = McpTool(
+            id = "weather_tool",
+            serverId = "weather",
+            serverName = "Weather",
+            name = "get-weather",
+            description = "Current weather",
+        )
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"candidates":[{"content":{"parts":[{"functionCall":{"name":"get_weather","args":{}}}]}}]}""",
+            ),
+        )
+
+        val response = client.generateContent(config, "gemini-2.0-flash", history, listOf(tool), "")
+
+        assertEquals("get-weather", response.functionCalls.single().name)
+        assertEquals(tool.id, response.functionCalls.single().toolId)
+    }
+
+    @Test
     fun `generateContent maps rate limit to retry message`() = runTest {
         server.enqueue(MockResponse().setResponseCode(429).setBody("{}"))
 
@@ -297,11 +318,25 @@ class GeminiApiServiceTest {
             GeminiMessage("user", listOf(GeminiPart.Text("Weather?"))),
             GeminiMessage(
                 "assistant",
-                listOf(GeminiPart.FunctionCall("get_weather", mapOf("city" to "Tokyo"), thoughtSignature = "sig-1")),
+                listOf(
+                    GeminiPart.FunctionCall(
+                        name = "get_weather",
+                        args = mapOf("city" to "Tokyo"),
+                        thoughtSignature = "sig-1",
+                        toolId = "srv_1_get-weather",
+                    ),
+                ),
             ),
             GeminiMessage(
                 "tool",
-                listOf(GeminiPart.FunctionResponse("get_weather", mapOf("temp" to 22), thoughtSignature = "sig-1")),
+                listOf(
+                    GeminiPart.FunctionResponse(
+                        name = "get_weather",
+                        response = mapOf("temp" to 22),
+                        thoughtSignature = "sig-1",
+                        toolId = "srv_1_get-weather",
+                    ),
+                ),
             ),
         )
 
@@ -317,15 +352,44 @@ class GeminiApiServiceTest {
         val contents = sent.getJSONArray("contents")
         assertEquals("user", contents.getJSONObject(0).getString("role"))
         assertEquals("model", contents.getJSONObject(1).getString("role"))
-        assertEquals("function", contents.getJSONObject(2).getString("role"))
+        assertEquals("user", contents.getJSONObject(2).getString("role"))
         val callPart = contents.getJSONObject(1).getJSONArray("parts").getJSONObject(0)
         assertEquals("get_weather", callPart.getJSONObject("functionCall").getString("name"))
         assertEquals("sig-1", callPart.getString("thoughtSignature"))
+        val responsePart = contents.getJSONObject(2).getJSONArray("parts").getJSONObject(0)
+        assertEquals("get_weather", responsePart.getJSONObject("functionResponse").getString("name"))
         val declarations = sent.getJSONArray("tools").getJSONObject(0).getJSONArray("functionDeclarations")
         assertEquals("get_weather", declarations.getJSONObject(0).getString("name"))
         val params = declarations.getJSONObject(0).getJSONObject("parameters")
         assertEquals("OBJECT", params.getString("type"))
         assertEquals("STRING", params.getJSONObject("properties").getJSONObject("city").getString("type"))
         assertTrue(!params.has("additionalProperties"))
+    }
+
+    @Test
+    fun `generateContent merges a tool response and following user text into one user turn`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setBody("""{"candidates":[{"content":{"parts":[{"text":"Done."}]}}]}"""),
+        )
+        val exchange = listOf(
+            GeminiMessage("user", listOf(GeminiPart.Text("Use the tool"))),
+            GeminiMessage("assistant", listOf(GeminiPart.FunctionCall("lookup", emptyMap()))),
+            GeminiMessage("tool", listOf(GeminiPart.FunctionResponse("lookup", mapOf("result" to "ok")))),
+            GeminiMessage("user", listOf(GeminiPart.Text("Now summarize it"))),
+        )
+
+        val response = client.generateContent(config, "gemini-2.0-flash", exchange, emptyList(), "")
+
+        assertEquals("Done.", response.text)
+        val contents = JSONObject(server.takeRequest(10, TimeUnit.SECONDS)!!.body.readUtf8()).getJSONArray("contents")
+        assertEquals(3, contents.length())
+        val finalUserTurn = contents.getJSONObject(2)
+        assertEquals("user", finalUserTurn.getString("role"))
+        assertEquals(2, finalUserTurn.getJSONArray("parts").length())
+        assertEquals(
+            "Now summarize it",
+            finalUserTurn.getJSONArray("parts").getJSONObject(1).getString("text"),
+        )
     }
 }

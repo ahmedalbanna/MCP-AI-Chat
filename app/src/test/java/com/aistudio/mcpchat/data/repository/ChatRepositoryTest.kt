@@ -190,8 +190,8 @@ class ChatRepositoryTest {
             com.aistudio.mcpchat.data.model.GeminiResponse(
                 text = null,
                 functionCalls = listOf(
-                    GeminiPart.FunctionCall("tool_a", emptyMap()),
-                    GeminiPart.FunctionCall("tool_b", emptyMap()),
+                    GeminiPart.FunctionCall("tool_a", emptyMap(), toolId = toolA.id),
+                    GeminiPart.FunctionCall("tool_b", emptyMap(), toolId = toolB.id),
                 ),
             ),
             com.aistudio.mcpchat.data.model.GeminiResponse(text = "all done"),
@@ -206,6 +206,112 @@ class ChatRepositoryTest {
         val responses = toolMessage.parts.filterIsInstance<GeminiPart.FunctionResponse>()
         assertEquals(listOf("tool_a", "tool_b"), responses.map { it.name })
         assertEquals(listOf("a done", "b done"), responses.map { it.response["result"] })
+    }
+
+    @Test
+    fun `stable tool ids route duplicate names to the correct servers`() = runTest {
+        val serverA = com.aistudio.mcpchat.data.model.McpServer(
+            id = "server_a",
+            name = "Server A",
+            description = "",
+            endpointUrl = "https://a.example.com/mcp",
+        )
+        val serverB = serverA.copy(id = "server_b", name = "Server B", endpointUrl = "https://b.example.com/mcp")
+        val toolA = com.aistudio.mcpchat.data.model.McpTool(
+            id = "tool_a",
+            serverId = serverA.id,
+            serverName = serverA.name,
+            name = "search",
+            description = "",
+        )
+        val toolB = toolA.copy(id = "tool_b", serverId = serverB.id, serverName = serverB.name)
+        val mcpRepository = mockk<com.aistudio.mcpchat.data.repository.McpRepository>(relaxed = true)
+        coEvery { mcpRepository.getEnabledServers() } returns listOf(serverA, serverB)
+        coEvery { mcpRepository.getEnabledTools() } returns listOf(toolA, toolB)
+        coEvery { mcpRepository.executeTool(serverA, "search", any()) } returns Pair(
+            "from a",
+            com.aistudio.mcpchat.data.model.McpLogItem(
+                serverId = serverA.id,
+                serverName = serverA.name,
+                toolName = "search",
+                requestPayload = "",
+                responsePayload = "",
+                isSuccess = true,
+                latencyMs = 1,
+            ),
+        )
+        coEvery { mcpRepository.executeTool(serverB, "search", any()) } returns Pair(
+            "from b",
+            com.aistudio.mcpchat.data.model.McpLogItem(
+                serverId = serverB.id,
+                serverName = serverB.name,
+                toolName = "search",
+                requestPayload = "",
+                responsePayload = "",
+                isSuccess = true,
+                latencyMs = 1,
+            ),
+        )
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList(any()) } returns emptyList()
+        coEvery { geminiService.streamContent(any(), any(), any(), any(), any(), any()) } returnsMany listOf(
+            com.aistudio.mcpchat.data.model.GeminiResponse(
+                text = null,
+                functionCalls = listOf(
+                    GeminiPart.FunctionCall("wire_a", emptyMap(), toolId = toolA.id),
+                    GeminiPart.FunctionCall("wire_b", emptyMap(), toolId = toolB.id),
+                ),
+            ),
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "done"),
+        )
+
+        repository = ChatRepository(database, mcpRepository, geminiService)
+        val result = repository.sendMessage(sessionId = "s1", userPrompt = "search both")
+        advanceUntilIdle()
+
+        assertTrue(result.isSuccess)
+        coVerify(exactly = 1) { mcpRepository.executeTool(serverA, "search", any()) }
+        coVerify(exactly = 1) { mcpRepository.executeTool(serverB, "search", any()) }
+    }
+
+    @Test
+    fun `function call without stable tool id fails closed`() = runTest {
+        val server = com.aistudio.mcpchat.data.model.McpServer(
+            id = "srv",
+            name = "Test Server",
+            description = "",
+            endpointUrl = "https://mcp.example.com",
+        )
+        val tool = com.aistudio.mcpchat.data.model.McpTool(
+            id = "srv_search",
+            serverId = server.id,
+            serverName = server.name,
+            name = "search",
+            description = "",
+        )
+        val mcpRepository = mockk<com.aistudio.mcpchat.data.repository.McpRepository>(relaxed = true)
+        coEvery { mcpRepository.getEnabledServers() } returns listOf(server)
+        coEvery { mcpRepository.getEnabledTools() } returns listOf(tool)
+        coEvery { chatDao.getSessionById("s1") } returns ChatSessionEntity(id = "s1", title = "Test")
+        coEvery { chatDao.getMessagesList(any()) } returns emptyList()
+        val historySlot = slot<List<GeminiMessage>>()
+        coEvery { geminiService.streamContent(any(), any(), capture(historySlot), any(), any(), any()) } returnsMany listOf(
+            com.aistudio.mcpchat.data.model.GeminiResponse(
+                text = null,
+                functionCalls = listOf(GeminiPart.FunctionCall("search", emptyMap())),
+            ),
+            com.aistudio.mcpchat.data.model.GeminiResponse(text = "done"),
+        )
+
+        repository = ChatRepository(database, mcpRepository, geminiService)
+        val result = repository.sendMessage(sessionId = "s1", userPrompt = "search")
+        advanceUntilIdle()
+
+        assertTrue(result.isSuccess)
+        val response = historySlot.captured.last { it.role == "tool" }
+            .parts.filterIsInstance<GeminiPart.FunctionResponse>().single()
+        assertTrue(response.response["error"].toString().contains("Unknown tool"))
+        coVerify(exactly = 0) { mcpRepository.executeTool(any(), any(), any()) }
     }
 
     @Test
@@ -248,8 +354,8 @@ class ChatRepositoryTest {
             com.aistudio.mcpchat.data.model.GeminiResponse(
                 text = null,
                 functionCalls = listOf(
-                    GeminiPart.FunctionCall("tool_a", emptyMap()),
-                    GeminiPart.FunctionCall("tool_b", emptyMap()),
+                    GeminiPart.FunctionCall("tool_a", emptyMap(), toolId = toolA.id),
+                    GeminiPart.FunctionCall("tool_b", emptyMap(), toolId = toolB.id),
                 ),
             ),
             com.aistudio.mcpchat.data.model.GeminiResponse(text = "all done"),
@@ -333,7 +439,11 @@ class ChatRepositoryTest {
             com.aistudio.mcpchat.data.model.GeminiResponse(
                 text = null,
                 functionCalls = listOf(
-                    GeminiPart.FunctionCall("read_mcp_resource", mapOf("uri" to "file://notes.txt")),
+                    GeminiPart.FunctionCall(
+                        "read_mcp_resource",
+                        mapOf("uri" to "file://notes.txt"),
+                        toolId = "builtin_read_mcp_resource",
+                    ),
                 ),
             ),
             com.aistudio.mcpchat.data.model.GeminiResponse(text = "summarized the file"),
@@ -377,7 +487,7 @@ class ChatRepositoryTest {
             com.aistudio.mcpchat.data.model.GeminiResponse(
                 text = null,
                 functionCalls = listOf(
-                    GeminiPart.FunctionCall("list_mcp_resources", emptyMap()),
+                    GeminiPart.FunctionCall("list_mcp_resources", emptyMap(), toolId = "builtin_list_mcp_resources"),
                 ),
             ),
             com.aistudio.mcpchat.data.model.GeminiResponse(text = "found one resource"),
@@ -553,6 +663,7 @@ class ChatRepositoryTest {
                 "serverId": "server_1",
                 "serverName": "Test Server",
                 "toolName": "get_weather",
+                "toolId": "weather_tool",
                 "inputArguments": {"city": "Tokyo"},
                 "outputResult": "{\"temp\":22}",
                 "isSuccess": true,
@@ -565,6 +676,7 @@ class ChatRepositoryTest {
         val result = repository.parseToolCallsJson(json)
         assertEquals(1, result.size)
         assertEquals("get_weather", result[0].toolName)
+        assertEquals("weather_tool", result[0].toolId)
         assertEquals("server_1", result[0].serverId)
         assertEquals("Tokyo", result[0].inputArguments["city"])
     }

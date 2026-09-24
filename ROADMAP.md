@@ -172,7 +172,7 @@ All items below were merged `95b64d4` / `a3eae02` / `b47b638` and verified Sept 
 
 ### 9.2 Correctness [x] with one regression
 - Persist `functionResponses` so history satisfies `functionCall→functionResponse` pairing `ChatRepository:286` [x]
-- Sanitize→original name map `ChatRepository:111` [x]
+- Provider-specific collision-free wire names + stable `McpTool.id` round trips via `ProviderToolCatalog` [x]
 - Hop-limit visible message `ChatRepository:44` `hopLimitMessage` when `MAX_TOOL_HOPS=5` exhausted [x]
 - Stop deleting cached tools on failed *ping* `McpRepository:96` [x] — **but `syncServerTools:103` still does** → Phase 10
 - Remove unscoped `CoroutineScope` seeding at DB init [x]

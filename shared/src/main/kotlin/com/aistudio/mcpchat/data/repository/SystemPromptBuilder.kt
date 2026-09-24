@@ -1,10 +1,8 @@
 package com.aistudio.mcpchat.data.repository
 
-import com.aistudio.mcpchat.data.model.McpTool
-
 class SystemPromptBuilder {
 
-    fun buildSystemPrompt(userSystemPrompt: String, tools: List<McpTool>): String {
+    fun buildSystemPrompt(userSystemPrompt: String): String {
         val builder = StringBuilder()
         builder.append(
             "You are an advanced AI assistant augmented with Model Context Protocol (MCP) " +
@@ -24,16 +22,6 @@ class SystemPromptBuilder {
                 "formatted as:\n---SUGGESTIONS---\n1. <follow-up>\n2. <follow-up>\n3. <follow-up>\n" +
                 "Keep each under 80 characters. Never add the block after a tool call, only after the final text.\n",
         )
-
-        if (tools.isNotEmpty()) {
-            // Names only — full descriptions/schemas already travel in the
-            // tools array of the API request; duplicating them here bloats
-            // every message's token cost (e.g. 69 ERPNext tools ≈ 40KB).
-            builder.append("\nAvailable MCP Tools (name — server):\n")
-            for (tool in tools) {
-                builder.append("- ${tool.name} (${tool.serverName})\n")
-            }
-        }
 
         if (userSystemPrompt.isNotBlank()) {
             builder.append("\nUser Instructions:\n")

@@ -228,12 +228,7 @@ class ChatRepository(
         }
         val toolsForProvider = activeTools + builtinResourceTools
 
-        val toolNameToToolMap = toolsForProvider.associateBy { it.name }
-        // Gemini receives sanitized function names; map them back so tool
-        // execution uses the original MCP tool name.
-        val sanitizedToOriginalName = toolsForProvider.associate { tool ->
-            GeminiApiService.sanitizeFunctionNameStatic(tool.name) to tool.name
-        }
+        val toolsById = toolsForProvider.associateBy { it.id }
 
         // 3. Construct conversation history for the provider — synchronous realtime,
         // no cache: every message rebuilds fresh history + prompt. The read is
@@ -243,9 +238,9 @@ class ChatRepository(
         val allMsgs = chatDao.getRecentMessages(effectiveSessionId, MAX_HISTORY_MESSAGES)
             .dropWhile { it.role != "user" }
         val systemInstruction = withContext(Dispatchers.Default) {
-            systemPromptBuilder.buildSystemPrompt(session.systemPrompt, toolsForProvider)
+            systemPromptBuilder.buildSystemPrompt(session.systemPrompt)
         }
-        val history = withContext(Dispatchers.IO) { buildHistory(allMsgs) }
+        val history = withContext(Dispatchers.IO) { buildHistory(allMsgs, toolsForProvider) }
 
         val accumulatedToolCalls = mutableListOf<McpToolCall>()
         val streamedText = StringBuilder()
@@ -298,8 +293,7 @@ class ChatRepository(
                 if (geminiResponse.functionCalls.isNotEmpty()) {
                     val functionResponsesParts = executeFunctionCalls(
                         geminiResponse.functionCalls,
-                        toolNameToToolMap,
-                        sanitizedToOriginalName,
+                        toolsById,
                         serverMap,
                         accumulatedToolCalls,
                         onToolCallUpdate,
@@ -480,7 +474,11 @@ class ChatRepository(
         return ErrorOutcome(error, true, exception)
     }
 
-    private fun buildHistory(messages: List<ChatMessageEntity>): MutableList<GeminiMessage> {
+    private fun buildHistory(messages: List<ChatMessageEntity>, tools: List<McpTool>): MutableList<GeminiMessage> {
+        val toolsByCallIdentity = tools
+            .groupBy { it.serverId to it.name }
+            .mapNotNull { (identity, matches) -> matches.singleOrNull()?.let { identity to it } }
+            .toMap()
         val history = mutableListOf<GeminiMessage>()
         for (m in messages) {
             if (m.role == "user") {
@@ -496,19 +494,30 @@ class ChatRepository(
                 }
                 if (parts.isNotEmpty()) history.add(GeminiMessage(role = "user", parts = parts))
             } else if (m.role == "assistant") {
-                appendAssistantTurn(history, m)
+                appendAssistantTurn(history, m, toolsByCallIdentity)
             }
         }
         return history
     }
 
-    private fun appendAssistantTurn(history: MutableList<GeminiMessage>, m: ChatMessageEntity) {
+    private fun appendAssistantTurn(
+        history: MutableList<GeminiMessage>,
+        m: ChatMessageEntity,
+        toolsByCallIdentity: Map<Pair<String, String>, McpTool>,
+    ) {
         var responseParts: List<GeminiPart>? = null
         val parts = mutableListOf<GeminiPart>()
         if (m.toolCallsJson != null) {
             val calls = parseToolCallsJson(m.toolCallsJson)
             for (c in calls) {
-                parts.add(GeminiPart.FunctionCall(c.toolName, c.inputArguments, c.thoughtSignature))
+                parts.add(
+                    GeminiPart.FunctionCall(
+                        name = c.toolName,
+                        args = c.inputArguments,
+                        thoughtSignature = c.thoughtSignature,
+                        toolId = c.stableToolId(toolsByCallIdentity),
+                    ),
+                )
             }
             // Rebuild the matching function responses: strict providers
             // (Anthropic, AgentRouter) reject a request where any tool_use
@@ -520,6 +529,7 @@ class ChatRepository(
                     name = c.toolName,
                     response = parseResultToMap(output),
                     thoughtSignature = c.thoughtSignature,
+                    toolId = c.stableToolId(toolsByCallIdentity),
                 )
             }
             if (rebuiltResponses.isNotEmpty()) {
@@ -549,8 +559,7 @@ class ChatRepository(
      */
     private suspend fun executeFunctionCalls(
         functionCalls: List<GeminiPart.FunctionCall>,
-        toolNameToToolMap: Map<String, McpTool>,
-        sanitizedToOriginalName: Map<String, String>,
+        toolsById: Map<String, McpTool>,
         serverMap: Map<String, McpServer>,
         accumulatedToolCalls: MutableList<McpToolCall>,
         onToolCallUpdate: ((List<McpToolCall>) -> Unit)?,
@@ -558,7 +567,7 @@ class ChatRepository(
         val progressLock = Any()
 
         val preparedCalls = functionCalls.map { fc ->
-            prepareToolCall(fc, toolNameToToolMap, sanitizedToOriginalName, serverMap)
+            prepareToolCall(fc, toolsById, serverMap)
         }
         synchronized(progressLock) {
             accumulatedToolCalls.addAll(preparedCalls.map { it.toolCall })
@@ -583,39 +592,33 @@ class ChatRepository(
 
     private data class PreparedToolCall(
         val fc: GeminiPart.FunctionCall,
-        val resolvedToolName: String,
+        val tool: McpTool?,
         val server: McpServer?,
         val isBuiltin: Boolean,
         val toolCall: McpToolCall,
-    )
+    ) {
+        val resolvedToolName: String = tool?.name ?: fc.name
+    }
 
-    private fun prepareToolCall(
-        fc: GeminiPart.FunctionCall,
-        toolNameToToolMap: Map<String, McpTool>,
-        sanitizedToOriginalName: Map<String, String>,
-        serverMap: Map<String, McpServer>,
-    ): PreparedToolCall {
-        // Gemini receives sanitized names; map them back so tool execution
-        // uses the original MCP tool name.
-        val originalToolName = toolNameToToolMap[fc.name]?.name
-            ?: sanitizedToOriginalName[fc.name]
-        val toolDef = originalToolName?.let { toolNameToToolMap[it] }
-        val server = toolDef?.let { def -> serverMap[def.serverId] }
-        val isBuiltin = toolDef?.serverId == BuiltinResourceTools.SERVER_ID
+    private fun prepareToolCall(fc: GeminiPart.FunctionCall, toolsById: Map<String, McpTool>, serverMap: Map<String, McpServer>): PreparedToolCall {
+        val tool = fc.toolId?.let(toolsById::get)
+        val server = tool?.let { definition -> serverMap[definition.serverId] }
+        val isBuiltin = tool?.serverId == BuiltinResourceTools.SERVER_ID
 
         return PreparedToolCall(
             fc = fc,
-            resolvedToolName = originalToolName ?: fc.name,
+            tool = tool,
             server = server,
             isBuiltin = isBuiltin,
             toolCall = McpToolCall(
                 callId = UUID.randomUUID().toString(),
-                serverId = server?.id ?: BuiltinResourceTools.SERVER_ID,
-                serverName = server?.name ?: BuiltinResourceTools.SERVER_NAME,
-                toolName = originalToolName ?: fc.name,
+                serverId = server?.id ?: if (isBuiltin) BuiltinResourceTools.SERVER_ID else "unknown",
+                serverName = server?.name ?: if (isBuiltin) BuiltinResourceTools.SERVER_NAME else "Unknown tool",
+                toolName = tool?.name ?: fc.name,
                 inputArguments = fc.args,
                 status = ToolExecutionStatus.EXECUTING,
                 thoughtSignature = fc.thoughtSignature,
+                toolId = tool?.id ?: fc.toolId,
             ),
         )
     }
@@ -658,9 +661,10 @@ class ChatRepository(
         return ToolCallOutcome(
             completed = completed,
             response = GeminiPart.FunctionResponse(
-                name = prepared.fc.name,
+                name = prepared.tool?.name ?: prepared.fc.name,
                 response = parseResultToMap(execution.execResult),
                 thoughtSignature = prepared.fc.thoughtSignature,
+                toolId = prepared.tool?.id ?: prepared.fc.toolId,
             ),
         )
     }
@@ -749,6 +753,7 @@ class ChatRepository(
                 put("thoughtSignature", c.thoughtSignature ?: JSONObject.NULL)
                 put("errorMessage", c.errorMessage ?: "")
                 put("timestamp", c.timestamp)
+                put("toolId", c.toolId ?: JSONObject.NULL)
             }
             array.put(obj)
         }
@@ -769,6 +774,16 @@ class ChatRepository(
                     argsMap[k] = argsObj.get(k)
                 }
 
+                val toolId = if (obj.has("toolId") && !obj.isNull("toolId")) {
+                    obj.optString("toolId").takeIf { it.isNotBlank() }
+                } else {
+                    null
+                }
+                val thoughtSignature = if (obj.has("thoughtSignature") && !obj.isNull("thoughtSignature")) {
+                    obj.optString("thoughtSignature").takeIf { it.isNotBlank() }
+                } else {
+                    null
+                }
                 list.add(
                     McpToolCall(
                         callId = obj.optString("callId", UUID.randomUUID().toString()),
@@ -784,9 +799,10 @@ class ChatRepository(
                         } catch (_: Exception) {
                             ToolExecutionStatus.SUCCESS
                         },
-                        thoughtSignature = obj.optString("thoughtSignature", null).takeIf { it != "null" },
+                        thoughtSignature = thoughtSignature,
                         errorMessage = obj.optString("errorMessage").takeIf { it.isNotBlank() },
                         timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                        toolId = toolId,
                     ),
                 )
             }
@@ -795,4 +811,8 @@ class ChatRepository(
         }
         return list
     }
+}
+
+private fun McpToolCall.stableToolId(toolsByCallIdentity: Map<Pair<String, String>, McpTool>): String? {
+    return toolId ?: toolsByCallIdentity[serverId to toolName]?.id
 }

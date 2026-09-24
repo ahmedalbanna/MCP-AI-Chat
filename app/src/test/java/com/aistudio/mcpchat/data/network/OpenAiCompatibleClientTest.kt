@@ -3,6 +3,7 @@ package com.aistudio.mcpchat.data.network
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
+import com.aistudio.mcpchat.data.model.McpTool
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -119,6 +120,27 @@ class OpenAiCompatibleClientTest {
         assertEquals(1, response.functionCalls.size)
         assertEquals("get_weather", response.functionCalls[0].name)
         assertEquals("Paris", response.functionCalls[0].args["city"])
+    }
+
+    @Test
+    fun `resolves wire function names to original tool identity`() = runTest {
+        val tool = McpTool(
+            id = "report_tool",
+            serverId = "reports",
+            serverName = "Reports",
+            name = "reports.export",
+            description = "Export report",
+        )
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"choices":[{"message":{"tool_calls":[{"function":{"name":"reports_export","arguments":"{}"}}]}}]}""",
+            ),
+        )
+
+        val response = client.generateContent(config, "gpt-4o-mini", history, listOf(tool), "")
+
+        assertEquals("reports.export", response.functionCalls.single().name)
+        assertEquals(tool.id, response.functionCalls.single().toolId)
     }
 
     @Test

@@ -68,6 +68,7 @@ app/src/androidTest/       # Instrumented tests
 ## Architecture Notes
 
 - **Provider routing**: `ProviderChatRouter` dispatches to `GeminiApiService`, `AnthropicClient`, or `OpenAiCompatibleClient` based on `AiProviderType`. All normalize to `GeminiResponse`.
+- **Provider tool identity**: `ProviderToolCatalog` owns provider-specific wire names and resolves every response to a stable `McpTool.id`; `ChatRepository` executes by stable identity, never by display name alone.
 - **MCP flow**: Initialize → tools/list → tools/call, with circuit breaker + retry (`RetryManager` in `Resilience.kt`).
 - **Timeouts**: MCP = 15s connect / 30s read-write (`AppModule#provideMcpOkHttpClient`). AI providers = 60s (`provideOkHttpClient`). Per-server timeouts are WONTFIX (documented in ROADMAP).
 - **Circuit breaker**: `CircuitBreaker.canExecute()` gates `McpHttpClient` calls. `shouldSkipDueToCircuit` wraps it for readability.

@@ -47,6 +47,7 @@ data class McpToolCall(
     val thoughtSignature: String? = null,
     val errorMessage: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
+    val toolId: String? = null,
 )
 
 enum class ToolExecutionStatus {

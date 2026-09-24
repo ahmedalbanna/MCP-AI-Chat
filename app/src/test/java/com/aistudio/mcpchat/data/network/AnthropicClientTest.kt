@@ -3,6 +3,7 @@ package com.aistudio.mcpchat.data.network
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
+import com.aistudio.mcpchat.data.model.McpTool
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
@@ -196,6 +197,27 @@ class AnthropicClientTest {
         assertEquals(1, response.functionCalls.size)
         assertEquals("get_weather", response.functionCalls[0].name)
         assertEquals("Paris", response.functionCalls[0].args["city"])
+    }
+
+    @Test
+    fun `resolves wire function names to original tool identity`() = runTest {
+        val tool = McpTool(
+            id = "report_tool",
+            serverId = "reports",
+            serverName = "Reports",
+            name = "reports.export",
+            description = "Export report",
+        )
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"content":[{"type":"tool_use","id":"t1","name":"reports_export","input":{}}],"stop_reason":"tool_use"}""",
+            ),
+        )
+
+        val response = client.generateContent(config, "claude-sonnet-4-5", history, listOf(tool), "")
+
+        assertEquals("reports.export", response.functionCalls.single().name)
+        assertEquals(tool.id, response.functionCalls.single().toolId)
     }
 
     @Test
