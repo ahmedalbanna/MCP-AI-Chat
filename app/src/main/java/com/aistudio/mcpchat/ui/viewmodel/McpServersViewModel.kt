@@ -125,7 +125,7 @@ class McpServersViewModel @Inject constructor(
         viewModelScope.launch { syncToolsSuspend(server) }
     }
 
-    fun addCustomServer(name: String, description: String, endpointUrl: String, authHeader: String) {
+    fun addCustomServer(name: String, description: String, endpointUrl: String, authHeader: String, allowInsecureHttp: Boolean = false) {
         viewModelScope.launch {
             try {
                 val server = repository.addCustomServer(
@@ -133,6 +133,7 @@ class McpServersViewModel @Inject constructor(
                     description = description.trim(),
                     endpointUrl = endpointUrl.trim(),
                     authHeader = authHeader.trim(),
+                    allowInsecureHttp = allowInsecureHttp,
                 )
                 _feedbackMessage.value = FeedbackMessage("Added MCP Server: ${server.name}")
             } catch (e: IllegalArgumentException) {
@@ -149,7 +150,14 @@ class McpServersViewModel @Inject constructor(
         }
     }
 
-    fun updateServer(server: McpServer, name: String, description: String, endpointUrl: String, authHeader: String) {
+    fun updateServer(
+        server: McpServer,
+        name: String,
+        description: String,
+        endpointUrl: String,
+        authHeader: String,
+        allowInsecureHttp: Boolean = false,
+    ) {
         viewModelScope.launch {
             try {
                 repository.updateCustomServer(
@@ -158,6 +166,7 @@ class McpServersViewModel @Inject constructor(
                     description = description.trim(),
                     endpointUrl = endpointUrl.trim(),
                     authHeader = authHeader.trim(),
+                    allowInsecureHttp = allowInsecureHttp,
                 )
                 _feedbackMessage.value = FeedbackMessage("Updated MCP Server: ${name.trim()}")
             } catch (e: IllegalArgumentException) {

@@ -73,10 +73,11 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.aistudio.mcpchat.core.endpoint.EndpointPolicy
+import com.aistudio.mcpchat.core.endpoint.requiresCleartextWarning
 import com.aistudio.mcpchat.data.model.McpServer
 import com.aistudio.mcpchat.data.model.McpTool
 import com.aistudio.mcpchat.data.model.ServerStatus
-import com.aistudio.mcpchat.data.repository.McpRepository
 import com.aistudio.mcpchat.ui.theme.AmberWarning
 import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.Spacing
@@ -457,7 +458,7 @@ fun ServerCardItem(
                     )
                 }
 
-                if (McpRepository.isInsecureEndpoint(server.endpointUrl)) {
+                if (EndpointPolicy.evaluate(server.endpointUrl).requiresCleartextWarning) {
                     Spacer(modifier = Modifier.height(Spacing.xs))
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f),

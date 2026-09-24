@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Cleartext (plain http) is permitted app-wide so users can connect to
-    http MCP servers and AI endpoints (e.g., LAN runtimes like Ollama/vLLM,
-    or the OpenCode preset at http://localhost:4096/v1).
-
-    The app still flags non-loopback http endpoints as insecure in the UI
-    (see McpRepository.isInsecureEndpoint) so users are warned that auth
-    headers travel unencrypted — but the connection itself is allowed.
+    Android's policy cannot express arbitrary RFC1918 ranges. EndpointPolicy
+    therefore allows device-local HTTP, requires confirmation for private LAN
+    HTTP, and rejects public cleartext endpoints before any request is built.
+    Credential-bearing OkHttp clients also disable redirects.
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true" />

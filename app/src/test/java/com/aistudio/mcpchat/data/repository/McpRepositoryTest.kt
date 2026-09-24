@@ -1,5 +1,7 @@
 package com.aistudio.mcpchat.data.repository
 
+import com.aistudio.mcpchat.core.endpoint.EndpointPolicy
+import com.aistudio.mcpchat.core.endpoint.requiresCleartextWarning
 import com.aistudio.mcpchat.data.local.AppDatabase
 import com.aistudio.mcpchat.data.local.McpLogDao
 import com.aistudio.mcpchat.data.local.McpServerDao
@@ -112,26 +114,49 @@ class McpRepositoryTest {
     }
 
     @Test
-    fun `addCustomServer allows plain http for non-loopback host but flags insecure`() = runTest {
-        coEvery { httpClient.discoverTools(any()) } returns emptyList()
-        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 100)
-
+    fun `addCustomServer rejects public cleartext endpoint`() = runTest {
         createRepository()
-        val server = repository.addCustomServer("Test", "desc", "http://test.com/mcp")
-        assertNotNull(server)
-        assertTrue(McpRepository.isInsecureEndpoint("http://test.com/mcp"))
-        assertTrue(McpRepository.isInsecureEndpoint(server.endpointUrl))
+
+        val error = runCatching {
+            repository.addCustomServer("Test", "desc", "http://test.com/mcp")
+        }.exceptionOrNull()
+
+        assertTrue(error is IllegalArgumentException)
+        assertTrue(error!!.message!!.contains("use HTTPS"))
+        coVerify(exactly = 0) { httpClient.testConnection(any()) }
     }
 
     @Test
-    fun `isInsecureEndpoint correctly classifies http vs https and loopback`() {
-        assertTrue(McpRepository.isInsecureEndpoint("http://example.com/mcp"))
-        assertTrue(McpRepository.isInsecureEndpoint("http://192.168.1.10:3000/mcp"))
-        assertFalse(McpRepository.isInsecureEndpoint("https://example.com/mcp"))
-        assertFalse(McpRepository.isInsecureEndpoint("http://localhost:3000/mcp"))
-        assertFalse(McpRepository.isInsecureEndpoint("http://127.0.0.1:3000/mcp"))
-        assertFalse(McpRepository.isInsecureEndpoint("http://10.0.2.2:3000/mcp"))
-        assertFalse(McpRepository.isInsecureEndpoint("https://10.0.2.2:3000/mcp"))
+    fun `addCustomServer requires confirmation for private-network cleartext endpoint`() = runTest {
+        coEvery { httpClient.discoverTools(any()) } returns emptyList()
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 100)
+        createRepository()
+
+        val error = runCatching {
+            repository.addCustomServer("LAN", "desc", "http://192.168.1.20:3000/mcp")
+        }.exceptionOrNull()
+        assertTrue(error is IllegalArgumentException)
+        assertTrue(error!!.message!!.contains("confirmation"))
+
+        val server = repository.addCustomServer(
+            name = "LAN",
+            description = "desc",
+            endpointUrl = "http://192.168.1.20:3000/mcp",
+            allowInsecureHttp = true,
+        )
+        assertEquals("http://192.168.1.20:3000/mcp", server.endpointUrl)
+        coVerify { serverDao.insertServer(match { it.allowInsecureHttp }) }
+    }
+
+    @Test
+    fun `endpoint policy classifies cleartext warnings by network scope`() {
+        assertTrue(EndpointPolicy.evaluate("http://example.com/mcp").requiresCleartextWarning)
+        assertTrue(EndpointPolicy.evaluate("http://192.168.1.10:3000/mcp").requiresCleartextWarning)
+        assertFalse(EndpointPolicy.evaluate("https://example.com/mcp").requiresCleartextWarning)
+        assertFalse(EndpointPolicy.evaluate("http://localhost:3000/mcp").requiresCleartextWarning)
+        assertFalse(EndpointPolicy.evaluate("http://127.0.0.1:3000/mcp").requiresCleartextWarning)
+        assertFalse(EndpointPolicy.evaluate("http://10.0.2.2:3000/mcp").requiresCleartextWarning)
+        assertFalse(EndpointPolicy.evaluate("https://10.0.2.2:3000/mcp").requiresCleartextWarning)
     }
 
     @Test
@@ -159,6 +184,33 @@ class McpRepositoryTest {
         assertEquals("My Server", server.name)
         assertEquals(true, server.isEnabled)
         coVerify { serverDao.insertServer(any()) }
+    }
+
+    @Test
+    fun `consent change invalidates tools and reconnects server`() = runTest {
+        val entity = McpServerEntity(
+            id = "s1",
+            name = "Server",
+            description = "desc",
+            endpointUrl = "https://mcp.example.com/mcp",
+        )
+        coEvery { serverDao.getServerById("s1") } returns entity
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 100)
+        coEvery { httpClient.discoverTools(any()) } returns emptyList()
+        createRepository()
+
+        val updated = repository.updateCustomServer(
+            serverId = "s1",
+            name = "Server",
+            description = "desc",
+            endpointUrl = "https://mcp.example.com/mcp",
+            authHeader = "",
+            allowInsecureHttp = true,
+        )
+
+        assertTrue(updated.allowInsecureHttp)
+        coVerify { toolDao.deleteToolsForServer("s1") }
+        coVerify { httpClient.testConnection(updated) }
     }
 
     @Test
@@ -222,6 +274,53 @@ class McpRepositoryTest {
 
         assertTrue(repository.isSubscribed("s1", "file://notes.txt"))
         assertEquals(mapOf("s1" to setOf("file://notes.txt")), repository.subscribedResources.value)
+    }
+
+    @Test
+    fun `consent change stops existing resource listener`() = runTest {
+        val server = McpServer(
+            id = "s1",
+            name = "Server",
+            description = "desc",
+            endpointUrl = "https://mcp.example.com/mcp",
+        )
+        val entity = McpServerEntity(
+            id = server.id,
+            name = server.name,
+            description = server.description,
+            endpointUrl = server.endpointUrl,
+        )
+        val updates = kotlinx.coroutines.flow.MutableSharedFlow<McpResourceNotification>()
+        val resourceJob = SupervisorJob()
+        val repository = McpRepository(
+            database,
+            httpClient,
+            testCrypto,
+            CoroutineScope(resourceJob + UnconfinedTestDispatcher(testScheduler)),
+        )
+        coEvery { httpClient.subscribeResource(server, "file://notes.txt") } returns true
+        every { httpClient.resourceChannelFlow(server) } returns updates
+        coEvery { serverDao.getServerById(server.id) } returns entity
+        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 100)
+        coEvery { httpClient.discoverTools(any()) } returns emptyList()
+
+        assertTrue(repository.subscribeToResource(server, "file://notes.txt"))
+        advanceUntilIdle()
+        assertTrue(repository.isSubscribed(server.id, "file://notes.txt"))
+
+        repository.updateCustomServer(
+            serverId = server.id,
+            name = server.name,
+            description = server.description,
+            endpointUrl = server.endpointUrl,
+            authHeader = "",
+            allowInsecureHttp = true,
+        )
+        advanceUntilIdle()
+
+        assertFalse(repository.isSubscribed(server.id, "file://notes.txt"))
+        assertTrue(resourceJob.children.none())
+        resourceJob.cancel()
     }
 
     @Test
@@ -347,6 +446,7 @@ class McpRepositoryTest {
         name = name,
         description = description,
         endpointUrl = endpointUrl,
+        allowInsecureHttp = allowInsecureHttp,
     )
 
     @Test

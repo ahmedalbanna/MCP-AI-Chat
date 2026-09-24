@@ -1,6 +1,7 @@
 package com.aistudio.mcpchat.data.network
 
 import android.util.Log
+import com.aistudio.mcpchat.core.network.CredentialSafeHttpClientFactory
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.GeminiMessage
 import com.aistudio.mcpchat.data.model.GeminiPart
@@ -14,14 +15,13 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.concurrent.TimeUnit
 
 class GeminiApiService(
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
-        .build(),
+    private val client: OkHttpClient = CredentialSafeHttpClientFactory.create(
+        connectTimeoutSeconds = 60,
+        readTimeoutSeconds = 60,
+        writeTimeoutSeconds = 60,
+    ),
 ) : AiChatService {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 

@@ -6,8 +6,8 @@ Goal: satisfy Play's mandatory privacy-policy URL + Data Safety form with a defe
 
 - Secrets at rest: `data/security/AiProviderSettings.kt` (`EncryptedSharedPreferences`, `MasterKey.AES256_GCM`); `data/tool/../security/CryptoManager.kt` encrypts MCP `authHeader` at rest.
 - Backup exclusions: `app/src/main/res/xml/data_extraction_rules.xml:13-25` + `app/src/main/res/xml/backup_rules.xml:13-18` exclude `mcp_chat_database{,-wal,-shm}` + `sharedpref/ai_provider_prefs`; onboarding pref (`mcp_chat_onboarding`) intentionally allowed.
-- Network: `app/src/main/AndroidManifest.xml:5-6` (`INTERNET`, `ACCESS_NETWORK_STATE` only); `app/src/main/res/xml/network_security_config.xml:11` (`cleartextTrafficPermitted=true` app-wide for LAN runtimes like Ollama/vLLM + `http://localhost:4096` OpenCode preset); UI flags non-loopback `http` via `McpRepository.isInsecureEndpoint` (warns, still allows).
-- Key injection: `.env.example:7` (`GEMINI_API_KEY=MY_GEMINI_API_KEY` placeholder, ignored at runtime); secrets plugin `app/build.gradle.kts:88-93`; real keys entered in-app and stored encrypted.
+- Network: `INTERNET` + `ACCESS_NETWORK_STATE` only; Android cleartext remains enabled for arbitrary LAN compatibility, while `EndpointPolicy` rejects public HTTP, allows device-local HTTP, and requires an explicit persisted grant for private-network HTTP. Credential-bearing clients do not follow redirects.
+- Key injection: `.env.example` is a debug-only Gemini seed; release `BuildConfig.GEMINI_API_KEY` is always empty and verified by `verifyReleaseBuildConfig`. Real keys are entered in-app and stored encrypted.
 - Missing: no `PRIVACY.md`, no hosted policy URL, no `LICENSE`, no Data Safety draft, no `fastlane/` metadata.
 
 ## Tasks
@@ -18,7 +18,7 @@ Goal: satisfy Play's mandatory privacy-policy URL + Data Safety form with a defe
   - What is collected: user-provided AI provider keys, MCP server URLs + auth headers, chat history, tool-call audit logs, diagnostic state (latency, connection status).
   - Where it lives: on-device Room DB + `EncryptedSharedPreferences` (AndroidKeyStore); DB + `ai_provider_prefs` excluded from cloud backup/device transfer (cite both XMLs above).
   - Where it goes: only to user-configured AI endpoints (Gemini/Anthropic/OpenAI-compatible) and user-configured MCP servers; no sale, no third-party SDK sharing (SDK-free build).
-  - Network: `https` by default; plain `http` only when the user explicitly configures a LAN/local endpoint (Ollama/vLLM/localhost); non-loopback `http` flagged insecure in-app.
+  - Network: `https` for remote endpoints; device-local HTTP is supported directly; private-network HTTP requires an explicit in-app confirmation persisted with the endpoint; public cleartext HTTP is rejected.
   - User control: delete servers/chats in-app; Clear app data removes everything; backup restore does not resurrect secrets.
   - Contact email for privacy requests + data-deletion procedure.
 
@@ -31,8 +31,8 @@ Goal: satisfy Play's mandatory privacy-policy URL + Data Safety form with a defe
 - [ ] Reconcile with the cleartext justification below before submitting.
 
 ### 16.3 Cleartext justification [S]
-- [ ] Prepare review note: app-wide cleartext exists solely for user-configured LAN/local runtimes; remote use over `http` is flagged in-app (`isInsecureEndpoint`); prefer `https` (already documented in `README.md`).
-- [ ] Do not narrow `network_security_config.xml` now — that would break the LAN use-case; revisit post-launch if Play pushes back (scoped per-domain config).
+- [ ] Prepare review note: Android cleartext remains enabled only because arbitrary private LAN addresses cannot be expressed in `network_security_config.xml`; `EndpointPolicy` rejects public cleartext and requires confirmation for private-network HTTP.
+- [x] Reject public cleartext and disable credential-bearing redirects in the application transport layer.
 
 ### 16.4 License [S]
 - [ ] Add `LICENSE` (choose: MIT / Apache-2.0 for permissive; GPL-3.0 if copyleft intended). Repo currently has none — Play + GitHub both surface this.

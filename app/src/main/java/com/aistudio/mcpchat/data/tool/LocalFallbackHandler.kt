@@ -26,8 +26,8 @@ class LocalFallbackHandler {
                 "I'm your AI Chat assistant with MCP integration. I can help you connect to remote " +
                     "servers and use their tools."
             lowerMessage.length < 5 ->
-                "I see you're trying to reach me. To enable full AI responses, please configure your " +
-                    "Gemini API key in the Secrets panel."
+                "I see you're trying to reach me. To enable full AI responses, configure a provider " +
+                    "in AI Provider settings."
             else -> getGenericResponse(userMessage)
         }
     }
@@ -40,12 +40,12 @@ class LocalFallbackHandler {
             else -> "Good evening"
         }
         return "$timeGreeting! I'm your AI assistant with MCP integration. " +
-            "To unlock my full capabilities, please set up your Gemini API key."
+            "To unlock full AI capabilities, configure a provider in AI Provider settings."
     }
 
     private fun getFarewellResponse(): String {
         return "Goodbye! Feel free to come back anytime. " +
-            "Don't forget to configure your Gemini API key for full AI capabilities."
+            "You can configure an AI provider any time in AI Provider settings."
     }
 
     private fun getTimeResponse(): String {
@@ -79,12 +79,12 @@ class LocalFallbackHandler {
     private val helpResponse =
         """I can help you with:
 
-• **Chat** - Send messages and I'll respond (requires Gemini API key)
-• **MCP Servers** - Connect to remote servers with JSON-RPC or SSE
+• **Chat** - Send messages through your configured AI provider
+• **MCP Servers** - Connect to Streamable HTTP servers with JSON-RPC
 • **Tools** - Discover and invoke capabilities from MCP servers
 • **Memory** - Save and search notes for future reference
 
-**Current Status:** Running in fallback mode. For full AI responses, configure your Gemini API key in the Secrets panel."""
+**Current Status:** Running in fallback mode. For full AI responses, configure a provider in AI Provider settings."""
 
     private fun getHelpResponse(): String = helpResponse
 
@@ -106,7 +106,7 @@ class LocalFallbackHandler {
     private fun getGenericResponse(message: String): String {
         return "I received your message: \"$message\"\n\n" +
             "I'm currently running in fallback mode without AI capabilities. " +
-            "To enable intelligent responses, please configure your Gemini API key in the **Secrets** panel.\n\n" +
+            "To enable intelligent responses, configure a provider in **AI Provider settings**.\n\n" +
             "In the meantime, I can still help you:\n" +
             "• Connect to MCP servers\n" +
             "• Discover and invoke tools\n" +

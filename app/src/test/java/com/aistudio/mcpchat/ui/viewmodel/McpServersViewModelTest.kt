@@ -206,7 +206,7 @@ class McpServersViewModelTest {
             endpointUrl = "http://custom.com/mcp",
             isPreset = false,
         )
-        coEvery { repository.addCustomServer(any(), any(), any(), any()) } returns server
+        coEvery { repository.addCustomServer(any(), any(), any(), any(), any()) } returns server
 
         createViewModel()
         viewModel.addCustomServer("My Server", "Custom", "http://custom.com/mcp", "")
@@ -219,7 +219,7 @@ class McpServersViewModelTest {
 
     @Test
     fun `addCustomServer shows error for invalid input`() = runTest {
-        coEvery { repository.addCustomServer(any(), any(), any(), any()) } throws
+        coEvery { repository.addCustomServer(any(), any(), any(), any(), any()) } throws
             IllegalArgumentException("Server name cannot be empty")
 
         createViewModel()
@@ -233,14 +233,14 @@ class McpServersViewModelTest {
     @Test
     fun `updateServer calls repository with trimmed values`() = runTest {
         val server = McpServer(id = "srv1", name = "Old", description = "", endpointUrl = "https://x.com")
-        coEvery { repository.updateCustomServer(any(), any(), any(), any(), any()) } returns server
+        coEvery { repository.updateCustomServer(any(), any(), any(), any(), any(), any()) } returns server
 
         createViewModel()
         viewModel.updateServer(server, "  New  ", " desc ", " https://x.com ", " Bearer tok ")
         advanceUntilIdle()
 
         coVerify {
-            repository.updateCustomServer("srv1", "New", "desc", "https://x.com", "Bearer tok")
+            repository.updateCustomServer("srv1", "New", "desc", "https://x.com", "Bearer tok", false)
         }
         assertNotNull(viewModel.feedbackMessage.value)
         assertFalse(viewModel.feedbackMessage.value!!.isError)
@@ -249,7 +249,7 @@ class McpServersViewModelTest {
     @Test
     fun `updateServer shows error feedback for invalid input`() = runTest {
         val server = McpServer(id = "srv1", name = "Old", description = "", endpointUrl = "https://x.com")
-        coEvery { repository.updateCustomServer(any(), any(), any(), any(), any()) } throws
+        coEvery { repository.updateCustomServer(any(), any(), any(), any(), any(), any()) } throws
             IllegalArgumentException("URL must use http or https scheme")
 
         createViewModel()

@@ -3,6 +3,7 @@ package com.aistudio.mcpchat.di
 import android.content.Context
 import android.net.Uri
 import android.util.Base64
+import com.aistudio.mcpchat.core.network.CredentialSafeHttpClientFactory
 import com.aistudio.mcpchat.data.local.AppDatabase
 import com.aistudio.mcpchat.data.local.ThemeSettings
 import com.aistudio.mcpchat.data.model.ImageAttachment
@@ -21,7 +22,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
-import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
 
@@ -40,11 +40,11 @@ object AppModule {
     fun provideOkHttpClient(): OkHttpClient {
         // AI providers (Gemini, OpenAI-compatible, Anthropic) — 60s global default.
         // Per-server tuning is deferred (ROADMAP Phase 10.3, WONTFIX); see README.md.
-        return OkHttpClient.Builder()
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
-            .build()
+        return CredentialSafeHttpClientFactory.create(
+            connectTimeoutSeconds = 60,
+            readTimeoutSeconds = 60,
+            writeTimeoutSeconds = 60,
+        )
     }
 
     @Provides
@@ -52,11 +52,11 @@ object AppModule {
     @Named("mcp")
     fun provideMcpOkHttpClient(): OkHttpClient {
         // MCP uses shorter timeouts: fast fail on unreachable dev servers.
-        return OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build()
+        return CredentialSafeHttpClientFactory.create(
+            connectTimeoutSeconds = 15,
+            readTimeoutSeconds = 30,
+            writeTimeoutSeconds = 30,
+        )
     }
 
     @Provides

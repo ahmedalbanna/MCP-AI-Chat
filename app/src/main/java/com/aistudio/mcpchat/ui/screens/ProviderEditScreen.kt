@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,6 +39,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -59,6 +61,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.aistudio.mcpchat.core.endpoint.EndpointDecision
+import com.aistudio.mcpchat.core.endpoint.EndpointPolicy
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.AiProviderType
 import com.aistudio.mcpchat.ui.theme.AmberWarning
@@ -204,9 +208,9 @@ fun ProviderEditScreen(
                 viewModel.dismissDraft()
                 onNavigateBack()
             },
-            onSave = {
+            onSave = { confirmedPrivateHttp ->
                 saveAttempted = true
-                viewModel.saveDraft()
+                viewModel.saveDraft(confirmedPrivateHttp)
             },
             modifier = Modifier.padding(padding),
         )
@@ -220,7 +224,7 @@ private fun ProviderDraftForm(
     isEdit: Boolean,
     onChange: ((com.aistudio.mcpchat.ui.viewmodel.ProviderDraft) -> com.aistudio.mcpchat.ui.viewmodel.ProviderDraft) -> Unit,
     onCancel: () -> Unit,
-    onSave: () -> Unit,
+    onSave: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isGoogle = draft.typeLabel == AiProviderType.GOOGLE.name
@@ -229,9 +233,12 @@ private fun ProviderDraftForm(
     val trimmedUrl = draft.baseUrl.trim()
     val trimmedModel = draft.model.trim()
     val trimmedKey = draft.apiKey.trim()
-    val urlError = trimmedUrl.isNotBlank() && !(trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://"))
+    val endpointDecision = EndpointPolicy.evaluate(trimmedUrl)
+    val endpointError = if (trimmedUrl.isBlank()) null else (endpointDecision as? EndpointDecision.Rejected)?.message
+    val requiresPrivateHttpConfirmation = endpointDecision is EndpointDecision.RequiresConfirmation &&
+        !draft.allowInsecureHttp
+    var showPrivateHttpConfirmation by rememberSaveable { mutableStateOf(false) }
     val googleKeyError = isGoogle && trimmedKey.isBlank()
-    val insecureHttp = trimmedUrl.startsWith("http://")
 
     Column(
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
@@ -305,6 +312,7 @@ private fun ProviderDraftForm(
                                     typeLabel = option,
                                     baseUrl = preset.baseUrl,
                                     model = preset.model,
+                                    allowInsecureHttp = false,
                                 )
                             }
                             typeMenuExpanded = false
@@ -318,14 +326,14 @@ private fun ProviderDraftForm(
         OutlinedTextField(
             value = draft.baseUrl,
             onValueChange = { url: String ->
-                onChange { current -> current.copy(baseUrl = url) }
+                onChange { current -> current.copy(baseUrl = url, allowInsecureHttp = false) }
             },
             label = { Text("Endpoint base URL") },
             placeholder = { Text("https://api.openai.com/v1") },
             singleLine = true,
-            isError = urlError,
-            supportingText = if (urlError) {
-                { Text("Must start with http:// or https://", color = MaterialTheme.colorScheme.error) }
+            isError = endpointError != null,
+            supportingText = if (endpointError != null) {
+                { Text(endpointError, color = MaterialTheme.colorScheme.error) }
             } else if (trimmedUrl.isBlank()) {
                 { Text("Endpoint URL is required") }
             } else {
@@ -341,7 +349,7 @@ private fun ProviderDraftForm(
             modifier = Modifier.fillMaxWidth().testTag("provider_url_field"),
         )
 
-        if (insecureHttp && !urlError) {
+        if (endpointDecision is EndpointDecision.RequiresConfirmation) {
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f),
@@ -361,7 +369,11 @@ private fun ProviderDraftForm(
                     )
                     Spacer(modifier = Modifier.width(Spacing.sm))
                     Text(
-                        text = "Plain HTTP sends API keys without encryption. Prefer HTTPS.",
+                        text = if (draft.allowInsecureHttp) {
+                            "Private-network HTTP is enabled for this provider. Use HTTPS outside a trusted local network."
+                        } else {
+                            "Private-network HTTP sends API keys without encryption. Confirm this endpoint before saving."
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -430,7 +442,7 @@ private fun ProviderDraftForm(
 
         val isDraftValid = trimmedName.isNotBlank() &&
             trimmedUrl.isNotBlank() &&
-            !urlError &&
+            endpointError == null &&
             trimmedModel.isNotBlank() &&
             !googleKeyError
 
@@ -453,12 +465,43 @@ private fun ProviderDraftForm(
                 Text("Cancel")
             }
             Button(
-                onClick = onSave,
+                onClick = {
+                    if (requiresPrivateHttpConfirmation) {
+                        showPrivateHttpConfirmation = true
+                    } else {
+                        onSave(false)
+                    }
+                },
                 enabled = isDraftValid,
                 modifier = Modifier.weight(1f).testTag("save_provider_button"),
             ) {
                 Text(if (isEdit) "Save Changes" else "Save Provider")
             }
+        }
+
+        if (showPrivateHttpConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showPrivateHttpConfirmation = false },
+                icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = AmberWarning) },
+                title = { Text("Enable private-network HTTP?") },
+                text = {
+                    Text(
+                        "The API key and chat content for $trimmedUrl will be sent without transport encryption. " +
+                            "Only continue when you trust this device and local network.",
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showPrivateHttpConfirmation = false
+                            onSave(true)
+                        },
+                    ) { Text("Trust & Save") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPrivateHttpConfirmation = false }) { Text("Cancel") }
+                },
+            )
         }
 
         Spacer(modifier = Modifier.height(Spacing.xl))

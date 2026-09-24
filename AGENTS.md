@@ -22,7 +22,7 @@ Android app (Kotlin + Jetpack Compose + Hilt + Room) with a single `app/` module
 ## Prerequisites
 
 - **JDK 21** (Temurin).
-- **`.env` file**: Copy `.env.example` to `.env` before building (`cp .env.example .env`). Without it the secrets Gradle plugin fails. The key is optional in-app; `GEMINI_API_KEY=MY_GEMINI_API_KEY` placeholder is ignored at runtime.
+- **`.env` file**: Optional for debug builds. Copy `.env.example` to `.env` to seed a local Gemini key; release `BuildConfig.GEMINI_API_KEY` is always empty. `GEMINI_API_KEY=MY_GEMINI_API_KEY` is ignored at runtime.
 - **Keystore** for release: `my-upload-key.jks` (gitignored; generate with `keytool`).
 - **Configuration cache**: Enabled in `gradle.properties`. If disk fills, pass `--no-configuration-cache`.
 - **Disk space**: `app/build` can reach 100+GB after test runs. Run `./gradlew clean` periodically.
@@ -59,7 +59,7 @@ app/src/androidTest/       # Instrumented tests
 - **Coroutines**: `StandardTestDispatcher` + `advanceUntilIdle()` for ViewModels; `runTest` for suspending functions.
 - **MockWebServer**: Use `okhttp3.mockwebserver.MockWebServer` directly (not MockK for the server).
 - **`org.json`** (`json:20240303`) is a test dependency — `JSONObject`/`JSONArray` available in JVM tests.
-- **`isReturnDefaultValues = true`** (`app/build.gradle.kts:72`): android.jar methods like `Log.d` return defaults instead of throwing. Don't mock `Log`.
+- **`isReturnDefaultValues = true`** (`app/build.gradle.kts` test options): android.jar methods like `Log.d` return defaults instead of throwing. Don't mock `Log`.
 - **`@Synchronized`** on `AiProviderSettings` methods — tests can call them directly, no coroutine scope needed.
 - **StateFlow pattern**: All ViewModel StateFlows use `SharingStarted.WhileSubscribed(5000)`.
 - Snapshot tests excluded unless `-PscreenshotTests=true` is passed.

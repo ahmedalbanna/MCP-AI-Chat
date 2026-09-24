@@ -1,5 +1,6 @@
 package com.aistudio.mcpchat.data.network
 
+import com.aistudio.mcpchat.core.endpoint.EndpointPolicy
 import com.aistudio.mcpchat.data.model.AiProviderConfig
 import com.aistudio.mcpchat.data.model.AiProviderType
 import com.aistudio.mcpchat.data.model.GeminiMessage
@@ -29,6 +30,9 @@ class ProviderChatRouter(
         tools: List<McpTool>,
         systemInstruction: String,
     ): GeminiResponse {
+        endpointFailure(config)?.let { failure ->
+            return GeminiResponse(text = null, error = failure)
+        }
         val model = resolveModel(config, modelName)
 
         return when (config.type) {
@@ -48,6 +52,9 @@ class ProviderChatRouter(
         systemInstruction: String,
         onTextDelta: (String) -> Unit,
     ): GeminiResponse {
+        endpointFailure(config)?.let { failure ->
+            return GeminiResponse(text = null, error = failure)
+        }
         val model = resolveModel(config, modelName)
 
         return when (config.type) {
@@ -57,6 +64,13 @@ class ProviderChatRouter(
             AiProviderType.ANTHROPIC ->
                 anthropic.streamContent(config, model, history, tools, systemInstruction, onTextDelta)
         }
+    }
+
+    private fun endpointFailure(config: AiProviderConfig): String? {
+        return EndpointPolicy.authorizationFailure(
+            rawUrl = config.baseUrl,
+            allowPrivateHttp = config.allowInsecureHttp,
+        )
     }
 
     /**

@@ -3,7 +3,6 @@ plugins {
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
-  alias(libs.plugins.secrets)
   alias(libs.plugins.hilt)
   alias(libs.plugins.detekt)
   alias(libs.plugins.spotless)
@@ -16,6 +15,29 @@ plugins {
 val screenshotTestsEnabled =
   providers.gradleProperty("screenshotTests").getOrElse("false").toBoolean()
 
+fun String.asBuildConfigString(): String =
+  "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+fun extractEnvValue(contents: String, name: String): String =
+  contents.lineSequence()
+    .map(String::trim)
+    .firstOrNull { it.startsWith("$name=") }
+    ?.substringAfter('=')
+    ?.trim()
+    ?.trim('\"', '\'')
+    .orEmpty()
+
+val debugGeminiApiKey = providers.environmentVariable("GEMINI_API_KEY")
+  .orElse(providers.gradleProperty("geminiApiKey"))
+  .orElse(
+    providers.provider {
+      val envFile = rootProject.file(".env")
+      if (envFile.isFile) extractEnvValue(envFile.readText(), "GEMINI_API_KEY") else ""
+    },
+  )
+  .map(String::trim)
+  .getOrElse("")
+
 android {
   namespace = "com.aistudio.mcpchat"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -27,6 +49,7 @@ android {
     versionCode = 2
     versionName = "1.1.0"
 
+    buildConfigField("String", "GEMINI_API_KEY", "\"\"")
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
@@ -54,7 +77,10 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    debug {
+      signingConfig = signingConfigs.getByName("debugConfig")
+      buildConfigField("String", "GEMINI_API_KEY", debugGeminiApiKey.asBuildConfigString())
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -85,11 +111,31 @@ android {
   }
 }
 
-// Configure the Secrets Gradle Plugin to use .env and .env.example files
-// to match the convention used in Web projects.
-secrets {
-  propertiesFileName = ".env"
-  defaultPropertiesFileName = ".env.example"
+abstract class VerifyReleaseBuildConfigTask : DefaultTask() {
+    @get:org.gradle.api.tasks.InputFile
+    abstract val buildConfigFile: org.gradle.api.file.RegularFileProperty
+
+    @org.gradle.api.tasks.TaskAction
+    fun verify() {
+        val source = buildConfigFile.get().asFile
+        check(source.isFile) { "Release BuildConfig was not generated" }
+        check(Regex("GEMINI_API_KEY = \"\";").containsMatchIn(source.readText())) {
+            "Release BuildConfig must contain an empty GEMINI_API_KEY"
+        }
+    }
+}
+
+val verifyReleaseBuildConfig = tasks.register<VerifyReleaseBuildConfigTask>("verifyReleaseBuildConfig") {
+    group = "verification"
+    description = "Fails if a Gemini API key is embedded in release BuildConfig."
+    dependsOn("generateReleaseBuildConfig")
+    buildConfigFile.set(
+        layout.buildDirectory.file("generated/source/buildConfig/release/com/aistudio/mcpchat/BuildConfig.java"),
+    )
+}
+
+tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
+  dependsOn(verifyReleaseBuildConfig)
 }
 
 // Export Room schemas into the unit-test assets so MigrationTestHelper can

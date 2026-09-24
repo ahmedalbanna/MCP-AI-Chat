@@ -5,7 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -77,6 +77,15 @@ class DatabaseMigrationTest {
                 VALUES ('m1', 's1', 'user', 'hello from v1', NULL, 0, 1000, 0)
                 """.trimIndent(),
             )
+            db.execSQL(
+                """
+                INSERT INTO mcp_servers
+                    (id, name, description, endpointUrl, authHeader, isEnabled, isPreset, status,
+                     latencyMs, protocolVersion, toolsCount, lastSyncTime)
+                VALUES ('legacy_server', 'Legacy', '', 'http://192.168.1.20/mcp', '', 1, 0,
+                        'DISCONNECTED', 0, '2024-11-05', 0, 0)
+                """.trimIndent(),
+            )
         }
     }
 
@@ -86,13 +95,14 @@ class DatabaseMigrationTest {
     }
 
     @Test
-    fun migrate1To2_addsIsPinnedAndMemoryNotes_preservingData() = runBlocking {
+    fun migrate1To2_addsIsPinnedAndMemoryNotes_preservingData() = runTest {
         val db = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
             .addMigrations(
                 AppDatabase.migration1To2,
                 AppDatabase.migration2To3,
                 AppDatabase.migration3To4,
                 AppDatabase.migration4To5,
+                AppDatabase.migration5To6,
             )
             .allowMainThreadQueries()
             .build()
@@ -121,7 +131,11 @@ class DatabaseMigrationTest {
             val hits = dao.searchMessages("hello*").first()
             assertEquals(listOf("hello from v1"), hits.map { it.content })
 
-            assertEquals(5, db.openHelper.writableDatabase.version)
+            val migratedServer = db.mcpServerDao().getServerById("legacy_server")
+            assertNotNull(migratedServer)
+            assertFalse(migratedServer!!.allowInsecureHttp)
+
+            assertEquals(6, db.openHelper.writableDatabase.version)
         } finally {
             db.close()
         }

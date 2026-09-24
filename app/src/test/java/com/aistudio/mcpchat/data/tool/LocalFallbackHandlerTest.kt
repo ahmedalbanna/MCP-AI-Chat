@@ -1,5 +1,6 @@
 package com.aistudio.mcpchat.data.tool
 
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -125,5 +126,13 @@ class LocalFallbackHandlerTest {
     fun `getResponse handles leading and trailing whitespace`() {
         val response = handler.getResponse("  help  ")
         assertTrue(response.contains("Chat") || response.contains("MCP") || response.contains("help"))
+    }
+
+    @Test
+    fun `fallback key setup points to in-app provider settings`() {
+        val response = handler.getResponse("tell me a joke about programming")
+
+        assertTrue(response.contains("AI Provider settings"))
+        assertFalse(response.contains("Secrets"))
     }
 }

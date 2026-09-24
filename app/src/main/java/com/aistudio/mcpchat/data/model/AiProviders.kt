@@ -23,6 +23,7 @@ data class AiProviderConfig(
     val baseUrl: String,
     val apiKey: String = "",
     val model: String = "",
+    val allowInsecureHttp: Boolean = false,
 ) {
     companion object {
         fun google(apiKey: String = "", model: String = "gemini-3.6-flash") = AiProviderConfig(

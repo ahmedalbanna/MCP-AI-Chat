@@ -39,12 +39,12 @@ UI Layer (Compose)                  ViewModel Layer                      Data La
    cd MCP-AI-Chat
    ```
 
-2. **Configure API key (optional):**
-   Copy `.env.example` to `.env` to set a default Gemini key. It is baked into
-   the build and seeds the Google preset in the **AI Provider settings sheet**
-   on first run (placeholder values like `MY_GEMINI_API_KEY` are ignored).
-   The key is then stored encrypted on-device, and API keys for any provider
-   can be added or changed in-app at any time:
+2. **Configure API key (optional for debug builds):**
+   Copy `.env.example` to `.env` to set a default Gemini key for local debug
+   builds. Release builds always embed an empty value; configure provider keys
+   in-app instead. Placeholder values like `MY_GEMINI_API_KEY` are ignored.
+   On first debug run the key seeds the Google preset and is then stored in
+   encrypted preferences:
    ```
    GEMINI_API_KEY=your_key_here
    ```
@@ -79,12 +79,11 @@ STORE_PASSWORD=... KEY_PASSWORD=... \
 > `KEYSTORE_PATH` defaults to `my-upload-key.jks` in the repo root. Never commit
 > keystores or passwords (`my-upload-key.jks` is already in `.gitignore`).
 
-> **Note:** MCP server endpoints work with both `https://` and plain `http://`
-> (the app permits cleartext so LAN/local runtimes like Ollama or vLLM are
-> reachable). Non-loopback `http` endpoints are flagged as insecure in the UI
-> because auth headers travel unencrypted — prefer `https` for remote servers.
-> The local Room database is excluded from Android cloud
-> backups because it stores server credentials and audit logs.
+> **Note:** Remote endpoints must use `https://`. Device-local HTTP
+> (`localhost`, loopback, and the Android emulator host) is allowed directly;
+> private-network HTTP requires explicit confirmation persisted with the endpoint.
+> Credential-bearing HTTP clients do not follow redirects. The local Room database
+> is excluded from Android cloud backups because it stores server credentials and audit logs.
 
 > **Note:** Network timeouts are global defaults (MCP: 15s connect / 30s read/write via `AppModule.provideMcpOkHttpClient`; AI providers: 60s via `AppModule.provideOkHttpClient`). Per-server timeout tuning is intentionally deferred — all servers share the same timeouts (see `ROADMAP.md` Phase 10.3, WONTFIX).
 
@@ -92,7 +91,7 @@ STORE_PASSWORD=... KEY_PASSWORD=... \
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GEMINI_API_KEY` | Yes* | Default Google Gemini API key (*or configure providers in-app) |
+| `GEMINI_API_KEY` | Debug only | Optional local debug seed; never embedded in release builds |
 | `KEYSTORE_PATH` | Release | Path to upload keystore (default: `my-upload-key.jks`) |
 | `STORE_PASSWORD` | Release | Keystore password |
 | `KEY_PASSWORD` | Release | Key alias password |

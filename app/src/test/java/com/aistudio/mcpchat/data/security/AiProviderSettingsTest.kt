@@ -88,6 +88,7 @@ class AiProviderSettingsTest {
             baseUrl = "https://api.groq.com/openai/v1",
             apiKey = "gsk_secret",
             model = "llama-3.3-70b",
+            allowInsecureHttp = true,
         )
         settings.upsert(config)
         val loaded = settings.getAll().first { it.id == config.id }

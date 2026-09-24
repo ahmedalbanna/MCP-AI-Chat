@@ -12,6 +12,7 @@ data class McpServerEntity(
     val description: String,
     val endpointUrl: String,
     val authHeader: String = "",
+    val allowInsecureHttp: Boolean = false,
     val isEnabled: Boolean = true,
     val isPreset: Boolean = false,
     val status: String = "DISCONNECTED",

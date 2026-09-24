@@ -1,5 +1,6 @@
 package com.aistudio.mcpchat.data.repository
 
+import com.aistudio.mcpchat.core.endpoint.EndpointPolicy
 import com.aistudio.mcpchat.data.local.AppDatabase
 import com.aistudio.mcpchat.data.local.McpLogEntity
 import com.aistudio.mcpchat.data.local.McpServerEntity
@@ -28,8 +29,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.net.MalformedURLException
-import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 
 /** One resource together with the server that exposes it. */
@@ -68,20 +67,6 @@ class McpRepository(
     private val toolDao = database.mcpToolDao()
     private val logDao = database.mcpLogDao()
 
-    companion object {
-        private val loopbackHosts = setOf("localhost", "127.0.0.1", "[::1]", "::1", "10.0.2.2")
-
-        fun isInsecureEndpoint(endpointUrl: String): Boolean {
-            return try {
-                val url = URL(endpointUrl)
-                url.protocol.equals("http", ignoreCase = true) &&
-                    url.host.lowercase() !in loopbackHosts
-            } catch (_: Exception) {
-                false
-            }
-        }
-    }
-
     val serversFlow: Flow<List<McpServer>> = serverDao.getAllServers().map { entities ->
         entities.map { it.toModel() }
     }
@@ -102,65 +87,76 @@ class McpRepository(
         toolDao.getAllEnabledTools().map { it.toModel() }
     }
 
-    suspend fun addCustomServer(name: String, description: String, endpointUrl: String, authHeader: String = ""): McpServer =
-        withContext(Dispatchers.IO) {
-            validateEndpointUrl(endpointUrl)
+    suspend fun addCustomServer(
+        name: String,
+        description: String,
+        endpointUrl: String,
+        authHeader: String = "",
+        allowInsecureHttp: Boolean = false,
+    ): McpServer = withContext(Dispatchers.IO) {
+        val validatedEndpoint = EndpointPolicy.requireAuthorizedUrl(endpointUrl, allowInsecureHttp)
 
-            require(name.isNotBlank()) { "Server name cannot be empty" }
+        require(name.isNotBlank()) { "Server name cannot be empty" }
 
-            val id = "custom_${System.currentTimeMillis()}"
-            val server = McpServer(
-                id = id,
-                name = name,
-                description = description,
-                endpointUrl = endpointUrl,
-                authHeader = authHeader,
-                isEnabled = true,
-                isPreset = false,
-                status = ServerStatus.CONNECTING,
-            )
-            serverDao.insertServer(server.toEntity())
-            syncServerTools(server)
-            server
+        val id = "custom_${System.currentTimeMillis()}"
+        val server = McpServer(
+            id = id,
+            name = name,
+            description = description,
+            endpointUrl = validatedEndpoint,
+            authHeader = authHeader,
+            allowInsecureHttp = allowInsecureHttp,
+            isEnabled = true,
+            isPreset = false,
+            status = ServerStatus.CONNECTING,
+        )
+        serverDao.insertServer(server.toEntity())
+        syncServerTools(server)
+        server
+    }
+
+    suspend fun updateCustomServer(
+        serverId: String,
+        name: String,
+        description: String,
+        endpointUrl: String,
+        authHeader: String = "",
+        allowInsecureHttp: Boolean = false,
+    ): McpServer = withContext(Dispatchers.IO) {
+        val validatedEndpoint = EndpointPolicy.requireAuthorizedUrl(endpointUrl, allowInsecureHttp)
+        require(name.isNotBlank()) { "Server name cannot be empty" }
+
+        val existing = serverDao.getServerById(serverId)
+            ?: throw IllegalArgumentException("Server not found: $serverId")
+
+        val connectionChanged = existing.endpointUrl != validatedEndpoint ||
+            crypto.decrypt(existing.authHeader) != authHeader ||
+            existing.allowInsecureHttp != allowInsecureHttp
+
+        val updatedEntity = existing.copy(
+            name = name,
+            description = description,
+            endpointUrl = validatedEndpoint,
+            // Entities store the encrypted secret; the model below decrypts it.
+            authHeader = crypto.encrypt(authHeader),
+            allowInsecureHttp = allowInsecureHttp,
+        )
+        serverDao.updateServer(updatedEntity)
+
+        val model = updatedEntity.toModel()
+        if (connectionChanged) {
+            // Cached tools and listeners belong to the old endpoint, credentials, or consent.
+            stopResourceListener(serverId)
+            toolDao.deleteToolsForServer(serverId)
+            syncServerTools(model)
         }
-
-    suspend fun updateCustomServer(serverId: String, name: String, description: String, endpointUrl: String, authHeader: String = ""): McpServer =
-        withContext(Dispatchers.IO) {
-            validateEndpointUrl(endpointUrl)
-            require(name.isNotBlank()) { "Server name cannot be empty" }
-
-            val existing = serverDao.getServerById(serverId)
-                ?: throw IllegalArgumentException("Server not found: $serverId")
-
-            val endpointChanged = existing.endpointUrl != endpointUrl ||
-                crypto.decrypt(existing.authHeader) != authHeader
-
-            val updatedEntity = existing.copy(
-                name = name,
-                description = description,
-                endpointUrl = endpointUrl,
-                // Entities store the encrypted secret; the model below decrypts it.
-                authHeader = crypto.encrypt(authHeader),
-            )
-            serverDao.updateServer(updatedEntity)
-
-            val model = updatedEntity.toModel()
-            if (endpointChanged) {
-                // Cached tools belong to the old endpoint/credentials — drop them
-                // and re-handshake so the tool list matches the new configuration.
-                toolDao.deleteToolsForServer(serverId)
-                syncServerTools(model)
-            }
-            model
-        }
-
-    suspend fun updateServer(server: McpServer) = withContext(Dispatchers.IO) {
-        serverDao.updateServer(server.toEntity())
+        model
     }
 
     suspend fun toggleServer(serverId: String, isEnabled: Boolean) = withContext(Dispatchers.IO) {
         val server = serverDao.getServerById(serverId)
         if (server != null) {
+            if (!isEnabled) stopResourceListener(serverId)
             serverDao.updateServer(server.copy(isEnabled = isEnabled))
         }
     }
@@ -297,6 +293,7 @@ class McpRepository(
         listenerJobs.remove(serverId)?.cancel()
         resourceListCache.remove(serverId)
         resourceContentCache.keys.removeIf { it.startsWith("$serverId|") }
+        _subscribedResources.value = _subscribedResources.value - serverId
     }
 
     fun clearResourceListeners() {
@@ -362,21 +359,6 @@ class McpRepository(
         null
     }
 
-    private fun validateEndpointUrl(endpointUrl: String) {
-        val url = try {
-            URL(endpointUrl)
-        } catch (e: MalformedURLException) {
-            throw IllegalArgumentException("Invalid URL format: ${e.message}")
-        }
-        require(url.protocol == "http" || url.protocol == "https") {
-            "URL must use http or https scheme"
-        }
-        require(!url.host.isNullOrBlank()) { "URL must have a valid host" }
-        // Plain HTTP is allowed but flagged as insecure — callers must confirm
-        // via isInsecureEndpoint() before persisting. Loopback / emulator hosts
-        // (localhost, 127.0.0.1, ::1, 10.0.2.2) are exempt from the warning.
-    }
-
     private fun McpServerEntity.toModel(): McpServer {
         return McpServer(
             id = id,
@@ -385,6 +367,7 @@ class McpRepository(
             endpointUrl = endpointUrl,
             // Decrypt at read; legacy plaintext values pass through untouched.
             authHeader = crypto.decrypt(authHeader),
+            allowInsecureHttp = allowInsecureHttp,
             isEnabled = isEnabled,
             isPreset = isPreset,
             status = try {
@@ -408,6 +391,7 @@ class McpRepository(
             endpointUrl = endpointUrl,
             // Encrypt at rest; already-encrypted values are left as-is.
             authHeader = crypto.encrypt(authHeader),
+            allowInsecureHttp = allowInsecureHttp,
             isEnabled = isEnabled,
             isPreset = isPreset,
             status = status.name,

@@ -7,7 +7,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -17,6 +21,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 @Suppress("LargeClass")
 class McpHttpClientTest {
@@ -58,6 +63,83 @@ class McpHttpClientTest {
         val (status, latency) = client.testConnection(server)
         assertEquals(ServerStatus.ERROR, status)
         assertTrue(latency >= 0)
+    }
+
+    @Test
+    fun `all MCP operations reject public cleartext before network access`() = runTest {
+        val networkCalled = AtomicBoolean(false)
+        val guardedClient = McpHttpClient(
+            client = OkHttpClient.Builder()
+                .addInterceptor {
+                    networkCalled.set(true)
+                    error("network must not be called")
+                }
+                .build(),
+        )
+        val server = createServer(endpointUrl = "http://mcp.example.com/mcp")
+
+        val (status, _) = guardedClient.testConnection(server)
+        val tools = guardedClient.discoverTools(server)
+        val (result, log) = guardedClient.executeToolCall(server, "tool", emptyMap())
+        val notifications = guardedClient.resourceChannelFlow(server).toList()
+
+        assertEquals(ServerStatus.ERROR, status)
+        assertTrue(tools.isEmpty())
+        assertTrue(result.contains("error"))
+        assertFalse(log.isSuccess)
+        assertTrue(notifications.isEmpty())
+        assertFalse(networkCalled.get())
+        assertTrue(guardedClient.lastHandshakeError(server.id)!!.contains("use HTTPS"))
+    }
+
+    @Test
+    fun `private cleartext MCP requires persisted confirmation before network access`() = runTest {
+        val networkCalled = AtomicBoolean(false)
+        val guardedClient = McpHttpClient(
+            client = OkHttpClient.Builder()
+                .addInterceptor {
+                    networkCalled.set(true)
+                    error("network must not be called")
+                }
+                .build(),
+        )
+        val server = createServer(endpointUrl = "http://192.168.1.20/mcp")
+
+        val (status, _) = guardedClient.testConnection(server)
+
+        assertEquals(ServerStatus.ERROR, status)
+        assertFalse(networkCalled.get())
+        assertTrue(guardedClient.lastHandshakeError(server.id)!!.contains("confirmation"))
+    }
+
+    @Test
+    fun `private cleartext MCP is allowed after persisted confirmation`() = runTest {
+        var networkCalls = 0
+        val confirmedClient = McpHttpClient(
+            client = OkHttpClient.Builder()
+                .addInterceptor { chain ->
+                    networkCalls++
+                    Response.Builder()
+                        .request(chain.request())
+                        .protocol(Protocol.HTTP_1_1)
+                        .code(200)
+                        .message("OK")
+                        .body(
+                            """{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05",
+                               "capabilities":{},"serverInfo":{"name":"t","version":"1"}}}""".toResponseBody(
+                                "application/json".toMediaType(),
+                            ),
+                        )
+                        .build()
+                }
+                .build(),
+        )
+        val server = createServer(endpointUrl = "http://192.168.1.20/mcp").copy(allowInsecureHttp = true)
+
+        val (status, _) = confirmedClient.testConnection(server)
+
+        assertEquals(ServerStatus.CONNECTED, status)
+        assertEquals(2, networkCalls)
     }
 
     @Test

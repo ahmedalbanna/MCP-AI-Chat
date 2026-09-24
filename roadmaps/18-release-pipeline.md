@@ -7,13 +7,13 @@ Goal: make signed releases repeatable — tag in, AAB + mapping out — without 
 - Existing workflows (`.github/workflows/`): `ci.yml` (detekt, spotless, `testDebugUnitTest -PscreenshotTests=true`, `DatabaseMigrationTest`, `lintDebug`, gitleaks), `pr-checks.yml` (+ `assembleDebug`), `nightly.yml` (+ `koverVerify`, artifact retention 14d). None builds `assembleRelease`/`bundleRelease` or touches signing.
 - Signing inputs: `app/build.gradle.kts:33-57` (`KEYSTORE_PATH`, `STORE_PASSWORD`, `KEY_PASSWORD`, alias `upload`). `my-upload-key.jks` gitignored — correct, must stay that way.
 - Versioning: hardcoded `versionCode 2` / `versionName 1.1.0` (`app/build.gradle.kts:27-28`); `CHANGELOG.md:1-13` hand-edited (1.1.0 + 1.0 only); no `release.yml`, no tag automation.
-- Env: CI copies `.env.example → .env` (`ci.yml:30-31`); placeholder `MY_GEMINI_API_KEY` ignored at runtime — safe for release builds.
+- Env: `.env` is optional and debug-only; release `BuildConfig.GEMINI_API_KEY` is always empty and checked by `verifyReleaseBuildConfig`.
 
 ## Tasks
 
 ### 18.1 Release workflow [S]
 - [ ] Add `.github/workflows/release.yml`: trigger on tag `v*` + manual `workflow_dispatch`.
-- [ ] Steps: checkout (`fetch-depth: 0`) → JDK 21 (Temurin) → Gradle setup → `cp .env.example .env` → `detekt` → `spotlessCheck` → `testDebugUnitTest -PscreenshotTests=true` → `DatabaseMigrationTest` → `lintDebug` → `koverVerify` → decode keystore from `PLAY_UPLOAD_KEYSTORE_B64` secret to file → `bundleRelease` (+ `assembleRelease` smoke) with `KEYSTORE_PATH`/`STORE_PASSWORD`/`KEY_PASSWORD` from secrets.
+- [ ] Steps: checkout (`fetch-depth: 0`) → JDK 21 (Temurin) → Gradle setup → `detekt` → `spotlessCheck` → `testDebugUnitTest -PscreenshotTests=true` → `DatabaseMigrationTest` → `lintDebug` → `koverVerify` → decode keystore from `PLAY_UPLOAD_KEYSTORE_B64` secret to file → `verifyReleaseBuildConfig` → `bundleRelease` (+ `assembleRelease` smoke) with `KEYSTORE_PATH`/`STORE_PASSWORD`/`KEY_PASSWORD` from secrets.
 - [ ] Upload artifacts: `app/build/outputs/bundle/release/app-release.aab` + `app/build/outputs/mapping/release/mapping.txt` (+ `app-release.apk` for sideload testing), retention ≥ 90d.
 - [ ] Optional (only after service-account key exists): Play Internal upload step (e.g. `r0adkll/upload-google-play`) gated to tags; keep manual-promote-to-production.
 

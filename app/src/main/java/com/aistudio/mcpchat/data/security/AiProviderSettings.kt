@@ -14,8 +14,8 @@ import org.json.JSONObject
 
 /**
  * Stores the user-configured AI provider endpoints (including API keys) in
- * hardware-backed encrypted preferences. A build-time key from `.env`
- * (`BuildConfig.GEMINI_API_KEY`) only seeds the Google preset on first run;
+ * hardware-backed encrypted preferences. A debug-only build-time key from
+ * `.env` (`BuildConfig.GEMINI_API_KEY`) only seeds the Google preset on first run;
  * it is written straight into the encrypted store and everything the user
  * edits afterwards lives in encrypted prefs only.
  *
@@ -89,6 +89,7 @@ class AiProviderSettings(
                     put("baseUrl", config.baseUrl)
                     put("apiKey", config.apiKey)
                     put("model", config.model)
+                    put("allowInsecureHttp", config.allowInsecureHttp)
                 },
             )
         }
@@ -110,6 +111,7 @@ class AiProviderSettings(
                     baseUrl = obj.optString("baseUrl"),
                     apiKey = obj.optString("apiKey"),
                     model = obj.optString("model"),
+                    allowInsecureHttp = obj.optBoolean("allowInsecureHttp", false),
                 )
             }
         } catch (_: Exception) {
@@ -138,8 +140,8 @@ class AiProviderSettings(
     }
 
     /**
-     * The `.env` `GEMINI_API_KEY` (injected via the secrets Gradle plugin)
-     * seeds the Google preset on first run so a development build works
+     * The debug-only `.env` `GEMINI_API_KEY` seeds the Google preset on first run
+     * so a development build works
      * without manual key entry. The key is immediately persisted into the
      * encrypted prefs; later runtime edits happen in-app only. The
      * placeholder template value is treated as "not configured".

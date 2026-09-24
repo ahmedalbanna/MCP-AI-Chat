@@ -1,6 +1,8 @@
 package com.aistudio.mcpchat.data.network
 
 import android.util.Log
+import com.aistudio.mcpchat.core.endpoint.EndpointPolicy
+import com.aistudio.mcpchat.core.network.CredentialSafeHttpClientFactory
 import com.aistudio.mcpchat.data.model.McpHeaderCodec
 import com.aistudio.mcpchat.data.model.McpLogItem
 import com.aistudio.mcpchat.data.model.McpResource
@@ -24,7 +26,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 // One class per MCP server connection: session lifecycle, tool RPCs and
@@ -34,18 +35,19 @@ import java.util.concurrent.atomic.AtomicLong
 class McpHttpClient(
     private val retryManager: RetryManager = RetryManager(),
     private val circuitBreaker: CircuitBreaker = CircuitBreaker(),
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build(),
+    private val client: OkHttpClient = CredentialSafeHttpClientFactory.create(
+        connectTimeoutSeconds = 15,
+        readTimeoutSeconds = 30,
+        writeTimeoutSeconds = 30,
+    ),
     // Long-lived SSE listening channel: read timeout is deliberately much
     // laxer than the RPC client so a quiet (but healthy) connection isn't
     // torn down between server keep-alives.
-    private val streamingClient: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.MINUTES)
-        .build(),
+    private val streamingClient: OkHttpClient = CredentialSafeHttpClientFactory.create(
+        connectTimeoutSeconds = 15,
+        readTimeoutSeconds = 300,
+        writeTimeoutSeconds = 30,
+    ),
     // Exponential reconnect base for the SSE channel; injectable to keep
     // reconnect tests fast.
     private val reconnectBaseDelayMs: Long = 5_000,
@@ -105,7 +107,19 @@ class McpHttpClient(
         }
     }
 
+    private fun endpointFailure(server: McpServer): String? {
+        return EndpointPolicy.authorizationFailure(
+            rawUrl = server.endpointUrl,
+            allowPrivateHttp = server.allowInsecureHttp,
+        )
+    }
+
+    private fun requireEndpointAllowed(server: McpServer) {
+        endpointFailure(server)?.let { throw IllegalArgumentException(it) }
+    }
+
     private fun buildPostRequest(server: McpServer, payload: JSONObject): Request {
+        requireEndpointAllowed(server)
         return Request.Builder()
             .url(server.endpointUrl)
             .post(payload.toString().toRequestBody(jsonMediaType))
@@ -117,6 +131,7 @@ class McpHttpClient(
 
     /** POST carrying the MCP session id for an already-initialized server. */
     private fun buildSessionPostRequest(server: McpServer, payload: JSONObject): Request {
+        requireEndpointAllowed(server)
         val key = sessionKey(server)
         return Request.Builder()
             .url(server.endpointUrl)
@@ -138,6 +153,10 @@ class McpHttpClient(
     private suspend fun performHandshake(server: McpServer): Boolean = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         try {
+            endpointFailure(server)?.let { failure ->
+                lastHandshakeErrors[server.id] = failure
+                return@withContext false
+            }
             val initPayload = buildJsonRpcRequest(
                 "initialize",
                 JSONObject().apply {
@@ -224,7 +243,7 @@ class McpHttpClient(
 
     private suspend fun callWithSessionRetry(server: McpServer, requestJson: JSONObject, retriable: Boolean): JSONObject? =
         withContext(Dispatchers.IO) {
-            ensureSession(server)
+            if (!ensureSession(server)) return@withContext null
 
             val send: suspend () -> Pair<Int, String> = {
                 try {
@@ -270,6 +289,7 @@ class McpHttpClient(
 
     /** GET carrying the MCP session id — the Streamable HTTP listening channel. */
     private fun buildSessionGetRequest(server: McpServer): Request {
+        requireEndpointAllowed(server)
         val key = sessionKey(server)
         return Request.Builder()
             .url(server.endpointUrl)
@@ -536,6 +556,7 @@ class McpHttpClient(
      * - Collecting-scope cancellation tears the connection down immediately.
      */
     fun resourceChannelFlow(server: McpServer): Flow<McpResourceNotification> = flow {
+        if (endpointFailure(server) != null) return@flow
         var delayMs = reconnectBaseDelayMs.coerceAtLeast(1)
         while (currentCoroutineContext().isActive) {
             val call = streamingClient.newCall(buildSessionGetRequest(server))

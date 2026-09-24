@@ -2,7 +2,7 @@ package com.aistudio.mcpchat.data.model
 
 sealed class ChatException(message: String) : Exception(message) {
     class ApiKeyMissing :
-        ChatException("Gemini API key is missing. Configure it in the Secrets panel.")
+        ChatException("Provider API key is missing. Configure it in AI Provider settings.")
 
     class RateLimit(detail: String) :
         ChatException("Rate limit exceeded: $detail")

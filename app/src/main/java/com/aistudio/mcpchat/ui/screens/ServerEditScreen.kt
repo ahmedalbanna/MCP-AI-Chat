@@ -56,8 +56,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.aistudio.mcpchat.core.endpoint.EndpointDecision
+import com.aistudio.mcpchat.core.endpoint.EndpointPolicy
 import com.aistudio.mcpchat.data.model.McpHeaderCodec
-import com.aistudio.mcpchat.data.repository.McpRepository
 import com.aistudio.mcpchat.ui.theme.AmberWarning
 import com.aistudio.mcpchat.ui.theme.Dimens
 import com.aistudio.mcpchat.ui.theme.Spacing
@@ -93,9 +94,9 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
     var showDiscardConfirm by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val trimmedUrl = endpointUrl.trim()
-    val isInsecureInput = McpRepository.isInsecureEndpoint(trimmedUrl)
-    val urlError = trimmedUrl.isNotBlank() &&
-        !(trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://"))
+    val endpointDecision = EndpointPolicy.evaluate(trimmedUrl)
+    val endpointError = if (trimmedUrl.isBlank()) null else (endpointDecision as? EndpointDecision.Rejected)?.message
+    val requiresPrivateHttpConfirmation = endpointDecision is EndpointDecision.RequiresConfirmation
     val nameError = name.isBlank()
     val duplicateHeader = headerEntries
         .map { it.key.trim() }
@@ -123,7 +124,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
         }
     }
 
-    fun submit() {
+    fun submit(allowInsecureHttp: Boolean = false) {
         // Key/value rows → the JSON multi-header form stored in authHeader.
         val authHeader = McpHeaderCodec.encode(
             headerEntries
@@ -133,9 +134,22 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
         val cleanName = name.trim()
         val cleanDescription = description.trim()
         if (isEdit && initial != null) {
-            viewModel.updateServer(initial, cleanName, cleanDescription, trimmedUrl, authHeader)
+            viewModel.updateServer(
+                server = initial,
+                name = cleanName,
+                description = cleanDescription,
+                endpointUrl = trimmedUrl,
+                authHeader = authHeader,
+                allowInsecureHttp = allowInsecureHttp,
+            )
         } else if (!isEdit) {
-            viewModel.addCustomServer(cleanName, cleanDescription, trimmedUrl, authHeader)
+            viewModel.addCustomServer(
+                name = cleanName,
+                description = cleanDescription,
+                endpointUrl = trimmedUrl,
+                authHeader = authHeader,
+                allowInsecureHttp = allowInsecureHttp,
+            )
         }
     }
 
@@ -287,9 +301,9 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                     label = { Text("Endpoint URL") },
                     placeholder = { Text("https://mcp.my-domain.com/v1") },
                     singleLine = true,
-                    isError = urlError,
-                    supportingText = if (urlError) {
-                        { Text("Must start with http:// or https://", color = MaterialTheme.colorScheme.error) }
+                    isError = endpointError != null,
+                    supportingText = if (endpointError != null) {
+                        { Text(endpointError, color = MaterialTheme.colorScheme.error) }
                     } else if (trimmedUrl.isBlank()) {
                         { Text("Endpoint URL is required") }
                     } else {
@@ -401,7 +415,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                     Text("Add Header", style = MaterialTheme.typography.bodyMedium)
                 }
 
-                if (isInsecureInput) {
+                if (requiresPrivateHttpConfirmation) {
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f),
                         shape = RoundedCornerShape(Dimens.cornerRadiusMd),
@@ -439,11 +453,15 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
 
             Spacer(modifier = Modifier.height(Spacing.xl))
 
-            val canSubmit = name.trim().isNotBlank() && trimmedUrl.isNotBlank() && !urlError && !duplicateHeader && !emptyHeaderKey
+            val canSubmit = name.trim().isNotBlank() &&
+                trimmedUrl.isNotBlank() &&
+                endpointError == null &&
+                !duplicateHeader &&
+                !emptyHeaderKey
             Button(
                 onClick = {
                     if (canSubmit) {
-                        if (isInsecureInput) {
+                        if (requiresPrivateHttpConfirmation) {
                             showInsecureConfirm = true
                         } else {
                             submit()
@@ -504,7 +522,7 @@ fun ServerEditScreen(viewModel: McpServersViewModel, serverId: String?, onNaviga
                         Button(
                             onClick = {
                                 showInsecureConfirm = false
-                                submit()
+                                submit(allowInsecureHttp = true)
                             },
                         ) { Text("Accept & Connect") }
                     },

@@ -10,7 +10,7 @@ Run gates in this order. Stop at the first failure.
 ## Prerequisites
 
 - JDK 21 (Temurin).
-- `.env` must exist: `cp .env.example .env` (secrets plugin fails without it).
+- `.env` is optional and only seeds debug builds; release builds keep `BuildConfig.GEMINI_API_KEY` empty.
 - Configuration cache is on; if disk fills, add `--no-configuration-cache`.
 - `app/build` can exceed 100GB after test runs; `./gradlew clean` periodically.
 

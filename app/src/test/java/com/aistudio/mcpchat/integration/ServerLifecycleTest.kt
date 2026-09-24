@@ -84,7 +84,7 @@ class ServerLifecycleTest {
 
         val dbServer = database.mcpServerDao().getServerById(server.id)
         assertNotNull(dbServer)
-        assertEquals("http://localhost:3000", dbServer?.endpointUrl)
+        assertEquals("http://localhost:3000/", dbServer?.endpointUrl)
     }
 
     @Test
@@ -515,18 +515,19 @@ class ServerLifecycleTest {
     }
 
     @Test
-    fun `add custom server allows plain http for non-loopback host but flags insecure`() = runTest {
-        coEvery { httpClient.testConnection(any()) } returns Pair(ServerStatus.CONNECTED, 42L)
-        coEvery { httpClient.discoverTools(any()) } returns listOf()
+    fun `add custom server rejects public cleartext endpoint`() = runTest {
+        val result = runCatching {
+            repository.addCustomServer(
+                name = "Insecure",
+                description = "desc",
+                endpointUrl = "http://insecure.example.com",
+                authHeader = "",
+            )
+        }
 
-        val server = repository.addCustomServer(
-            name = "Insecure",
-            description = "desc",
-            endpointUrl = "http://insecure.example.com",
-            authHeader = "",
-        )
-        assertNotNull(server)
-        assertTrue(com.aistudio.mcpchat.data.repository.McpRepository.isInsecureEndpoint(server.endpointUrl))
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertTrue(result.exceptionOrNull()!!.message!!.contains("use HTTPS"))
+        coVerify(exactly = 0) { httpClient.testConnection(any()) }
     }
 
     @Test
